@@ -1,0 +1,1 @@
+# Módulo de API para consumo externo

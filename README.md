@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo Mistral a través de Ollama para interpretar comandos en lenguaje natural.
+Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama para interpretar comandos en lenguaje natural.
 
 ## Requisitos
 
@@ -81,13 +81,33 @@ Respuesta:
 
 ```json
 {
-  "response": "[Respuesta del modelo"
+  "response": "[Respuesta del modelo]"
+}
+```
+
+### PUT /config/assistant-name
+
+Actualiza el nombre del asistente en la configuración.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "name": "Nuevo Nombre"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "nlp": "ONLINE"
 }
 ```
 
 ## Configuración del Asistente
 
-El asistente utiliza un archivo de configuración ubicado en `src/ai/nlp/config.json` que permite personalizar su comportamiento:
+El asistente utiliza un archivo de configuración ubicado en `src/ai/config/config.json` que permite personalizar su comportamiento:
 
 ```json
 {
@@ -114,7 +134,6 @@ El asistente utiliza un archivo de configuración ubicado en `src/ai/nlp/config.
 
 El asistente mantiene un sistema de memoria persistente en `src/ai/nlp/memory.json` que incluye:
 
-- Historial de conversaciones
 - Estado de dispositivos
 - Preferencias del usuario
 - Registro de última interacción
@@ -123,13 +142,6 @@ Estructura del archivo de memoria:
 
 ```json
 {
-    "conversations": [          # Historial de conversaciones
-        {
-            "timestamp": "...",
-            "prompt": "...",
-            "response": "..."
-        }
-    ],
     "device_states": {         # Estado actual de los dispositivos
         "luces": {},
         "temperatura": {},
@@ -138,6 +150,18 @@ Estructura del archivo de memoria:
     "user_preferences": {},    # Preferencias personalizadas
     "last_interaction": null   # Timestamp de última interacción
 }
+```
+
+El asistente registra el historial de conversaciones en `src/ai/logs/logs_ai.json` para análisis posterior.
+
+```json
+[
+  {
+    "timestamp": "2025-09-11T02:23:06.160261",
+    "prompt": "Cual es tu nombre",
+    "response": "Hola! Soy Murph, el asistente de casa inteligente. ¡Aquí para ayudarte con tus dispositivos y responder tus preguntas sobre el hogar! ¿Cómo puedo ayudarte hoy?"
+  }
+]
 ```
 
 ## Estructura del Proyecto

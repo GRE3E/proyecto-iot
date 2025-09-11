@@ -1,9 +1,9 @@
 {
-  "device_states": {
-    "luces": {},
-    "temperatura": {},
-    "dispositivos": {}
-  },
-  "user_preferences": {},
-  "last_interaction": "2025-09-11T02:35:08.567215"
+    "device_states": {
+        "luces": {},
+        "temperatura": {},
+        "dispositivos": {}
+    },
+    "user_preferences": {},
+    "last_interaction": "2025-09-11T16:00:12.916910"
 }

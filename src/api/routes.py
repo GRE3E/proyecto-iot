@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional
 
 from ..ai.nlp.nlp_core import NLPModule
-from .schemas import NLPQuery, NLPResponse, StatusResponse
+from .schemas import NLPQuery, NLPResponse, StatusResponse, AssistantNameUpdate
 
 router = APIRouter()
 _nlp_module: Optional[NLPModule] = None
@@ -30,3 +30,17 @@ async def query_nlp(query: NLPQuery):
         raise HTTPException(status_code=500, detail="Failed to generate response")
     
     return NLPResponse(response=response)
+
+@router.put("/config/assistant-name", response_model=StatusResponse)
+async def update_assistant_name(update: AssistantNameUpdate):
+    """Actualiza el nombre del asistente en la configuración."""
+    if _nlp_module is None:
+        raise HTTPException(status_code=503, detail="NLP module is offline")
+    
+    try:
+        _nlp_module._config["assistant_name"] = update.name
+        _nlp_module._save_config()
+        _nlp_module.reload()  # Recarga configuración y memoria
+        return StatusResponse(nlp="ONLINE")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update assistant name: {str(e)}")

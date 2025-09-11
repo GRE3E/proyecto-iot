@@ -13,6 +13,7 @@ class NLPModule:
         self._logs_path = Path(__file__).parent.parent / 'logs'
         self._load_config()
         self._load_memory()
+        self._load_conversations()
         self._online = self._check_connection()
 
     def _load_config(self):
@@ -54,6 +55,10 @@ class NLPModule:
             self._save_memory()
         
         # Cargar historial de conversaciones
+        self._load_conversations()
+
+    def _load_conversations(self):
+        """Carga el historial de conversaciones."""
         log_file = self._logs_path / 'logs_ai.json'
         try:
             with open(log_file, 'r', encoding='utf-8') as f:
@@ -132,6 +137,12 @@ class NLPModule:
     def is_online(self) -> bool:
         """Devuelve True si el módulo responde, False si falla."""
         return self._online
+
+    def reload(self):
+        """Recarga configuración y memoria, y revalida conexión."""
+        self._load_config()
+        self._load_memory()
+        self._online = self._check_connection()
     
     def generate_response(self, prompt: str) -> Optional[str]:
         """Envía prompt al modelo Ollama y devuelve respuesta en texto."""
@@ -152,6 +163,7 @@ class NLPModule:
 
         Responde siempre en {self._config['language']} de manera amigable y concisa.
         Utiliza el contexto de memoria para proporcionar respuestas más personalizadas y coherentes.
+        Recuerda que tu nombre es {self._config['assistant_name']}.
         """
             
         try:

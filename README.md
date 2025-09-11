@@ -1,4 +1,4 @@
-# Proyecto IoT con NLP
+# Proyecto IoT
 
 ## Descripción
 
@@ -28,6 +28,15 @@ pip install -r requirements.txt
 
 ```powershell
 ollama list  # Verificar que mistral:7b-instruct está instalado
+```
+
+4. El sistema utiliza la variable de entorno OLLAMA_OPTIONS para configurar los parámetros del modelo:
+
+```json
+{
+    "temperature": 0.7,    # Control de creatividad (0.0 - 1.0)
+    "num_predict": 500    # Máximo de tokens a generar
+}
 ```
 
 ## Uso
@@ -76,6 +85,61 @@ Respuesta:
 }
 ```
 
+## Configuración del Asistente
+
+El asistente utiliza un archivo de configuración ubicado en `src/ai/nlp/config.json` que permite personalizar su comportamiento:
+
+```json
+{
+    "assistant_name": "Murph",    # Nombre del asistente (por defecto: Murph)
+    "language": "es",           # Idioma de respuesta
+    "model": {                  # Configuración del modelo de IA
+        "name": "mistral:7b-instruct",  # Nombre del modelo a utilizar
+        "temperature": 0.7,      # Temperatura para la generación (0.0 - 1.0)
+        "max_tokens": 500        # Máximo de tokens en la respuesta (num_predict)
+    },
+    # Nota: La configuración del modelo se aplica mediante OLLAMA_OPTIONS
+    "capabilities": [           # Lista de capacidades del asistente
+        "control_luces",
+        "control_temperatura",
+        "control_dispositivos",
+        "consulta_estado"
+    ],
+    "memory_file": "memory.json", # Archivo de memoria
+    "memory_size": 100          # Número máximo de conversaciones guardadas
+}
+```
+
+## Sistema de Memoria
+
+El asistente mantiene un sistema de memoria persistente en `src/ai/nlp/memory.json` que incluye:
+
+- Historial de conversaciones
+- Estado de dispositivos
+- Preferencias del usuario
+- Registro de última interacción
+
+Estructura del archivo de memoria:
+
+```json
+{
+    "conversations": [          # Historial de conversaciones
+        {
+            "timestamp": "...",
+            "prompt": "...",
+            "response": "..."
+        }
+    ],
+    "device_states": {         # Estado actual de los dispositivos
+        "luces": {},
+        "temperatura": {},
+        "dispositivos": {}
+    },
+    "user_preferences": {},    # Preferencias personalizadas
+    "last_interaction": null   # Timestamp de última interacción
+}
+```
+
 ## Estructura del Proyecto
 
 ```
@@ -83,6 +147,11 @@ Respuesta:
 ├── requirements.txt    # Dependencias del proyecto
 └── src/
     ├── ai/
+    │   ├── config/    # Archivos de configuración
+    │   │   ├── config.json    # Configuración del asistente
+    │   │   └── memory.json    # Memoria persistente
+    │   ├── logs/      # Registros de conversaciones
+    │   │   └── conversation_[timestamp].json
     │   └── nlp/       # Módulo de procesamiento de lenguaje natural
     ├── api/           # Rutas y esquemas de la API
     └── main.py        # Punto de entrada de la aplicación

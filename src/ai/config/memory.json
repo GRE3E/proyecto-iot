@@ -1,0 +1,16 @@
+{
+  "conversations": [
+    {
+      "timestamp": "2025-09-11T00:41:07.661726",
+      "prompt": "Cual es tu nombre",
+      "response": "Hola! Soy Murph, el asistente de casa inteligente. ¿Cómo puedo ayudarte hoy?"
+    }
+  ],
+  "device_states": {
+    "luces": {},
+    "temperatura": {},
+    "dispositivos": {}
+  },
+  "user_preferences": {},
+  "last_interaction": "2025-09-11T01:45:40.518075"
+}

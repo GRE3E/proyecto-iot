@@ -105,6 +105,26 @@ Respuesta:
 }
 ```
 
+### PUT /config/owner-name
+
+Actualiza el nombre del propietario en la configuración.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "name": "Nuevo Nombre del Propietario"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "nlp": "ONLINE"
+}
+```
+
 ## Configuración del Asistente
 
 El asistente utiliza un archivo de configuración ubicado en `src/ai/config/config.json` que permite personalizar su comportamiento:
@@ -112,6 +132,7 @@ El asistente utiliza un archivo de configuración ubicado en `src/ai/config/conf
 ```json
 {
     "assistant_name": "Murph",    # Nombre del asistente (por defecto: Murph)
+    "owner_name": "Propietario",    # Nombre del propietario (por defecto: Propietario)
     "language": "es",           # Idioma de respuesta
     "model": {                  # Configuración del modelo de IA
         "name": "mistral:7b-instruct",  # Nombre del modelo a utilizar

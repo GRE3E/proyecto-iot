@@ -1,37 +1,7 @@
 [
   {
-    "timestamp": "2025-09-11T15:55:38.568112",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Murph, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo?"
-  },
-  {
-    "timestamp": "2025-09-11T15:58:00.459582",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Murph, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo? (Contexto de memoria actualizado)"
-  },
-  {
-    "timestamp": "2025-09-11T15:58:27.293871",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Murph, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo? (Contexto de memoria actualizado)"
-  },
-  {
-    "timestamp": "2025-09-11T15:58:44.372918",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Testeo, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo? (Contexto de memoria actualizado)"
-  },
-  {
-    "timestamp": "2025-09-11T15:59:24.592711",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Testeo 2, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo? (Contexto de memoria actualizado)"
-  },
-  {
-    "timestamp": "2025-09-11T15:59:54.886916",
-    "prompt": "Dime tu nombre",
-    "response": "Hola! Soy Murph, el asistente de casa inteligente en tu hogar. ¿Puedo ayudarte con algo? (Contexto de memoria actualizado)"
-  },
-  {
-    "timestamp": "2025-09-11T16:00:12.916910",
-    "prompt": "Que hora es?",
-    "response": "La hora actual es 2025-09-11T16:00:00 (16:00 horas). Estoy aquí para ayudarte si necesitas algo más, Murph. ¿Me puedes preguntar sobre algún dispositivo en particular?"
+    "timestamp": "2025-09-11T16:56:54.423759",
+    "prompt": "Hola",
+    "response": "Hola Gre, cómo estás? ¿Puedo ayudarte con algo?"
   }
 ]

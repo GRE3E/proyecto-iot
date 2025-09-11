@@ -24,6 +24,7 @@ class NLPModule:
         except FileNotFoundError:
             self._config = {
                 "assistant_name": "Murph",
+                "owner_name": "Propietario",
                 "language": "es",
                 "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
                 "memory_file": "memory.json",
@@ -150,6 +151,7 @@ class NLPModule:
             return None
             
         system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
+        El nombre del propietario de la casa es {self._config['owner_name']}.
         Tu función es ayudar a controlar dispositivos IoT, responder preguntas sobre el hogar y proporcionar información útil.
 
         Capacidades:
@@ -164,6 +166,7 @@ class NLPModule:
         Responde siempre en {self._config['language']} de manera amigable y concisa.
         Utiliza el contexto de memoria para proporcionar respuestas más personalizadas y coherentes.
         Recuerda que tu nombre es {self._config['assistant_name']}.
+        Recuerda que el nombre del propietario de la casa es {self._config['owner_name']}.
         """
             
         try:

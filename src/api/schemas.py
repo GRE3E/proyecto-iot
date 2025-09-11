@@ -12,6 +12,10 @@ class AssistantNameUpdate(BaseModel):
     """Modelo para actualizar el nombre del asistente."""
     name: str
 
+class OwnerNameUpdate(BaseModel):
+    """Modelo para actualizar el nombre del propietario."""
+    name: str
+
 class StatusResponse(BaseModel):
     """Modelo para el estado del sistema."""
     nlp: str

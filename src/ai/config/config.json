@@ -1,5 +1,6 @@
 {
     "assistant_name": "Murph",
+    "owner_name": "Gre",
     "language": "es",
     "model": {
         "name": "mistral:7b-instruct",

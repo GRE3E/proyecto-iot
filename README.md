@@ -7,7 +7,7 @@ Este proyecto implementa un servidor FastAPI que integra procesamiento de lengua
 ## Requisitos
 
 - Python 3.10 o superior
-- Ollama instalado con el modelo mistral:7b-instruct
+- Ollama instalado con el modelo
 - Dependencias listadas en requirements.txt
 
 ## Instalación
@@ -24,10 +24,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Script
 pip install -r requirements.txt
 ```
 
-3. Asegurarse de tener Ollama instalado y el modelo mistral:7b-instruct descargado:
+3. Asegurarse de tener Ollama instalado y el modelo descargado:
 
 ```powershell
-ollama list  # Verificar que mistral:7b-instruct está instalado
+ollama list  # Verificar que el modelo está instalado
 ```
 
 4. El sistema utiliza la variable de entorno OLLAMA_OPTIONS para configurar los parámetros del modelo:
@@ -81,7 +81,7 @@ Respuesta:
 
 ```json
 {
-  "response": "[Respuesta del modelo Mistral]"
+  "response": "[Respuesta del modelo"
 }
 ```
 
@@ -151,7 +151,7 @@ Estructura del archivo de memoria:
     │   │   ├── config.json    # Configuración del asistente
     │   │   └── memory.json    # Memoria persistente
     │   ├── logs/      # Registros de conversaciones
-    │   │   └── conversation_[timestamp].json
+    │   │   └── logs_ai.json    # Historial completo de interacciones
     │   └── nlp/       # Módulo de procesamiento de lenguaje natural
     ├── api/           # Rutas y esquemas de la API
     └── main.py        # Punto de entrada de la aplicación

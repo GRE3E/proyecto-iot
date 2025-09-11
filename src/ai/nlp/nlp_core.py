@@ -36,13 +36,13 @@ class NLPModule:
             json.dump(self._config, f, indent=4, ensure_ascii=False)
 
     def _load_memory(self):
-        """Carga la memoria del asistente."""
+        """Carga la memoria del asistente y el historial de conversaciones."""
+        # Cargar memoria base
         try:
             with open(self._memory_path, 'r', encoding='utf-8') as f:
                 self._memory = json.load(f)
         except FileNotFoundError:
             self._memory = {
-                "conversations": [],
                 "device_states": {
                     "luces": {},
                     "temperatura": {},
@@ -52,6 +52,14 @@ class NLPModule:
                 "last_interaction": None
             }
             self._save_memory()
+        
+        # Cargar historial de conversaciones
+        log_file = self._logs_path / 'logs_ai.json'
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                self._conversations = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self._conversations = []
 
     def _save_memory(self):
         """Guarda la memoria actual."""
@@ -67,16 +75,18 @@ class NLPModule:
             "response": response
         }
         
-        # Actualizar memoria
-        self._memory["conversations"].insert(0, conversation)
-        self._memory["conversations"] = self._memory["conversations"][:self._config["memory_size"]]
+        # Actualizar última interacción en memoria
         self._memory["last_interaction"] = timestamp.isoformat()
         self._save_memory()
         
-        # Guardar log
-        log_file = self._logs_path / f"conversation_{timestamp.strftime('%Y%m%d_%H%M%S')}.json"
+        # Actualizar conversaciones en memoria
+        self._conversations.append(conversation)
+        self._conversations = self._conversations[-self._config["memory_size"]:]
+        
+        # Guardar conversaciones
+        log_file = self._logs_path / 'logs_ai.json'
         with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(conversation, f, indent=2, ensure_ascii=False)
+            json.dump(self._conversations, f, indent=2, ensure_ascii=False)
     
     def _check_connection(self) -> bool:
         """Verifica la conexión con Ollama y la disponibilidad del modelo."""
@@ -124,7 +134,7 @@ class NLPModule:
         return self._online
     
     def generate_response(self, prompt: str) -> Optional[str]:
-        """Envía prompt al modelo mistral:7b-instruct en Ollama y devuelve respuesta en texto."""
+        """Envía prompt al modelo Ollama y devuelve respuesta en texto."""
         if not self.is_online():
             return None
             
@@ -138,6 +148,7 @@ class NLPModule:
         - Última interacción: {self._memory['last_interaction']}
         - Estados de dispositivos: {json.dumps(self._memory['device_states'], ensure_ascii=False)}
         - Preferencias del usuario: {json.dumps(self._memory['user_preferences'], ensure_ascii=False)}
+        - Historial de conversaciones: {json.dumps(self._conversations[-3:], ensure_ascii=False) if self._conversations else '[]'}
 
         Responde siempre en {self._config['language']} de manera amigable y concisa.
         Utiliza el contexto de memoria para proporcionar respuestas más personalizadas y coherentes.

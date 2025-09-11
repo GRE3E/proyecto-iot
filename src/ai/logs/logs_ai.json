@@ -1,0 +1,12 @@
+[
+  {
+    "timestamp": "2025-09-11T02:23:06.160261",
+    "prompt": "Cual es tu nombre",
+    "response": "Hola! Soy Murph, el asistente de casa inteligente. ¡Aquí para ayudarte con tus dispositivos y responder tus preguntas sobre el hogar! ¿Cómo puedo ayudarte hoy?"
+  },
+  {
+    "timestamp": "2025-09-11T02:35:08.567215",
+    "prompt": "Cual es tu funcionalidad",
+    "response": "Hola! Soy Murph, el asistente de casa inteligente. ¡Aquí para ayudarte con tus dispositivos IoT y responder tus preguntas sobre el hogar! Me encargo de controlar tus luces, la temperatura y otros dispositivos en tu hogar, además puedo consultarles información útil. ¿Cómo puedo ayudarte hoy?"
+  }
+]

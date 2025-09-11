@@ -185,6 +185,27 @@ El asistente registra el historial de conversaciones en `src/ai/logs/logs_ai.jso
 ]
 ```
 
+## Logs de la API
+
+El asistente registra todas las llamadas a la API en `src/ai/logs/logs_api.json`, incluyendo la fecha, el endpoint y el cuerpo completo de la solicitud y la respuesta. Esto permite un seguimiento detallado de las interacciones con el sistema.
+
+Estructura del archivo de logs:
+
+```json
+[
+  {
+    "timestamp": "2025-09-11T02:23:06.160261",
+    "endpoint": "/nlp/query",
+    "request_body": {
+      "prompt": "Enciende la luz de la sala"
+    },
+    "response_data": {
+      "response": "[Respuesta del modelo]"
+    }
+  }
+]
+```
+
 ## Estructura del Proyecto
 
 ```

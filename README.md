@@ -15,6 +15,7 @@ Este proyecto implementa un servidor FastAPI que integra procesamiento de lengua
 1. Crear y activar entorno virtual:
 
 ```powershell
+python -m venv .venv
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1
 ```
 

@@ -132,93 +132,35 @@ El asistente utiliza un archivo de configuración ubicado en `src/ai/config/conf
 
 ```json
 {
-    "assistant_name": "Murph",    # Nombre del asistente (por defecto: Murph)
-    "owner_name": "Propietario",    # Nombre del propietario (por defecto: Propietario)
-    "language": "es",           # Idioma de respuesta
-    "model": {                  # Configuración del modelo de IA
+    "assistant_name": "Murph",          # Nombre del asistente (por defecto: Murph)
+    "owner_name": "Propietario",        # Nombre del propietario (por defecto: Propietario)
+    "language": "es",                   # Idioma de respuesta
+    "model": {                          # Configuración del modelo de IA
         "name": "mistral:7b-instruct",  # Nombre del modelo a utilizar
-        "temperature": 0.7,      # Temperatura para la generación (0.0 - 1.0)
-        "max_tokens": 500        # Máximo de tokens en la respuesta (num_predict)
+        "temperature": 0.7,             # Temperatura para la generación (0.0 - 1.0)
+        "max_tokens": 500               # Máximo de tokens en la respuesta (num_predict)
     },
     # Nota: La configuración del modelo se aplica mediante OLLAMA_OPTIONS
-    "capabilities": [           # Lista de capacidades del asistente
+    "capabilities": [                   # Lista de capacidades del asistente
         "control_luces",
         "control_temperatura",
         "control_dispositivos",
         "consulta_estado"
     ],
-    "memory_file": "memory.json", # Archivo de memoria
-    "memory_size": 100          # Número máximo de conversaciones guardadas
 }
-```
-
-## Sistema de Memoria
-
-El asistente mantiene un sistema de memoria persistente en `src/ai/nlp/memory.json` que incluye:
-
-- Estado de dispositivos
-- Preferencias del usuario
-- Registro de última interacción
-
-Estructura del archivo de memoria:
-
-```json
-{
-    "device_states": {         # Estado actual de los dispositivos
-        "luces": {},
-        "temperatura": {},
-        "dispositivos": {}
-    },
-    "user_preferences": {},    # Preferencias personalizadas
-    "last_interaction": null   # Timestamp de última interacción
-}
-```
-
-El asistente registra el historial de conversaciones en `src/ai/logs/logs_ai.json` para análisis posterior.
-
-```json
-[
-  {
-    "timestamp": "2025-09-11T02:23:06.160261",
-    "prompt": "Cual es tu nombre",
-    "response": "Hola! Soy Murph, el asistente de casa inteligente. ¡Aquí para ayudarte con tus dispositivos y responder tus preguntas sobre el hogar! ¿Cómo puedo ayudarte hoy?"
-  }
-]
-```
-
-## Logs de la API
-
-El asistente registra todas las llamadas a la API en `src/ai/logs/logs_api.json`, incluyendo la fecha, el endpoint y el cuerpo completo de la solicitud y la respuesta. Esto permite un seguimiento detallado de las interacciones con el sistema.
-
-Estructura del archivo de logs:
-
-```json
-[
-  {
-    "timestamp": "2025-09-11T02:23:06.160261",
-    "endpoint": "/nlp/query",
-    "request_body": {
-      "prompt": "Enciende la luz de la sala"
-    },
-    "response_data": {
-      "response": "[Respuesta del modelo]"
-    }
-  }
-]
 ```
 
 ## Estructura del Proyecto
 
 ```
 ├── .venv/              # Entorno virtual de Python
+├── data/               # Base de datos
+│   └── casa_inteligente.db     # Base de datos SQLite
 ├── requirements.txt    # Dependencias del proyecto
 └── src/
     ├── ai/
     │   ├── config/    # Archivos de configuración
-    │   │   ├── config.json    # Configuración del asistente
-    │   │   └── memory.json    # Memoria persistente
-    │   ├── logs/      # Registros de conversaciones
-    │   │   └── logs_ai.json    # Historial completo de interacciones
+    │   │   └── config.json    # Configuración del asistente
     │   └── nlp/       # Módulo de procesamiento de lenguaje natural
     ├── api/           # Rutas y esquemas de la API
     └── main.py        # Punto de entrada de la aplicación

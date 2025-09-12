@@ -4,17 +4,23 @@ import os
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
+from sqlalchemy.orm import Session
+from src.db.database import SessionLocal
+from src.db.models import UserMemory, ConversationLog
 
 class NLPModule:
     def __init__(self):
         """Inicializa la conexión con Ollama y carga la configuración."""
         self._config_path = Path(__file__).parent.parent / 'config' / 'config.json'
-        self._memory_path = Path(__file__).parent.parent / 'config' / 'memory.json'
-        self._logs_path = Path(__file__).parent.parent / 'logs'
         self._load_config()
-        self._load_memory()
-        self._load_conversations()
         self._online = self._check_connection()
+        db = next(self._get_db())
+        self._memory_db = db.query(UserMemory).first()
+        if not self._memory_db:
+            self._memory_db = UserMemory()
+            db.add(self._memory_db)
+            db.commit()
+            db.refresh(self._memory_db)
 
     def _load_config(self):
         """Carga la configuración del asistente."""
@@ -26,9 +32,7 @@ class NLPModule:
                 "assistant_name": "Murph",
                 "owner_name": "Propietario",
                 "language": "es",
-                "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
-                "memory_file": "memory.json",
-                "memory_size": 100
+                "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"]
             }
             self._save_config()
 
@@ -37,63 +41,33 @@ class NLPModule:
         with open(self._config_path, 'w', encoding='utf-8') as f:
             json.dump(self._config, f, indent=4, ensure_ascii=False)
 
-    def _load_memory(self):
-        """Carga la memoria del asistente y el historial de conversaciones."""
-        # Cargar memoria base
+    def _get_db(self):
+        db = SessionLocal()
         try:
-            with open(self._memory_path, 'r', encoding='utf-8') as f:
-                self._memory = json.load(f)
-        except FileNotFoundError:
-            self._memory = {
-                "device_states": {
-                    "luces": {},
-                    "temperatura": {},
-                    "dispositivos": {}
-                },
-                "user_preferences": {},
-                "last_interaction": None
-            }
-            self._save_memory()
-        
-        # Cargar historial de conversaciones
-        self._load_conversations()
+            yield db
+        finally:
+            db.close()
 
-    def _load_conversations(self):
-        """Carga el historial de conversaciones."""
-        log_file = self._logs_path / 'logs_ai.json'
-        try:
-            with open(log_file, 'r', encoding='utf-8') as f:
-                self._conversations = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self._conversations = []
-
-    def _save_memory(self):
-        """Guarda la memoria actual."""
-        with open(self._memory_path, 'w', encoding='utf-8') as f:
-            json.dump(self._memory, f, indent=4, ensure_ascii=False)
-
-    def _update_memory(self, prompt: str, response: str):
-        """Actualiza la memoria y guarda el log de la conversación."""
+    def _update_memory(self, prompt: str, response: str, db: Session):
+        """Actualiza la memoria y guarda el log de la conversación en la base de datos."""
         timestamp = datetime.now()
-        conversation = {
-            "timestamp": timestamp.isoformat(),
-            "prompt": prompt,
-            "response": response
-        }
         
         # Actualizar última interacción en memoria
-        self._memory["last_interaction"] = timestamp.isoformat()
-        self._save_memory()
+        self._memory_db.last_interaction = timestamp
+        self._memory_db = db.merge(self._memory_db) # Re-attach and get the managed instance
+        db.commit()
+        db.refresh(self._memory_db)
         
-        # Actualizar conversaciones en memoria
-        self._conversations.append(conversation)
-        self._conversations = self._conversations[-self._config["memory_size"]:]
-        
-        # Guardar conversaciones
-        log_file = self._logs_path / 'logs_ai.json'
-        with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(self._conversations, f, indent=2, ensure_ascii=False)
-    
+        # Guardar conversación en ConversationLog
+        conversation = ConversationLog(
+            timestamp=timestamp,
+            prompt=prompt,
+            response=response
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+
     def _check_connection(self) -> bool:
         """Verifica la conexión con Ollama y la disponibilidad del modelo."""
         try:
@@ -132,7 +106,7 @@ class NLPModule:
             print(f"Error al verificar Ollama: {e.stderr}")
             return False
         except FileNotFoundError:
-            print("Error: Ollama no está instalado o no se encuentra en el PATH")
+            print("Error: Olla no está instalado o no se encuentra en el PATH")
             return False
     
     def is_online(self) -> bool:
@@ -140,9 +114,9 @@ class NLPModule:
         return self._online
 
     def reload(self):
-        """Recarga configuración y memoria, y revalida conexión."""
+        """Recarga configuración y revalida conexión."""
         self._load_config()
-        self._load_memory()
+        db = next(self._get_db())
         self._online = self._check_connection()
     
     def generate_response(self, prompt: str) -> Optional[str]:
@@ -150,6 +124,8 @@ class NLPModule:
         if not self.is_online():
             return None
             
+        db = next(self._get_db())
+
         system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
         El nombre del propietario de la casa es {self._config['owner_name']}.
         Tu función es ayudar a controlar dispositivos IoT, responder preguntas sobre el hogar y proporcionar información útil.
@@ -158,10 +134,10 @@ class NLPModule:
         {chr(10).join(f'- {cap}' for cap in self._config['capabilities'])}
 
         Contexto de memoria:
-        - Última interacción: {self._memory['last_interaction']}
-        - Estados de dispositivos: {json.dumps(self._memory['device_states'], ensure_ascii=False)}
-        - Preferencias del usuario: {json.dumps(self._memory['user_preferences'], ensure_ascii=False)}
-        - Historial de conversaciones: {json.dumps(self._conversations[-3:], ensure_ascii=False) if self._conversations else '[]'}
+        - Última interacción: {self._memory_db.last_interaction.isoformat() if self._memory_db.last_interaction else None}
+        - Estados de dispositivos: {self._memory_db.device_states}
+        - Preferencias del usuario: {self._memory_db.user_preferences}
+        - Historial de conversaciones: {json.dumps([{'prompt': c.prompt, 'response': c.response} for c in db.query(ConversationLog).order_by(ConversationLog.timestamp.desc()).limit(self._config['memory_size']).all()], ensure_ascii=False) if db.query(ConversationLog).count() > 0 else '[]'}
 
         Responde siempre en {self._config['language']} de manera amigable y concisa.
         Utiliza el contexto de memoria para proporcionar respuestas más personalizadas y coherentes.
@@ -186,7 +162,7 @@ class NLPModule:
             result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
             if result.returncode == 0 and result.stdout:
                 response = result.stdout.strip()
-                self._update_memory(prompt, response)
+                self._update_memory(prompt, response, db)
                 return response
             return None
         except subprocess.CalledProcessError as e:

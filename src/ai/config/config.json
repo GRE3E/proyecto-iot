@@ -1,17 +1,17 @@
 {
-    "assistant_name": "Murph",
-    "owner_name": "Gre",
-    "language": "es",
-    "model": {
-        "name": "mistral:7b-instruct",
-        "temperature": 0.7,
-        "max_tokens": 500
-    },
-    "capabilities": [
-        "control_luces",
-        "control_temperatura",
-        "control_dispositivos",
-        "consulta_estado"
-    ],
-    "memory_size": 100
+  "assistant_name": "Murph",
+  "owner_name": "Gre",
+  "language": "es",
+  "model": {
+    "name": "qwen2.5:3b-instruct",
+    "temperature": 0.7,
+    "max_tokens": 500
+  },
+  "capabilities": [
+    "control_luces",
+    "control_temperatura",
+    "control_dispositivos",
+    "consulta_estado"
+  ],
+  "memory_size": 100
 }

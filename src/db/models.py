@@ -26,3 +26,10 @@ class APILog(Base):
     endpoint = Column(String(100))
     request_body = Column(Text)
     response_data = Column(Text)
+
+class TTSLog(Base):
+    __tablename__ = "tts_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=func.now())
+    text = Column(Text)

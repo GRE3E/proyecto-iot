@@ -163,6 +163,12 @@ class NLPModule:
             if result.returncode == 0 and result.stdout:
                 response = result.stdout.strip()
                 self._update_memory(prompt, response, db)
+                
+                # Integración con TTS
+                from src.ai.tts.tts_core import TTSCore
+                tts = TTSCore()
+                tts.speak(response)
+                
                 return response
             return None
         except subprocess.CalledProcessError as e:

@@ -278,7 +278,6 @@ Ejemplo de `.env`:
 
 ```
 PICOVOICE_ACCESS_KEY=YOUR_PICOVOICE_ACCESS_KEY
-```
 HOTWORD_PATH=src/ai/hotword/models/model.ppn
 ```
 

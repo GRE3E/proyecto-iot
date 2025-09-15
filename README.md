@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, y un módulo de identificación de hablantes con resemblyzer. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente.
+Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, y detección de hotword para activar el asistente por voz. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente.
 
 ## Requisitos
 
@@ -10,6 +10,7 @@ Este proyecto implementa un servidor FastAPI que integra procesamiento de lengua
 - Ollama instalado con el modelo (para NLP)
 - Dependencias listadas en requirements.txt
 - Modelos de Whisper (se descargarán automáticamente al usar el módulo STT)
+- Picovoice Console para obtener una clave de acceso y entrenar una palabra clave personalizada.
 
 ## Instalación
 
@@ -36,12 +37,18 @@ ollama list  # Verificar que el modelo está instalado
 
 ```json
 {
-    "temperature": 0.7,    # Control de creatividad (0.0 - 1.0)
-    "num_predict": 500    # Máximo de tokens a generar
+    "temperature": 0.7,     # Control de creatividad (0.0 - 1.0)
+    "num_predict": 500      # Máximo de tokens a generar
 }
 ```
 
 ## Uso
+
+Para testear el módulo de hotword, STT y NLP, ejecuta:
+
+```powershell
+python src\test\test_ai_nlp_stt_hotword.py
+```
 
 1. Iniciar el servidor:
 
@@ -66,7 +73,8 @@ Respuesta:
 {
   "nlp": "ONLINE",
   "stt": "ONLINE",
-  "speaker": "ONLINE"
+  "speaker": "ONLINE",
+  "hotword": "ONLINE"
 }
 ```
 
@@ -270,6 +278,7 @@ Ejemplo de `.env`:
 
 ```
 PICOVOICE_ACCESS_KEY=YOUR_PICOVOICE_ACCESS_KEY
+```
 HOTWORD_PATH=src/ai/hotword/models/model.ppn
 ```
 
@@ -281,9 +290,14 @@ HOTWORD_PATH=src/ai/hotword/models/model.ppn
 │   └── casa_inteligente.db       # Base de datos SQLite
 ├── requirements.txt              # Dependencias del proyecto
 └── src/
+    ├── __init__.py
     ├── ai/
+    │   ├── __init__.py
     │   ├── config/               # Archivos de configuración
     │   │   └── config.json       # Configuración del asistente
+    │   ├── hotword/              # Detección de hotword
+    │   │   ├── hotword.py        # Integración con Picovoice Porcupine
+    │   │   └── models/           # Modelos de hotword
     │   ├── nlp/                  # Módulo de procesamiento de lenguaje natural
     │   ├── stt/                  # Speech-to-Text
     │   │   └── stt.py            # Integración con Whisper local
@@ -297,5 +311,7 @@ HOTWORD_PATH=src/ai/hotword/models/model.ppn
     │   ├── database.py
     │   └── models.py
     │
-    └── main.py                   # Punto de entrada de la aplicación
+    ├── main.py                   # Punto de entrada de la aplicación
+    └── test/
+        └── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
 ```

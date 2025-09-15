@@ -1,12 +1,18 @@
 import subprocess
 import json
 import os
+import asyncio
+import logging
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
 from src.db.models import UserMemory, ConversationLog
+import asyncio.windows_events # Importar para WindowsSelectorEventLoopPolicy
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class NLPModule:
     def __init__(self):
@@ -32,12 +38,19 @@ class NLPModule:
                 "assistant_name": "Murph",
                 "owner_name": "Propietario",
                 "language": "es",
-                "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"]
+                "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
+                "model": {
+                    "name": "mistral:7b-instruct",
+                    "temperature": 0.7,
+                    "max_tokens": 150
+                },
+                "memory_size": 10
             }
             self._save_config()
 
     def _save_config(self):
         """Guarda la configuración actual."""
+        os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
         with open(self._config_path, 'w', encoding='utf-8') as f:
             json.dump(self._config, f, indent=4, ensure_ascii=False)
 
@@ -72,7 +85,7 @@ class NLPModule:
         """Verifica la conexión con Ollama y la disponibilidad del modelo."""
         try:
             # Verificar que Ollama está instalado y en ejecución
-            result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True)
+            result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True, timeout=10)
             if self._config["model"]["name"] not in result.stdout:
                 print(f"Error: El modelo {self._config['model']['name']} no está disponible.")
                 print("Modelos disponibles:")
@@ -108,6 +121,9 @@ class NLPModule:
         except FileNotFoundError:
             print("Error: Ollama no está instalado o no se encuentra en el PATH")
             return False
+        except subprocess.TimeoutExpired:
+            print("Error: Timeout al verificar Ollama")
+            return False
     
     def is_online(self) -> bool:
         """Devuelve True si el módulo responde, False si falla."""
@@ -119,10 +135,27 @@ class NLPModule:
         db = next(self._get_db())
         self._online = self._check_connection()
     
-    def generate_response(self, prompt: str) -> Optional[str]:
+    async def generate_response(self, prompt: str) -> Optional[str]:
         """Envía prompt al modelo Ollama y devuelve respuesta en texto."""
-        if not self.is_online():
+        if not prompt or not prompt.strip():
+            logging.warning("El prompt no puede estar vacío.")
             return None
+
+        if not self.is_online():
+            logging.error("El módulo NLP no está en línea.")
+            return None
+            
+        # Configurar la política de bucle de eventos para Windows si es necesario
+        if os.name == 'nt':
+            try:
+                # Obtener el bucle actual
+                loop = asyncio.get_running_loop()
+                # Si no es WindowsSelectorEventLoop, configurarlo
+                if not isinstance(loop, asyncio.windows_events.SelectorEventLoop):
+                    asyncio.set_event_loop_policy(asyncio.windows_events.WindowsSelectorEventLoopPolicy())
+            except RuntimeError:
+                # No hay bucle en ejecución, configurar la política
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
             
         db = next(self._get_db())
 
@@ -145,31 +178,160 @@ class NLPModule:
         Recuerda que el nombre del propietario de la casa es {self._config['owner_name']}.
         """
             
-        try:
-            prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
-            options = {
-                "temperature": self._config['model']['temperature'],
-                "num_predict": self._config['model']['max_tokens']
-            }
-            options_str = json.dumps(options, ensure_ascii=False)
-            os.environ['OLLAMA_OPTIONS'] = options_str
+        # Implementar mecanismo de reintento
+        retries = 3
+        for attempt in range(retries):
+            try:
+                prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
+                options = {
+                    "temperature": self._config['model']['temperature'],
+                    "num_predict": self._config['model']['max_tokens']
+                }
+                options_str = json.dumps(options, ensure_ascii=False)
+                
+                cmd = [
+                    "ollama", "run",
+                    self._config['model']['name'],
+                    prompt_text
+                ]
+                
+                logging.info(f"Ejecutando comando Ollama: ollama run {self._config['model']['name']} [prompt]")
+                
+                # SOLUCIÓN 1: Usar subprocess.run en lugar de asyncio.create_subprocess_exec
+                # Esto funciona mejor en Windows y evita el problema de NotImplementedError
+                try:
+                    # Configurar variables de entorno
+                    env = os.environ.copy()
+                    env['OLLAMA_OPTIONS'] = options_str
+                    
+                    # Ejecutar el comando de forma sincrónica
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,  # Timeout de 30 segundos
+                        env=env,
+                        encoding='utf-8'
+                    )
+                    
+                    logging.debug(f"Ollama stdout: {result.stdout}")
+                    logging.debug(f"Ollama stderr: {result.stderr}")
+                    
+                    if result.returncode == 0 and result.stdout:
+                        response = result.stdout.strip()
+                        if response:  # Verificar que la respuesta no esté vacía
+                            self._update_memory(prompt, response, db)
+                            return response
+                        else:
+                            logging.warning("Ollama devolvió una respuesta vacía")
+                    else:
+                        error_msg = f"Error al generar respuesta (intento {attempt + 1}/{retries}):\n"
+                        error_msg += f"Código de salida: {result.returncode}\n"
+                        error_msg += f"Salida de error: {result.stderr}"
+                        logging.error(error_msg)
+                
+                except subprocess.TimeoutExpired:
+                    logging.error(f"Timeout al ejecutar Ollama (intento {attempt + 1}/{retries})")
+                except subprocess.CalledProcessError as e:
+                    logging.error(f"Error al ejecutar comando Ollama (intento {attempt + 1}/{retries}): {e}")
+                except Exception as e:
+                    logging.error(f"Error inesperado al ejecutar Ollama (intento {attempt + 1}/{retries}): {e}")
+                
+                if attempt < retries - 1:
+                    await asyncio.sleep(2)  # Esperar antes de reintentar
+                    
+            except Exception as e:
+                logging.exception(f"Excepción al generar respuesta (intento {attempt + 1}/{retries}): {str(e)}")
+                if attempt < retries - 1:
+                    await asyncio.sleep(2)  # Esperar antes de reintentar
+        
+        logging.error("Se agotaron todos los intentos para generar respuesta")
+        self._online = False
+        return None
+    
+    def generate_response_sync(self, prompt: str) -> Optional[str]:
+        """Versión sincrónica de generate_response para casos donde no se puede usar async."""
+        if not prompt or not prompt.strip():
+            logging.warning("El prompt no puede estar vacío.")
+            return None
+
+        if not self.is_online():
+            logging.error("El módulo NLP no está en línea.")
+            return None
             
-            cmd = [
-                "ollama", "run",
-                self._config['model']['name'],
-                prompt_text
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
-            if result.returncode == 0 and result.stdout:
-                response = result.stdout.strip()
-                self._update_memory(prompt, response, db)
-                return response
-            return None
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Error al generar respuesta:\n"
-            error_msg += f"Comando: {' '.join(cmd)}\n"
-            error_msg += f"Código de salida: {e.returncode}\n"
-            error_msg += f"Salida de error: {e.stderr}"
-            print(error_msg)
-            self._online = False
-            return None
+        db = next(self._get_db())
+
+        system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
+        El nombre del propietario de la casa es {self._config['owner_name']}.
+        Tu función es ayudar a controlar dispositivos IoT, responder preguntas sobre el hogar y proporcionar información útil.
+
+        Capacidades:
+        {chr(10).join(f'- {cap}' for cap in self._config['capabilities'])}
+
+        Responde siempre en {self._config['language']} de manera amigable y concisa.
+        Recuerda que tu nombre es {self._config['assistant_name']}.
+        Recuerda que el nombre del propietario de la casa es {self._config['owner_name']}.
+        """
+            
+        # Implementar mecanismo de reintento
+        retries = 3
+        for attempt in range(retries):
+            try:
+                prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
+                options = {
+                    "temperature": self._config['model']['temperature'],
+                    "num_predict": self._config['model']['max_tokens']
+                }
+                options_str = json.dumps(options, ensure_ascii=False)
+                
+                cmd = [
+                    "ollama", "run",
+                    self._config['model']['name'],
+                    prompt_text
+                ]
+                
+                logging.info(f"Ejecutando comando Ollama sincrónico: ollama run {self._config['model']['name']} [prompt]")
+                
+                try:
+                    # Configurar variables de entorno
+                    env = os.environ.copy()
+                    env['OLLAMA_OPTIONS'] = options_str
+                    
+                    # Ejecutar el comando
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        env=env,
+                        encoding='utf-8'
+                    )
+                    
+                    if result.returncode == 0 and result.stdout:
+                        response = result.stdout.strip()
+                        if response:
+                            self._update_memory(prompt, response, db)
+                            return response
+                        else:
+                            logging.warning("Ollama devolvió una respuesta vacía")
+                    else:
+                        logging.error(f"Error en Ollama (intento {attempt + 1}/{retries}): {result.stderr}")
+                
+                except subprocess.TimeoutExpired:
+                    logging.error(f"Timeout al ejecutar Ollama (intento {attempt + 1}/{retries})")
+                except Exception as e:
+                    logging.error(f"Error al ejecutar Ollama (intento {attempt + 1}/{retries}): {e}")
+                
+                if attempt < retries - 1:
+                    import time
+                    time.sleep(2)  # Esperar antes de reintentar
+                    
+            except Exception as e:
+                logging.exception(f"Excepción al generar respuesta sincrónica (intento {attempt + 1}/{retries}): {str(e)}")
+                if attempt < retries - 1:
+                    import time
+                    time.sleep(2)
+        
+        logging.error("Se agotaron todos los intentos para generar respuesta sincrónica")
+        self._online = False
+        return None

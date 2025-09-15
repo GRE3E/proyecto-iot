@@ -21,6 +21,7 @@ class StatusResponse(BaseModel):
     nlp: str
     stt: str = "OFFLINE"
     speaker: str = "OFFLINE"
+    hotword: str = "OFFLINE"
 
 class STTRequest(BaseModel):
     """Modelo para la solicitud de transcripción de audio."""

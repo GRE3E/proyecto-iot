@@ -54,7 +54,7 @@ class NLPModule:
         
         # Actualizar última interacción en memoria
         self._memory_db.last_interaction = timestamp
-        self._memory_db = db.merge(self._memory_db) # Re-attach and get the managed instance
+        self._memory_db = db.merge(self._memory_db) # Volver a adjuntar y obtener la instancia administrada
         db.commit()
         db.refresh(self._memory_db)
         
@@ -106,7 +106,7 @@ class NLPModule:
             print(f"Error al verificar Ollama: {e.stderr}")
             return False
         except FileNotFoundError:
-            print("Error: Olla no está instalado o no se encuentra en el PATH")
+            print("Error: Ollama no está instalado o no se encuentra en el PATH")
             return False
     
     def is_online(self) -> bool:

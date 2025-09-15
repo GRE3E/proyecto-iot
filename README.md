@@ -186,6 +186,56 @@ Respuesta:
 }
 ```
 
+### POST /continuous_listening
+
+Controla el inicio y la parada del modo de escucha continua.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "action": "start" // o "stop"
+}
+```
+
+Respuesta (ejemplo para "start"):
+
+```json
+{
+  "status": "success",
+  "message": "Continuous listening started."
+}
+```
+
+Respuesta (ejemplo para "stop"):
+
+```json
+{
+  "status": "success",
+  "message": "Continuous listening stopped."
+}
+```
+
+### POST /hotword/process_audio
+
+Procesa el audio después de la detección de hotword, realizando STT, identificación de hablante y NLP.
+
+Cuerpo de la solicitud (multipart/form-data):
+
+```
+file: [archivo de audio .wav]
+```
+
+Respuesta:
+
+```json
+{
+  "transcribed_text": "Texto transcrito del audio",
+  "identified_speaker": "Nombre del usuario identificado",
+  "nlp_response": "[Respuesta del modelo NLP]"
+}
+```
+
 ## Configuración del Asistente
 
 El asistente utiliza un archivo de configuración ubicado en `src/ai/config/config.json` que permite personalizar su comportamiento:
@@ -200,7 +250,6 @@ El asistente utiliza un archivo de configuración ubicado en `src/ai/config/conf
         "temperature": 0.7,             # Temperatura para la generación (0.0 - 1.0)
         "max_tokens": 500               # Máximo de tokens en la respuesta (num_predict)
     },
-    # Nota: La configuración del modelo se aplica mediante OLLAMA_OPTIONS
     "capabilities": [                   # Lista de capacidades del asistente
         "control_luces",
         "control_temperatura",
@@ -208,6 +257,20 @@ El asistente utiliza un archivo de configuración ubicado en `src/ai/config/conf
         "consulta_estado"
     ],
 }
+```
+
+## Configuración de Hotword
+
+La detección de hotword se configura a través de variables de entorno:
+
+- `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
+- `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
+
+Ejemplo de `.env`:
+
+```
+PICOVOICE_ACCESS_KEY=YOUR_PICOVOICE_ACCESS_KEY
+HOTWORD_PATH=src/ai/hotword/models/model.ppn
 ```
 
 ## Estructura del Proyecto

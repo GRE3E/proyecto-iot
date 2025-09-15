@@ -42,3 +42,22 @@ class SpeakerIdentifyRequest(BaseModel):
 class SpeakerIdentifyResponse(BaseModel):
     """Modelo para la respuesta de identificación de hablante."""
     speaker_name: str
+
+class HotwordAudioProcessRequest(BaseModel):
+    """Modelo para la solicitud de procesamiento de audio de hotword."""
+    audio_file: str # Esto se manejará como UploadFile en el endpoint, pero se define como str para el esquema
+
+class HotwordAudioProcessResponse(BaseModel):
+    """Modelo para la respuesta del procesamiento de audio de hotword."""
+    transcribed_text: str
+    identified_speaker: str
+    nlp_response: str
+
+class ContinuousListeningToggle(BaseModel):
+    """Modelo para controlar el inicio/parada de la escucha continua."""
+    action: str # "start" or "stop"
+
+class ContinuousListeningResponse(BaseModel):
+    """Modelo para la respuesta de la escucha continua."""
+    status: str
+    message: str

@@ -39,9 +39,12 @@ ENV/
 # Logs
 *.log
 
-# Local development
+// Local development
 .DS_Store
 Thumbs.db
+hotword_audio_*.wav
+continuous_audio_*.wav
 
 # Project specific
 data/
+src/ai/hotword/models/

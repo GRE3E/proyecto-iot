@@ -6,9 +6,10 @@ import subprocess
 import resampy
 
 class STTModule:
-    def __init__(self):
+    def __init__(self, model_name: str = "medium"):
         self._model = None
         self._online = False
+        self.model_name = model_name
         self._load_model()
 
     def _check_ffmpeg(self):
@@ -24,17 +25,17 @@ class STTModule:
 
     def _load_model(self):
         if not self._check_ffmpeg():
-            print("Error: FFmpeg is not installed or not in PATH. Please install FFmpeg to enable audio transcription.")
+            print("Error: FFmpeg no está instalado o no se encuentra en el PATH. Por favor, instala FFmpeg para habilitar la transcripción de audio.")
             self._online = False
             return
 
         try:
             # Cargar el modelo Whisper en español
-            self._model = whisper.load_model("medium") #tiny", "base", "small", "medium"
+            self._model = whisper.load_model(self.model_name) #tiny", "base", "small", "medium"
             self._online = True
-            print("Whisper model loaded successfully.")
+            print("\033[92mINFO\033[0m:     Modelo Whisper cargado exitosamente.")
         except Exception as e:
-            print(f"Error loading Whisper model: {e}")
+            print(f"Error al cargar el modelo Whisper: {e}")
             self._online = False
 
     def is_online(self) -> bool:
@@ -42,15 +43,15 @@ class STTModule:
 
     def transcribe_audio(self, audio_path: str) -> str:
         if not self.is_online():
-            return "STT module is offline."
+            return "El módulo STT está fuera de línea."
         
         try:
             # Cargar el audio usando soundfile y resamplear si es necesario
             audio, sr = sf.read(audio_path)
             if sr != whisper.audio.SAMPLE_RATE:
-                print(f"Warning: Audio sample rate is {sr} Hz, expected {whisper.audio.SAMPLE_RATE} Hz. Resampling audio.")
+                print(f"Advertencia: La frecuencia de muestreo del audio es {sr} Hz, se esperaba {whisper.audio.SAMPLE_RATE} Hz. Remuestreando audio.")
                 audio = resampy.resample(audio, sr, whisper.audio.SAMPLE_RATE)
-                sr = whisper.audio.SAMPLE_RATE # Update sample rate after resampling
+                sr = whisper.audio.SAMPLE_RATE # Actualizar la frecuencia de muestreo después del remuestreo
             if audio.ndim > 1:
                 audio = audio.mean(axis=1) # Convertir a mono
             audio = audio.astype(np.float32) # Convertir a float32 para compatibilidad con Whisper
@@ -63,5 +64,5 @@ class STTModule:
             
             return result.text
         except Exception as e:
-            print(f"Error during transcription: {e}")
-            return "Error during transcription."
+            print(f"Error durante la transcripción: {e}")
+            return "Error durante la transcripción."

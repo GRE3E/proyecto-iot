@@ -33,7 +33,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
-    embedding = Column(Text, nullable=False) # Serialized vector
+    embedding = Column(Text, nullable=False) # Vector serializado
 
     preferences = relationship("Preference", back_populates="user", uselist=False)
 
@@ -42,8 +42,8 @@ class Preference(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    # Add preference fields here
-    # Example: theme = Column(String(50), default="dark")
-    # Example: notification_settings = Column(Text, default="{}")
+    # Agrega campos de preferencia aquí
+    # Ejemplo: theme = Column(String(50), default="dark")
+    # Ejemplo: notification_settings = Column(Text, default="{}")
 
     user = relationship("User", back_populates="preferences")

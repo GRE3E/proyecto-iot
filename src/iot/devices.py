@@ -1,0 +1,77 @@
+import logging
+from typing import Any
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+class Device:
+    def __init__(self, device_id: str, name: str):
+        self.device_id = device_id
+        self.name = name
+
+    def execute(self, command: str, **kwargs) -> Any:
+        raise NotImplementedError("El método execute debe ser implementado por las subclases.")
+
+class Light(Device):
+    def __init__(self, device_id: str, name: str, location: str):
+        super().__init__(device_id, name)
+        self.location = location
+        self.state = "off" # "on" o "off"
+        self.brightness = 100 # 0-100
+
+    def execute(self, command: str, **kwargs) -> str:
+        if command == "turn_on":
+            self.state = "on"
+            logging.info(f"Luz {self.name} en {self.location} encendida.")
+            return f"Luz {self.name} en {self.location} encendida."
+        elif command == "turn_off":
+            self.state = "off"
+            logging.info(f"Luz {self.name} en {self.location} apagada.")
+            return f"Luz {self.name} en {self.location} apagada."
+        elif command == "set_brightness":
+            brightness = kwargs.get("brightness")
+            if isinstance(brightness, int) and 0 <= brightness <= 100:
+                self.brightness = brightness
+                logging.info(f"Luz {self.name} en {self.location} brillo ajustado a {brightness}%")
+                return f"Luz {self.name} en {self.location} brillo ajustado a {brightness}%"
+            else:
+                logging.warning(f"Brillo inválido para la luz {self.name}: {brightness}")
+                return f"Brillo inválido para la luz {self.name}: {brightness}"
+        else:
+            logging.warning(f"Comando desconocido para la luz {self.name}: {command}")
+            return f"Comando desconocido para la luz {self.name}: {command}"
+
+class Door(Device):
+    def __init__(self, device_id: str, name: str, location: str):
+        super().__init__(device_id, name)
+        self.location = location
+        self.state = "closed" # "open" o "closed"
+
+    def execute(self, command: str, **kwargs) -> str:
+        if command == "open":
+            self.state = "open"
+            logging.info(f"Puerta {self.name} en {self.location} abierta.")
+            return f"Puerta {self.name} en {self.location} abierta."
+        elif command == "close":
+            self.state = "closed"
+            logging.info(f"Puerta {self.name} en {self.location} cerrada.")
+            return f"Puerta {self.name} en {self.location} cerrada."
+        else:
+            logging.warning(f"Comando desconocido para la puerta {self.name}: {command}")
+            return f"Comando desconocido para la puerta {self.name}: {command}"
+
+class Sensor(Device):
+    def __init__(self, device_id: str, name: str, location: str, sensor_type: str):
+        super().__init__(device_id, name)
+        self.location = location
+        self.sensor_type = sensor_type
+        self.value = None
+
+    def execute(self, command: str, **kwargs) -> str:
+        if command == "read_value":
+            # Simular lectura de un sensor
+            self.value = kwargs.get("value", "N/A")
+            logging.info(f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}")
+            return f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}"
+        else:
+            logging.warning(f"Comando desconocido para el sensor {self.name}: {command}")
+            return f"Comando desconocido para el sensor {self.name}: {command}"

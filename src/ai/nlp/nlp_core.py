@@ -20,6 +20,8 @@ class NLPModule:
         self._config_path = Path(__file__).parent.parent / 'config' / 'config.json'
         self._load_config()
         self._online = self._check_connection()
+        self.serial_manager = None
+        self.mqtt_client = None
         # Asegurarse de que UserMemory exista, pero no almacenarlo como una variable de instancia
         db = next(self._get_db())
         if not db.query(UserMemory).first():
@@ -27,6 +29,11 @@ class NLPModule:
             db.add(new_memory)
             db.commit()
         db.close() # Cerrar explícitamente la sesión utilizada para la inicialización
+
+    def set_iot_managers(self, serial_manager, mqtt_client):
+        self.serial_manager = serial_manager
+        self.mqtt_client = mqtt_client
+        logging.info("IoT managers set in NLPModule.")
 
     def _load_config(self):
         """Carga la configuración del asistente."""
@@ -237,6 +244,23 @@ class NLPModule:
                     if result.returncode == 0 and result.stdout:
                         response = result.stdout.strip()
                         if response:  # Verificar que la respuesta no esté vacía
+                            # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
+                            if self.serial_manager and "serial_command:" in response:
+                                command_to_send = response.split("serial_command:")[1].strip()
+                                logging.info(f"Enviando comando serial: {command_to_send}")
+                                self.serial_manager.send_command(command_to_send)
+                                response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
+                            elif self.mqtt_client and "mqtt_publish:" in response:
+                                parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
+                                if len(parts) == 2:
+                                    topic = parts[0].strip()
+                                    payload = parts[1].strip()
+                                    logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
+                                    self.mqtt_client.publish(topic, payload)
+                                    response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
+                                else:
+                                    logging.warning(f"Formato de comando MQTT inválido: {response}")
+
                             self._update_memory(prompt, response, db)
                             return response
                         else:
@@ -344,6 +368,23 @@ class NLPModule:
                     if result.returncode == 0 and result.stdout:
                         response = result.stdout.strip()
                         if response:
+                            # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
+                            if self.serial_manager and "serial_command:" in response:
+                                command_to_send = response.split("serial_command:")[1].strip()
+                                logging.info(f"Enviando comando serial: {command_to_send}")
+                                self.serial_manager.send_command(command_to_send)
+                                response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
+                            elif self.mqtt_client and "mqtt_publish:" in response:
+                                parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
+                                if len(parts) == 2:
+                                    topic = parts[0].strip()
+                                    payload = parts[1].strip()
+                                    logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
+                                    self.mqtt_client.publish(topic, payload)
+                                    response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
+                                else:
+                                    logging.warning(f"Formato de comando MQTT inválido: {response}")
+
                             self._update_memory(prompt, response, db)
                             return response
                         else:

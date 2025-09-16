@@ -16,3 +16,5 @@ pvporcupine
 pyaudio
 httpx
 python-dotenv
+pyserial
+paho-mqtt

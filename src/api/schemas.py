@@ -22,6 +22,8 @@ class StatusResponse(BaseModel):
     stt: str = "OFFLINE"
     speaker: str = "OFFLINE"
     hotword: str = "OFFLINE"
+    serial: str = "OFFLINE"
+    mqtt: str = "OFFLINE"
 
 class STTRequest(BaseModel):
     """Modelo para la solicitud de transcripción de audio."""

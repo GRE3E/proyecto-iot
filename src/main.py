@@ -151,7 +151,30 @@ async def startup_event():
         
         # Inicializar módulos NLP
         initialize_nlp()
-        
+
+        # Inicializar módulos IoT opcionalmente
+        app.state.serial_manager = None
+        app.state.mqtt_client = None
+
+        try:
+            from src.iot.serial_manager import SerialManager
+            app.state.serial_manager = SerialManager(port=os.getenv("SERIAL_PORT", "COM3"), baudrate=int(os.getenv("SERIAL_BAUDRATE", "9600")))
+            logging.info("SerialManager inicializado correctamente.")
+        except Exception as e:
+            logging.warning(f"⚠️ Advertencia: No se pudo inicializar SerialManager: {e}. La funcionalidad serial no estará disponible.")
+
+        try:
+            from src.iot.mqtt_client import MQTTClient
+            app.state.mqtt_client = MQTTClient(broker=os.getenv("MQTT_BROKER", "localhost"), port=int(os.getenv("MQTT_PORT", "1883")))
+            app.state.mqtt_client.connect()
+            logging.info("MQTTClient inicializado correctamente.")
+        except Exception as e:
+            logging.warning(f"⚠️ Advertencia: No se pudo inicializar MQTTClient: {e}. La funcionalidad MQTT no estará disponible.")
+
+        # Pasar instancias de IoT al módulo NLP si están disponibles
+        if nlp_module:
+            nlp_module.set_iot_managers(app.state.serial_manager, app.state.mqtt_client)
+
         # Crear tablas de base de datos
         Base.metadata.create_all(bind=engine)
         
@@ -194,6 +217,22 @@ async def shutdown_event():
                 logging.info("HotwordDetector detenido")
             except Exception as e:
                 logging.error(f"Error al detener HotwordDetector: {e}")
+
+        # Desconectar SerialManager
+        if hasattr(app.state, 'serial_manager') and app.state.serial_manager:
+            try:
+                app.state.serial_manager.disconnect()
+                logging.info("SerialManager desconectado")
+            except Exception as e:
+                logging.error(f"Error al desconectar SerialManager: {e}")
+
+        # Desconectar MQTTClient
+        if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
+            try:
+                app.state.mqtt_client.disconnect()
+                logging.info("MQTTClient desconectado")
+            except Exception as e:
+                logging.error(f"Error al desconectar MQTTClient: {e}")
         
         # Detener escucha continua
         if hasattr(app.state, 'continuous_listening_task') and \

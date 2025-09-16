@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, y detección de hotword para activar el asistente por voz. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente.
+Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, detección de hotword para activar el asistente por voz, y un **módulo de integración IoT para control de dispositivos seriales y MQTT**. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente, permitiendo la interacción con dispositivos IoT.
 
 ## Requisitos
 
@@ -48,6 +48,12 @@ Para testear el módulo de hotword, STT y NLP, ejecuta:
 
 ```powershell
 python src\test\test_ai_nlp_stt_hotword.py
+```
+
+Para testear el módulo IoT, ejecuta:
+
+```powershell
+python src\test\test_iot.py
 ```
 
 1. Iniciar el servidor:
@@ -274,11 +280,26 @@ La detección de hotword se configura a través de variables de entorno:
 - `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
 - `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
 
+## Configuración del Módulo IoT
+
+El módulo IoT se configura a través de variables de entorno en el archivo `.env`:
+
+- `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
+- `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
+- `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
+- `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
+
 Ejemplo de `.env`:
 
 ```
 PICOVOICE_ACCESS_KEY=YOUR_PICOVOICE_ACCESS_KEY
 HOTWORD_PATH=src/ai/hotword/models/model.ppn
+
+# IoT Module Configuration
+SERIAL_PORT=COM3
+SERIAL_BAUDRATE=9600
+MQTT_BROKER=localhost
+MQTT_PORT=1883
 ```
 
 ## Estructura del Proyecto
@@ -310,7 +331,15 @@ HOTWORD_PATH=src/ai/hotword/models/model.ppn
     │   ├── database.py
     │   └── models.py
     │
+    ├── iot/                      # Módulo de integración IoT
+    │   ├── __init__.py           # Inicialización del módulo IoT
+    │   ├── serial_manager.py     # Gestión de comunicación serial
+    │   ├── mqtt_client.py        # Gestión de comunicación MQTT
+    │   └── devices.py            # Definición de dispositivos IoT
+    │
     ├── main.py                   # Punto de entrada de la aplicación
     └── test/
-        └── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
+        ├── test_ai_nlp_stt_hotword_response.py # Archivo de prueba para hotword, STT, NLP Response
+        ├── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
+        └── test_iot.py               # Archivo de prueba para el módulo IoT
 ```

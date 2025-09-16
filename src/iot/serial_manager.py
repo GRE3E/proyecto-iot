@@ -9,9 +9,11 @@ class SerialManager:
         self.baudrate = baudrate
         self.serial_connection = None
         self.is_connected = False
-        self._connect()
 
-    def _connect(self):
+    def connect(self):
+        if self.is_connected:
+            logging.info(f"SerialManager: Ya conectado a {self.port}.")
+            return
         try:
             self.serial_connection = serial.Serial(self.port, self.baudrate, timeout=1)
             self.is_connected = True

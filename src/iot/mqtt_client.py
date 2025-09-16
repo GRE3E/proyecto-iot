@@ -13,7 +13,18 @@ class MQTTClient:
         self.client.on_message = self._on_message
         self.is_connected = False
         self.subscriptions = {}
-        self._connect()
+
+    def connect(self):
+        if self.is_connected:
+            logging.info(f"MQTTClient: Ya conectado al broker MQTT en {self.broker}:{self.port}")
+            return
+        try:
+            self.client.connect(self.broker, self.port, 60)
+            self.client.loop_start() # Iniciar el bucle en un hilo separado
+            self.is_connected = True
+        except Exception as e:
+            logging.warning(f"MQTTClient: No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
+            self.is_connected = False
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:

@@ -21,6 +21,7 @@ class TestSerialManager(unittest.TestCase):
     def test_connection_success(self, mock_serial):
         mock_instance = mock_serial.return_value
         manager = SerialManager(port="COM_TEST", baudrate=9600)
+        manager.connect()
         self.assertTrue(manager.is_connected)
         mock_serial.assert_called_with("COM_TEST", 9600, timeout=1)
         self.assertTrue(mock_instance.is_open)
@@ -28,12 +29,14 @@ class TestSerialManager(unittest.TestCase):
     @patch('serial.Serial', side_effect=serial.SerialException("Test Error"))
     def test_connection_failure(self, mock_serial):
         manager = SerialManager(port="COM_TEST", baudrate=9600)
+        manager.connect()
         self.assertFalse(manager.is_connected)
 
     @patch('serial.Serial')
     def test_send_command(self, mock_serial):
         mock_instance = mock_serial.return_value
         manager = SerialManager(port="COM_TEST", baudrate=9600)
+        manager.connect()
         manager.send_command("TEST_CMD")
         mock_instance.write.assert_called_with(b"TEST_CMD\n")
 
@@ -43,6 +46,7 @@ class TestSerialManager(unittest.TestCase):
         mock_instance.in_waiting = 10
         mock_instance.readline.return_value = b"DATA_FROM_ARDUINO\n"
         manager = SerialManager(port="COM_TEST", baudrate=9600)
+        manager.connect()
         data = manager.read_data()
         self.assertEqual(data, "DATA_FROM_ARDUINO")
 
@@ -52,6 +56,7 @@ class TestMQTTClient(unittest.TestCase):
     def test_connect_success(self, mock_mqtt_client):
         mock_instance = mock_mqtt_client.return_value
         client = MQTTClient(broker="localhost", port=1883)
+        client.connect()
         # Simular la llamada a on_connect
         client._on_connect(mock_instance, None, None, 0)
         self.assertTrue(client.is_connected)
@@ -62,6 +67,7 @@ class TestMQTTClient(unittest.TestCase):
     def test_publish(self, mock_mqtt_client):
         mock_instance = mock_mqtt_client.return_value
         client = MQTTClient(broker="localhost", port=1883)
+        client.connect()
         client._on_connect(mock_instance, None, None, 0) # Simular conexión
         client.publish("test/topic", "test_payload")
         mock_instance.publish.assert_called_with("test/topic", "test_payload")
@@ -70,6 +76,7 @@ class TestMQTTClient(unittest.TestCase):
     def test_subscribe_and_message(self, mock_mqtt_client):
         mock_instance = mock_mqtt_client.return_value
         client = MQTTClient(broker="localhost", port=1883)
+        client.connect()
         client._on_connect(mock_instance, None, None, 0) # Simular conexión
 
         mock_callback = MagicMock()

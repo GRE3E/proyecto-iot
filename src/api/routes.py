@@ -84,7 +84,6 @@ def initialize_nlp():
         if serial_port and serial_baudrate:
             try:
                 _serial_manager = SerialManager(port=serial_port, baudrate=int(serial_baudrate))
-                _serial_manager.connect()
                 logging.info(f"SerialManager inicializado y conectado en {serial_port}:{serial_baudrate}")
             except Exception as e:
                 logging.error(f"Error al inicializar SerialManager: {e}")
@@ -98,7 +97,6 @@ def initialize_nlp():
         if mqtt_broker and mqtt_port:
             try:
                 _mqtt_client = MQTTClient(broker=mqtt_broker, port=int(mqtt_port))
-                _mqtt_client.connect()
                 logging.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}")
             except Exception as e:
                 logging.error(f"Error al inicializar MQTTClient: {e}")

@@ -166,10 +166,15 @@ async def startup_event():
         try:
             from src.iot.mqtt_client import MQTTClient
             app.state.mqtt_client = MQTTClient(broker=os.getenv("MQTT_BROKER", "localhost"), port=int(os.getenv("MQTT_PORT", "1883")))
-            app.state.mqtt_client.connect()
             logging.info("MQTTClient inicializado correctamente.")
         except Exception as e:
             logging.warning(f"⚠️ Advertencia: No se pudo inicializar MQTTClient: {e}. La funcionalidad MQTT no estará disponible.")
+
+        # Conectar SerialManager y MQTTClient explícitamente si están disponibles
+        if app.state.serial_manager:
+            app.state.serial_manager.connect()
+        if app.state.mqtt_client:
+            app.state.mqtt_client.connect()
 
         # Pasar instancias de IoT al módulo NLP si están disponibles
         if nlp_module:
@@ -221,7 +226,7 @@ async def shutdown_event():
         # Desconectar SerialManager
         if hasattr(app.state, 'serial_manager') and app.state.serial_manager:
             try:
-                app.state.serial_manager.disconnect()
+                app.state.serial_manager.close()
                 logging.info("SerialManager desconectado")
             except Exception as e:
                 logging.error(f"Error al desconectar SerialManager: {e}")

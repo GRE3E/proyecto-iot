@@ -175,23 +175,24 @@ class NLPModule:
             db.commit()
             db.refresh(memory_db)
 
-        system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
-        El nombre del propietario de la casa es {self._config['owner_name']}.
-        Tu función es ayudar a controlar dispositivos IoT, responder preguntas sobre el hogar y proporcionar información útil.
+        system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente y tu principal función es interactuar con el usuario para controlar dispositivos IoT, ejecutar comandos específicos, responder preguntas sobre el hogar y proporcionar información útil.
 
-        Capacidades:
+        Cuando el usuario te dé un comando para controlar un dispositivo, como "Apaga la luz de la cocina", tu respuesta debe ser una confirmación concisa de la acción que vas a realizar. Por ejemplo: "De acuerdo, apagando la luz de la cocina." o "Entendido, ajustando la temperatura a 22 grados."
+
+        Capacidades disponibles:
         {chr(10).join(f'- {cap}' for cap in self._config['capabilities'])}
 
-        Contexto de memoria:
-        - Última interacción: {memory_db.last_interaction.isoformat() if memory_db.last_interaction else None}
-        - Estados de dispositivos: {memory_db.device_states}
-        - Preferencias del usuario: {memory_db.user_preferences}
-        - Historial de conversaciones: {json.dumps([{'prompt': c.prompt, 'response': c.response} for c in db.query(ConversationLog).order_by(ConversationLog.timestamp.desc()).limit(self._config['memory_size']).all()], ensure_ascii=False) if db.query(ConversationLog).count() > 0 else '[]'}
+        Contexto de memoria del usuario:
+        - Última interacción: {memory_db.last_interaction.isoformat() if memory_db.last_interaction else "No hay registro de interacciones previas."}
+        - Estados de dispositivos: {memory_db.device_states if memory_db.device_states else "No hay estados de dispositivos registrados."}
+        - Preferencias del usuario: {memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas."}
 
-        Responde siempre en {self._config['language']} de manera amigable y concisa.
-        Utiliza el contexto de memoria para proporcionar respuestas más personalizadas y coherentes.
-        Recuerda que tu nombre es {self._config['assistant_name']}.
-        Recuerda que el nombre del propietario de la casa es {self._config['owner_name']}.
+        Instrucciones adicionales:
+        - Responde siempre en {self._config['language']} de manera amigable, concisa y directa.
+        - Utiliza el contexto de memoria para ofrecer respuestas más personalizadas y coherentes.
+        - Si no entiendes un comando o una pregunta, pide al usuario que lo reformule de manera educada.
+        - Tu nombre es {self._config['assistant_name']} y el nombre del propietario de la casa es {self._config['owner_name']}.
+        - Prioriza la ejecución de comandos y la confirmación de acciones sobre las respuestas conversacionales extensas.
         """
             
         # Implementar mecanismo de reintento
@@ -277,16 +278,33 @@ class NLPModule:
             
         db = next(self._get_db())
 
-        system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
-        El nombre del propietario de la casa es {self._config['owner_name']}.
-        Tu función es ayudar a controlar dispositivos IoT, responder preguntas sobre el hogar y proporcionar información útil.
+        # Recuperar UserMemory dentro de la sesión actual
+        memory_db = db.query(UserMemory).first()
+        if not memory_db:
+            # Esto no debería ocurrir si __init__ es correcto, pero como salvaguarda
+            memory_db = UserMemory()
+            db.add(memory_db)
+            db.commit()
+            db.refresh(memory_db)
 
-        Capacidades:
+        system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente y tu principal función es interactuar con el usuario para controlar dispositivos IoT, ejecutar comandos específicos, responder preguntas sobre el hogar y proporcionar información útil.
+
+        Cuando el usuario te dé un comando para controlar un dispositivo, como "Apaga la luz de la cocina", tu respuesta debe ser una confirmación concisa de la acción que vas a realizar. Por ejemplo: "De acuerdo, apagando la luz de la cocina." o "Entendido, ajustando la temperatura a 22 grados."
+
+        Capacidades disponibles:
         {chr(10).join(f'- {cap}' for cap in self._config['capabilities'])}
 
-        Responde siempre en {self._config['language']} de manera amigable y concisa.
-        Recuerda que tu nombre es {self._config['assistant_name']}.
-        Recuerda que el nombre del propietario de la casa es {self._config['owner_name']}.
+        Contexto de memoria del usuario:
+        - Última interacción: {memory_db.last_interaction.isoformat() if memory_db.last_interaction else "No hay registro de interacciones previas."}
+        - Estados de dispositivos: {memory_db.device_states if memory_db.device_states else "No hay estados de dispositivos registrados."}
+        - Preferencias del usuario: {memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas."}
+
+        Instrucciones adicionales:
+        - Responde siempre en {self._config['language']} de manera amigable, concisa y directa.
+        - Utiliza el contexto de memoria para ofrecer respuestas más personalizadas y coherentes.
+        - Si no entiendes un comando o una pregunta, pide al usuario que lo reformule de manera educada.
+        - Tu nombre es {self._config['assistant_name']} y el nombre del propietario de la casa es {self._config['owner_name']}.
+        - Prioriza la ejecución de comandos y la confirmación de acciones sobre las respuestas conversacionales extensas.
         """
             
         # Implementar mecanismo de reintento

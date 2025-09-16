@@ -3,7 +3,7 @@
   "owner_name": "Gre",
   "language": "es",
   "model": {
-    "name": "qwen2.5:3b-instruct",
+    "name": "mistral:7b-instruct",
     "temperature": 0.7,
     "max_tokens": 500
   },

@@ -6,7 +6,7 @@ import subprocess
 import resampy
 
 class STTModule:
-    def __init__(self, model_name: str = "medium"):
+    def __init__(self, model_name: str = "base"): #tiny", "base", "small", "medium"
         self._model = None
         self._online = False
         self.model_name = model_name
@@ -31,7 +31,7 @@ class STTModule:
 
         try:
             # Cargar el modelo Whisper en español
-            self._model = whisper.load_model(self.model_name) #tiny", "base", "small", "medium"
+            self._model = whisper.load_model(self.model_name) 
             self._online = True
             print("\033[92mINFO\033[0m:     Modelo Whisper cargado exitosamente.")
         except Exception as e:

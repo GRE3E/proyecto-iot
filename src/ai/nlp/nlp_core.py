@@ -11,7 +11,7 @@ from src.db.database import SessionLocal
 from src.db.models import UserMemory, ConversationLog
 import asyncio.windows_events # Importar para WindowsSelectorEventLoopPolicy
 
-# Configurar logging
+# Configurar el registro de eventos
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class NLPModule:
@@ -20,13 +20,13 @@ class NLPModule:
         self._config_path = Path(__file__).parent.parent / 'config' / 'config.json'
         self._load_config()
         self._online = self._check_connection()
+        # Asegurarse de que UserMemory exista, pero no almacenarlo como una variable de instancia
         db = next(self._get_db())
-        self._memory_db = db.query(UserMemory).first()
-        if not self._memory_db:
-            self._memory_db = UserMemory()
-            db.add(self._memory_db)
+        if not db.query(UserMemory).first():
+            new_memory = UserMemory()
+            db.add(new_memory)
             db.commit()
-            db.refresh(self._memory_db)
+        db.close() # Cerrar explícitamente la sesión utilizada para la inicialización
 
     def _load_config(self):
         """Carga la configuración del asistente."""
@@ -65,11 +65,18 @@ class NLPModule:
         """Actualiza la memoria y guarda el log de la conversación en la base de datos."""
         timestamp = datetime.now()
         
+        # Obtener la instancia de UserMemory dentro de la sesión actual
+        memory_db = db.query(UserMemory).first()
+        if not memory_db:
+            # Este caso idealmente no debería ocurrir si __init__ lo asegura, pero como salvaguarda
+            memory_db = UserMemory()
+            db.add(memory_db)
+            db.flush() # Vaciar para obtener un ID si es necesario para operaciones subsiguientes
+        
         # Actualizar última interacción en memoria
-        self._memory_db.last_interaction = timestamp
-        self._memory_db = db.merge(self._memory_db) # Volver a adjuntar y obtener la instancia administrada
+        memory_db.last_interaction = timestamp
         db.commit()
-        db.refresh(self._memory_db)
+        db.refresh(memory_db) # Refrescar la instancia que está ligada a la sesión actual
         
         # Guardar conversación en ConversationLog
         conversation = ConversationLog(
@@ -122,7 +129,7 @@ class NLPModule:
             print("Error: Ollama no está instalado o no se encuentra en el PATH")
             return False
         except subprocess.TimeoutExpired:
-            print("Error: Timeout al verificar Ollama")
+            print("Error: Tiempo de espera agotado al verificar Ollama")
             return False
     
     def is_online(self) -> bool:
@@ -130,13 +137,13 @@ class NLPModule:
         return self._online
 
     def reload(self):
-        """Recarga configuración y revalida conexión."""
+        """Recarga la configuración y revalida la conexión."""
         self._load_config()
         db = next(self._get_db())
         self._online = self._check_connection()
     
     async def generate_response(self, prompt: str) -> Optional[str]:
-        """Envía prompt al modelo Ollama y devuelve respuesta en texto."""
+        """Envía el prompt al modelo Ollama y devuelve la respuesta en texto."""
         if not prompt or not prompt.strip():
             logging.warning("El prompt no puede estar vacío.")
             return None
@@ -155,9 +162,18 @@ class NLPModule:
                     asyncio.set_event_loop_policy(asyncio.windows_events.WindowsSelectorEventLoopPolicy())
             except RuntimeError:
                 # No hay bucle en ejecución, configurar la política
-                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                asyncio.set_event_loop_policy(asyncio.windows_events.WindowsSelectorEventLoopPolicy())
             
         db = next(self._get_db())
+
+        # Recuperar UserMemory dentro de la sesión actual
+        memory_db = db.query(UserMemory).first()
+        if not memory_db:
+            # Esto no debería ocurrir si __init__ es correcto, pero como salvaguarda
+            memory_db = UserMemory()
+            db.add(memory_db)
+            db.commit()
+            db.refresh(memory_db)
 
         system_prompt = f"""Eres {self._config['assistant_name']}, un asistente de casa inteligente.
         El nombre del propietario de la casa es {self._config['owner_name']}.
@@ -167,9 +183,9 @@ class NLPModule:
         {chr(10).join(f'- {cap}' for cap in self._config['capabilities'])}
 
         Contexto de memoria:
-        - Última interacción: {self._memory_db.last_interaction.isoformat() if self._memory_db.last_interaction else None}
-        - Estados de dispositivos: {self._memory_db.device_states}
-        - Preferencias del usuario: {self._memory_db.user_preferences}
+        - Última interacción: {memory_db.last_interaction.isoformat() if memory_db.last_interaction else None}
+        - Estados de dispositivos: {memory_db.device_states}
+        - Preferencias del usuario: {memory_db.user_preferences}
         - Historial de conversaciones: {json.dumps([{'prompt': c.prompt, 'response': c.response} for c in db.query(ConversationLog).order_by(ConversationLog.timestamp.desc()).limit(self._config['memory_size']).all()], ensure_ascii=False) if db.query(ConversationLog).count() > 0 else '[]'}
 
         Responde siempre en {self._config['language']} de manera amigable y concisa.
@@ -214,8 +230,8 @@ class NLPModule:
                         encoding='utf-8'
                     )
                     
-                    logging.debug(f"Ollama stdout: {result.stdout}")
-                    logging.debug(f"Ollama stderr: {result.stderr}")
+                    logging.debug(f"Salida estándar de Ollama: {result.stdout}")
+                    logging.debug(f"Salida de error de Ollama: {result.stderr}")
                     
                     if result.returncode == 0 and result.stdout:
                         response = result.stdout.strip()
@@ -231,7 +247,7 @@ class NLPModule:
                         logging.error(error_msg)
                 
                 except subprocess.TimeoutExpired:
-                    logging.error(f"Timeout al ejecutar Ollama (intento {attempt + 1}/{retries})")
+                    logging.error(f"Tiempo de espera agotado al ejecutar Ollama (intento {attempt + 1}/{retries})")
                 except subprocess.CalledProcessError as e:
                     logging.error(f"Error al ejecutar comando Ollama (intento {attempt + 1}/{retries}): {e}")
                 except Exception as e:
@@ -318,7 +334,7 @@ class NLPModule:
                         logging.error(f"Error en Ollama (intento {attempt + 1}/{retries}): {result.stderr}")
                 
                 except subprocess.TimeoutExpired:
-                    logging.error(f"Timeout al ejecutar Ollama (intento {attempt + 1}/{retries})")
+                    logging.error(f"Tiempo de espera agotado al ejecutar Ollama (intento {attempt + 1}/{retries})")
                 except Exception as e:
                     logging.error(f"Error al ejecutar Ollama (intento {attempt + 1}/{retries}): {e}")
                 

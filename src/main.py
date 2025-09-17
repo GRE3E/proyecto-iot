@@ -8,7 +8,13 @@ if os.name == 'nt':  # Windows
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from .api.routes import router, initialize_nlp
+from src.api.routes import router
+from src.api.hotword_routes import hotword_router
+from src.api.nlp_routes import nlp_router
+from src.api.stt_routes import stt_router
+from src.api.speaker_routes import speaker_router
+from src.api.iot_routes import iot_router
+from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _serial_manager, _mqtt_client
 from .db.database import Base, engine
 from .db import models  # Importa los modelos para asegurar que estén registrados con Base
 from src.ai.hotword.hotword import HotwordDetector
@@ -28,6 +34,10 @@ app = FastAPI(title="Casa Inteligente API")
 # Instancias globales
 hotword_detector: HotwordDetector = None
 nlp_module: NLPModule = None
+
+# Instancias globales (ahora se obtienen de utils)
+hotword_detector = _hotword_module
+nlp_module = _nlp_module
 
 # Configuración
 CONFIG_PATH = "src/ai/config/config.json"
@@ -58,81 +68,7 @@ def load_config():
     
     return config
 
-async def continuous_audio_processing_loop():
-    """Bucle de procesamiento de audio continuo mejorado."""
-    logging.info("[Escucha Continua] Iniciando procesamiento de audio continuo...")
-    
-    try:
-        p = pyaudio.PyAudio()
-        stream = p.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=16000,
-            input=True,
-            frames_per_buffer=1024
-        )
 
-        while not app.state.stop_continuous_listening_event.is_set():
-            try:
-                frames = []
-                # Grabar un pequeño fragmento de audio (3 segundos)
-                for _ in range(0, int(16000 / 1024 * 3)):
-                    if app.state.stop_continuous_listening_event.is_set():
-                        break
-                    data = stream.read(1024, exception_on_overflow=False)
-                    frames.append(data)
-                
-                if app.state.stop_continuous_listening_event.is_set():
-                    break
-                
-                audio_filename = f"continuous_audio_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
-                
-                try:
-                    wf = wave.open(audio_filename, 'wb')
-                    wf.setnchannels(1)
-                    wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
-                    wf.setframerate(16000)
-                    wf.writeframes(b''.join(frames))
-                    wf.close()
-
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        try:
-                            with open(audio_filename, "rb") as f:
-                                files = {'audio_file': (audio_filename, f, 'audio/wav')}
-                                response = await client.post("http://localhost:8000/hotword/process_audio", files=files)
-                                response.raise_for_status()
-                                result = response.json()
-                                logging.info(f"[Escucha Continua] Respuesta de la API: {result}")
-                        except httpx.RequestError as e:
-                            logging.error(f"[Escucha Continua] Falló la solicitud HTTP: {e}")
-                        except httpx.HTTPStatusError as e:
-                            logging.error(f"[Escucha Continua] Error de estado HTTP: {e.response.status_code} - {e.response.text}")
-                        except Exception as e:
-                            logging.error(f"[Escucha Continua] Error en la solicitud: {e}")
-                finally:
-                    # Limpiar el archivo de audio
-                    try:
-                        if os.path.exists(audio_filename):
-                            os.remove(audio_filename)
-                    except Exception as e:
-                        logging.warning(f"[Escucha Continua] No se pudo eliminar {audio_filename}: {e}")
-                
-                # Pequeño retraso para evitar el busy-waiting
-                await asyncio.sleep(0.1)
-
-            except Exception as e:
-                logging.error(f"[Escucha Continua] Error en el bucle: {e}")
-                await asyncio.sleep(1)  # Esperar antes de continuar
-
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
-        logging.info("[Escucha Continua] Procesamiento de audio continuo detenido.")
-        
-    except Exception as e:
-        logging.error(f"[Escucha Continua] Error crítico: {e}")
-    finally:
-        logging.info("[Escucha Continua] Finalizando bucle de audio.")
 
 @app.on_event("startup")
 async def startup_event():
@@ -152,33 +88,10 @@ async def startup_event():
         # Inicializar módulos NLP
         initialize_nlp()
 
-        # Inicializar módulos IoT opcionalmente
-        app.state.serial_manager = None
-        app.state.mqtt_client = None
+        # Asignar las instancias de IoT a app.state desde los módulos globales de utils.py
+        app.state.serial_manager = _serial_manager
+        app.state.mqtt_client = _mqtt_client
 
-        try:
-            from src.iot.serial_manager import SerialManager
-            app.state.serial_manager = SerialManager(port=os.getenv("SERIAL_PORT", "COM3"), baudrate=int(os.getenv("SERIAL_BAUDRATE", "9600")))
-            logging.info("SerialManager inicializado correctamente.")
-        except Exception as e:
-            logging.warning(f"⚠️ Advertencia: No se pudo inicializar SerialManager: {e}. La funcionalidad serial no estará disponible.")
-
-        try:
-            from src.iot.mqtt_client import MQTTClient
-            app.state.mqtt_client = MQTTClient(broker=os.getenv("MQTT_BROKER", "localhost"), port=int(os.getenv("MQTT_PORT", "1883")))
-            logging.info("MQTTClient inicializado correctamente.")
-        except Exception as e:
-            logging.warning(f"⚠️ Advertencia: No se pudo inicializar MQTTClient: {e}. La funcionalidad MQTT no estará disponible.")
-
-        # Conectar SerialManager y MQTTClient explícitamente si están disponibles
-        if app.state.serial_manager:
-            app.state.serial_manager.connect()
-        if app.state.mqtt_client:
-            app.state.mqtt_client.connect()
-
-        # Pasar instancias de IoT al módulo NLP si están disponibles
-        if nlp_module:
-            nlp_module.set_iot_managers(app.state.serial_manager, app.state.mqtt_client)
 
         # Crear tablas de base de datos
         Base.metadata.create_all(bind=engine)
@@ -187,19 +100,11 @@ async def startup_event():
         app.state.continuous_listening_task = None
         app.state.stop_continuous_listening_event = asyncio.Event()
 
-        # Inicializar HotwordDetector
-        access_key = os.getenv("PICOVOICE_ACCESS_KEY")
-        hotword_path = os.getenv("HOTWORD_PATH")
-        
-        if access_key and hotword_path:
-            try:
-                hotword_detector = HotwordDetector(access_key=access_key, hotword_path=hotword_path)
-                logging.info("HotwordDetector inicializado correctamente")
-            except Exception as e:
-                logging.error(f"Error al inicializar HotwordDetector: {e}")
-                hotword_detector = None
-        else:
-            logging.warning("PICOVOICE_ACCESS_KEY o HOTWORD_PATH no configurados en .env. La detección de hotword no estará activa.")
+        # HotwordDetector se inicializa dentro de initialize_nlp() en utils.py
+        # No es necesario inicializarlo aquí directamente.
+        # La variable global hotword_detector en main.py ya apunta a _hotword_module de utils.
+        if _hotword_module and not _hotword_module.is_online():
+            logging.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
 
         logging.info("Aplicación iniciada correctamente")
         

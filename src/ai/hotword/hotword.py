@@ -16,6 +16,9 @@ class HotwordDetector:
         self.pa = None
         self.audio_stream = None
 
+    def is_online(self) -> bool:
+        return self.porcupine is not None and self.pa is not None and self.audio_stream is not None
+
     def start(self, callback):
         try:
             self.porcupine = pvporcupine.create(

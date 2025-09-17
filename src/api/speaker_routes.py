@@ -1,0 +1,79 @@
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from sqlalchemy.orm import Session
+from src.db.database import SessionLocal
+from src.api.speaker_schemas import SpeakerIdentifyResponse
+from src.api.schemas import StatusResponse
+import logging
+from pathlib import Path
+import tempfile
+
+# Importar módulos globales desde utils
+from src.api import utils
+
+speaker_router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@speaker_router.post("/speaker/register", response_model=StatusResponse)
+async def register_speaker(name: str, audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Registra un nuevo usuario con su voz."""
+    if utils._speaker_module is None or not utils._speaker_module.is_online():
+        raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
+    
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_location = Path(tmpdir) / audio_file.filename
+            with open(file_location, "wb+") as file_object:
+                content = await audio_file.read()
+                file_object.write(content)
+            
+            success = utils._speaker_module.register_speaker(name, str(file_location))
+
+        if not success:
+            raise HTTPException(status_code=500, detail="No se pudo registrar al hablante")
+        
+        response_data = StatusResponse(
+            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
+            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
+            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
+            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
+            serial="ONLINE" if utils._serial_module and utils._serial_module.is_online() else "OFFLINE",
+            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
+        )
+        utils._save_api_log("/speaker/register", {"name": name, "filename": audio_file.filename}, response_data.dict(), db)
+        return response_data
+        
+    except Exception as e:
+        logging.error(f"Error al registrar hablante: {e}")
+        raise HTTPException(status_code=500, detail="Error al registrar el hablante")
+
+@speaker_router.post("/speaker/identify", response_model=SpeakerIdentifyResponse)
+async def identify_speaker(audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Identifica quién habla."""
+    if utils._speaker_module is None or not utils._speaker_module.is_online():
+        raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
+    
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_location = Path(tmpdir) / audio_file.filename
+            with open(file_location, "wb+") as file_object:
+                content = await audio_file.read()
+                file_object.write(content)
+            
+            identified_speaker = utils._speaker_module.identify_speaker(str(file_location))
+
+        if identified_speaker is None:  # Check for None explicitly
+            raise HTTPException(status_code=500, detail="No se pudo identificar al hablante")
+        
+        response_obj = SpeakerIdentifyResponse(speaker_name=identified_speaker)
+        utils._save_api_log("/speaker/identify", {"filename": audio_file.filename}, response_obj.dict(), db)
+        return response_obj
+        
+    except Exception as e:
+        logging.error(f"Error al identificar hablante: {e}")
+        raise HTTPException(status_code=500, detail="Error al identificar el hablante")

@@ -1,0 +1,46 @@
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from sqlalchemy.orm import Session
+from src.db.database import SessionLocal
+from src.api.stt_schemas import STTResponse
+import logging
+from pathlib import Path
+import tempfile
+
+# Importar módulos globales desde utils
+from src.api import utils
+
+stt_router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@stt_router.post("/stt/transcribe", response_model=STTResponse)
+async def transcribe_audio(audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Convierte voz a texto usando el módulo STT."""
+    if utils._stt_module is None or not utils._stt_module.is_online():
+        raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")
+    
+    # Guardar el archivo de audio temporalmente en un directorio temporal
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_location = Path(tmpdir) / audio_file.filename
+            with open(file_location, "wb+") as file_object:
+                content = await audio_file.read()
+                file_object.write(content)
+            
+            transcribed_text = utils._stt_module.transcribe_audio(str(file_location))
+
+        if transcribed_text is None:
+            raise HTTPException(status_code=500, detail="No se pudo transcribir el audio")
+        
+        response_obj = STTResponse(text=transcribed_text)
+        utils._save_api_log("/stt/transcribe", {"filename": audio_file.filename}, response_obj.dict(), db)
+        return response_obj
+        
+    except Exception as e:
+        logging.error(f"Error en transcripción STT: {e}")
+        raise HTTPException(status_code=500, detail="Error al transcribir el audio")

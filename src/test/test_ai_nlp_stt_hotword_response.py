@@ -129,7 +129,7 @@ class MicrophoneApp:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     with open(audio_file_path, "rb") as f:
                         files = {'audio_file': (audio_file_path.name, f, 'audio/wav')}
-                        response = await client.post("http://localhost:8000/hotword/process_audio", files=files)
+                        response = await client.post("http://localhost:8000/hotword/hotword/process_audio", files=files)
                         response.raise_for_status() # Lanzar una excepción para códigos de estado erróneos
                         
                         result = response.json()

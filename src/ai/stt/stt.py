@@ -59,7 +59,7 @@ class STTModule:
             
             mel = whisper.log_mel_spectrogram(audio).to(self._model.device)
             
-            options = whisper.DecodingOptions(language="es", fp16=True) # fp16=False para CPU
+            options = whisper.DecodingOptions(language="es", fp16=False) # fp16=False para CPU
             result = whisper.decode(self._model, mel, options)
             
             return result.text

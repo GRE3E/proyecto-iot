@@ -27,7 +27,14 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Script
 pip install -r requirements.txt
 ```
 
-3. Asegurarse de tener Ollama instalado y el modelo descargado (para NLP):
+3. **Instalar PyTorch con soporte para CUDA (si se dispone de GPU NVIDIA):**
+   Asegúrate de tener el CUDA Toolkit de NVIDIA instalado en tu sistema. Luego, instala PyTorch con el siguiente comando (ajusta `cu121` a la versión de CUDA que tengas instalada, por ejemplo, `cu118` para CUDA 11.8):
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1; pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+4. Asegurarse de tener Ollama instalado y el modelo descargado (para NLP):
 
 ```powershell
 ollama list  # Verificar que el modelo está instalado
@@ -61,6 +68,8 @@ python src\test\test_iot.py
 ```powershell
 uvicorn src.main:app --reload
 ```
+
+**Nota:** El servidor de Ollama se iniciará automáticamente en segundo plano cuando la aplicación se inicie. No es necesario ejecutar `ollama serve` manualmente.
 
 2. El servidor estará disponible en:
 

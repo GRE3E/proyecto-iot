@@ -6,6 +6,7 @@ import asyncio
 import httpx
 import wave
 from datetime import datetime
+import threading
 
 class HotwordDetector:
     def __init__(self, access_key, hotword_path, input_device_index=None):
@@ -15,11 +16,14 @@ class HotwordDetector:
         self.porcupine = None
         self.pa = None
         self.audio_stream = None
+        self._is_listening = False
+        self._callback = None
 
     def is_online(self) -> bool:
-        return self.porcupine is not None and self.pa is not None and self.audio_stream is not None
+        return self.porcupine is not None and self.pa is not None and self.audio_stream is not None and self._is_listening
 
-    def start(self, callback):
+    async def start(self, callback):
+        self._callback = callback
         try:
             self.porcupine = pvporcupine.create(
                 access_key=self.access_key,
@@ -35,53 +39,91 @@ class HotwordDetector:
                 frames_per_buffer=self.porcupine.frame_length,
                 input_device_index=self.input_device_index
             )
-
+            self._is_listening = True
             print(f"[HotwordDetector] Escuchando palabras clave...")
-            while True:
-                pcm = self.audio_stream.read(self.porcupine.frame_length)
-                pcm = struct.unpack_from("h" * self.porcupine.frame_length, pcm)
 
-                result = self.porcupine.process(pcm)
+            while self._is_listening:
+                # Ejecutar operaciones de audio y procesamiento en un hilo separado
+                pcm = await asyncio.to_thread(self.audio_stream.read, self.porcupine.frame_length)
+                pcm = await asyncio.to_thread(struct.unpack_from, "h" * self.porcupine.frame_length, pcm)
+
+                result = await asyncio.to_thread(self.porcupine.process, pcm)
                 if result >= 0:
                     print(f"[HotwordDetector] Palabra activa detectada, activando asistente...")
-                    callback()
+                    await self._callback()
+                await asyncio.sleep(0.01) # Pequeña pausa para no bloquear el bucle de eventos
 
+        except asyncio.CancelledError:
+            print("[HotwordDetector] Tarea de escucha cancelada.")
         except Exception as e:
             print(f"[HotwordDetector] Error: {e}")
         finally:
             self.stop()
 
     def stop(self):
+        self._is_listening = False
         if self.audio_stream is not None:
             self.audio_stream.close()
+            self.audio_stream = None
         if self.pa is not None:
             self.pa.terminate()
+            self.pa = None
         if self.porcupine is not None:
             self.porcupine.delete()
-        print("\033[92mINFO\033[0m:     [HotwordDetector] Detenido.")
+            self.porcupine = None
+        print("[92mINFO[0m:     [HotwordDetector] Detenido.")
 
-def record_audio(filename, duration=5, sample_rate=16000, chunk_size=1024, channels=1):
+def record_audio(filename, sample_rate=16000, chunk_size=1024, channels=1, silence_timeout=1.0, vad_aggressiveness=3):
+    """
+    Graba audio hasta que se detecta silencio.
+    
+    Args:
+        filename: Nombre del archivo de salida.
+        sample_rate: Tasa de muestreo del audio (Hz).
+        chunk_size: Tamaño de cada fragmento de audio.
+        channels: Número de canales de audio (1 para mono).
+        silence_timeout: Tiempo en segundos de silencio para detener la grabación.
+        vad_aggressiveness: Nivel de agresividad del VAD (1-3).
+    """
+    import webrtcvad
+    
     p = pyaudio.PyAudio()
     stream = p.open(format=pyaudio.paInt16,
                     channels=channels,
                     rate=sample_rate,
                     input=True,
                     frames_per_buffer=chunk_size)
-
+    
+    vad = webrtcvad.Vad(vad_aggressiveness)
     frames = []
-    print(f"[HotwordDetector] Grabando durante {duration} segundos...")
-    for _ in range(0, int(sample_rate / chunk_size * duration)):
+    silent_frames = 0
+    max_silent_frames = int(silence_timeout * sample_rate / chunk_size)
+    
+    print("[HotwordDetector] Grabando... Habla ahora.")
+    
+    while True:
         data = stream.read(chunk_size)
         frames.append(data)
-
-    print("[HotwordDetector] Grabación finalizada.")
+        
+        # Verificar actividad de voz
+        is_speech = vad.is_speech(data, sample_rate)
+        
+        if is_speech:
+            silent_frames = 0
+        else:
+            silent_frames += 1
+            
+        if silent_frames > max_silent_frames:
+            print("[HotwordDetector] Silencio detectado, finalizando grabación.")
+            break
+    
     stream.stop_stream()
     stream.close()
     p.terminate()
-
+    
     wf = wave.open(filename, 'wb')
     wf.setnchannels(channels)
-    wf.setsamewidth(p.get_sample_size(pyaudio.paInt16))
+    wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
     wf.setframerate(sample_rate)
     wf.writeframes(b''.join(frames))
     wf.close()
@@ -119,8 +161,8 @@ if __name__ == '__main__':
         print("Error: HOTWORD_PATH no encontrada en las variables de entorno.")
         exit()
 
-    def hotword_callback_sync():
-        asyncio.run(hotword_callback_async())
+    async def main_hotword_test():
+        detector = HotwordDetector(access_key=ACCESS_KEY, hotword_path=HOTWORD_PATH)
+        await detector.start(hotword_callback_async)
 
-    detector = HotwordDetector(access_key=ACCESS_KEY, hotword_path=HOTWORD_PATH)
-    detector.start(hotword_callback_sync)
+    asyncio.run(main_hotword_test())

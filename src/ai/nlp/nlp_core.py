@@ -1,15 +1,19 @@
 import subprocess
-import json
-import os
-import asyncio
+import time
 import logging
+import os
+import json
+import sys
+import asyncio
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
 from src.db.models import UserMemory, ConversationLog
-import asyncio.windows_events # Importar para WindowsSelectorEventLoopPolicy
+import asyncio.windows_events
+import ollama
+import time
 
 # Configurar el registro de eventos
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,16 +23,78 @@ class NLPModule:
         """Inicializa la conexión con Ollama y carga la configuración."""
         self._config_path = Path(__file__).parent.parent / 'config' / 'config.json'
         self._load_config()
+        self._ollama_process = None
+        self._start_ollama_server()
         self._online = self._check_connection()
         self.serial_manager = None
         self.mqtt_client = None
-        # Asegurarse de que UserMemory exista, pero no almacenarlo como una variable de instancia
         db = next(self._get_db())
         if not db.query(UserMemory).first():
             new_memory = UserMemory()
             db.add(new_memory)
             db.commit()
         db.close() # Cerrar explícitamente la sesión utilizada para la inicialización
+
+    def _start_ollama_server(self):
+        """Inicia el servidor de Ollama como un subproceso si no está ya en ejecución."""
+        try:
+            # Intentar conectar para ver si ya está en ejecución
+            client = ollama.Client(host='http://localhost:11434')
+            client.list()
+            logging.info("El servidor de Ollama ya está en ejecución.")
+            self._online = True
+            return
+        except ollama.ResponseError:
+            logging.info("El servidor de Ollama no está en ejecución, intentando iniciarlo...")
+        except Exception as e:
+            logging.warning(f"Error al verificar el estado de Ollama: {e}. Intentando iniciar el servidor.")
+
+        try:
+            # Iniciar el servidor de Ollama en un subproceso
+            self._ollama_process = subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            logging.info("Servidor de Ollama iniciado en segundo plano.")
+            time.sleep(5) 
+            for _ in range(5):
+                line = self._ollama_process.stdout.readline()
+                if line:
+                    logging.info(f"Ollama server output: {line.strip()}")
+                else:
+                    break
+                if "Listening on" in line:
+                    logging.info("Ollama server reportó que está escuchando.")
+                    break
+            
+            time.sleep(5)
+            
+            # Verificar la conexión después de intentar iniciar
+            if self._check_connection():
+                logging.info("Conexión con el servidor de Ollama establecida exitosamente.")
+                self._online = True
+            else:
+                logging.error("Fallo al conectar con el servidor de Ollama después de iniciarlo.")
+                self._online = False
+
+        except FileNotFoundError:
+            logging.error("El comando 'ollama' no se encontró. Asegúrese de que Ollama esté instalado y en el PATH.")
+            self._online = False
+        except Exception as e:
+            logging.error(f"Error al iniciar el servidor de Ollama: {e}")
+            self._online = False
+
+    def __del__(self):
+        """Asegura que el proceso de Ollama se termine al cerrar la aplicación."""
+        if self._ollama_process and self._ollama_process.poll() is None:
+            logging.info("Terminando el proceso del servidor de Ollama...")
+            self._ollama_process.terminate()
+            self._ollama_process.wait(timeout=5)
+            if self._ollama_process.poll() is None:
+                self._ollama_process.kill()
+            logging.info("Proceso del servidor de Ollama terminado.")
 
     def set_iot_managers(self, serial_manager, mqtt_client):
         self.serial_manager = serial_manager
@@ -75,17 +141,15 @@ class NLPModule:
         # Obtener la instancia de UserMemory dentro de la sesión actual
         memory_db = db.query(UserMemory).first()
         if not memory_db:
-            # Este caso idealmente no debería ocurrir si __init__ lo asegura, pero como salvaguarda
             memory_db = UserMemory()
             db.add(memory_db)
-            db.flush() # Vaciar para obtener un ID si es necesario para operaciones subsiguientes
+            db.flush() 
         
         # Actualizar última interacción en memoria
         memory_db.last_interaction = timestamp
         db.commit()
-        db.refresh(memory_db) # Refrescar la instancia que está ligada a la sesión actual
+        db.refresh(memory_db) 
         
-        # Guardar conversación en ConversationLog
         conversation = ConversationLog(
             timestamp=timestamp,
             prompt=prompt,
@@ -98,12 +162,15 @@ class NLPModule:
     def _check_connection(self) -> bool:
         """Verifica la conexión con Ollama y la disponibilidad del modelo."""
         try:
-            # Verificar que Ollama está instalado y en ejecución
-            result = subprocess.run(["ollama", "list"], capture_output=True, text=True, check=True, timeout=10)
-            if self._config["model"]["name"] not in result.stdout:
+            client = ollama.Client(host='http://localhost:11434')
+            available_models = client.list()
+            model_names = [m['name'] for m in available_models['models']]
+
+            if self._config["model"]["name"] not in model_names:
                 print(f"Error: El modelo {self._config['model']['name']} no está disponible.")
                 print("Modelos disponibles:")
-                print(result.stdout)
+                for model_name in model_names:
+                    print(f"- {model_name}")
                 return False
                 
             # Validar los parámetros del modelo
@@ -117,26 +184,12 @@ class NLPModule:
                 print(f"Error: num_predict debe ser un número entero positivo")
                 return False
                 
-            # Probar la configuración de OLLAMA_OPTIONS
-            try:
-                options = {
-                    "temperature": self._config['model']['temperature'],
-                    "num_predict": self._config['model']['max_tokens']
-                }
-                json.dumps(options, ensure_ascii=False)
-            except (TypeError, ValueError) as e:
-                print(f"Error al generar OLLAMA_OPTIONS: {str(e)}")
-                return False
-                
             return True
-        except subprocess.CalledProcessError as e:
-            print(f"Error al verificar Ollama: {e.stderr}")
+        except ollama.ResponseError as e:
+            print(f"Error al conectar con Ollama: {e}")
             return False
-        except FileNotFoundError:
-            print("Error: Ollama no está instalado o no se encuentra en el PATH")
-            return False
-        except subprocess.TimeoutExpired:
-            print("Error: Tiempo de espera agotado al verificar Ollama")
+        except Exception as e:
+            print(f"Error inesperado al verificar Ollama: {e}")
             return False
     
     def is_online(self) -> bool:
@@ -146,7 +199,6 @@ class NLPModule:
     def reload(self):
         """Recarga la configuración y revalida la conexión."""
         self._load_config()
-        db = next(self._get_db())
         self._online = self._check_connection()
     
     async def generate_response(self, prompt: str) -> Optional[str]:
@@ -176,7 +228,6 @@ class NLPModule:
         # Recuperar UserMemory dentro de la sesión actual
         memory_db = db.query(UserMemory).first()
         if not memory_db:
-            # Esto no debería ocurrir si __init__ es correcto, pero como salvaguarda
             memory_db = UserMemory()
             db.add(memory_db)
             db.commit()
@@ -207,84 +258,54 @@ class NLPModule:
         for attempt in range(retries):
             try:
                 prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
-                options = {
-                    "temperature": self._config['model']['temperature'],
-                    "num_predict": self._config['model']['max_tokens']
-                }
-                options_str = json.dumps(options, ensure_ascii=False)
                 
-                cmd = [
-                    "ollama", "run",
-                    self._config['model']['name'],
-                    prompt_text
-                ]
+                client = ollama.AsyncClient(host='http://localhost:11434')
+                response_stream = await client.chat(
+                    model=self._config['model']['name'],
+                    messages=[{'role': 'user', 'content': prompt_text}],
+                    options={
+                        "temperature": self._config['model']['temperature'],
+                        "num_predict": self._config['model']['max_tokens']
+                    },
+                    stream=True
+                )
                 
-                logging.info(f"Ejecutando comando Ollama: ollama run {self._config['model']['name']} [prompt]")
+                full_response_content = ""
+                async for chunk in response_stream:
+                    if 'content' in chunk['message']:
+                        full_response_content += chunk['message']['content']
                 
-                # SOLUCIÓN 1: Usar subprocess.run en lugar de asyncio.create_subprocess_exec
-                # Esto funciona mejor en Windows y evita el problema de NotImplementedError
-                try:
-                    # Configurar variables de entorno
-                    env = os.environ.copy()
-                    env['OLLAMA_OPTIONS'] = options_str
-                    
-                    # Ejecutar el comando de forma sincrónica
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,  # Timeout de 30 segundos
-                        env=env,
-                        encoding='utf-8'
-                    )
-                    
-                    logging.debug(f"Salida estándar de Ollama: {result.stdout}")
-                    logging.debug(f"Salida de error de Ollama: {result.stderr}")
-                    
-                    if result.returncode == 0 and result.stdout:
-                        response = result.stdout.strip()
-                        if response:  # Verificar que la respuesta no esté vacía
-                            # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
-                            if self.serial_manager and "serial_command:" in response:
-                                command_to_send = response.split("serial_command:")[1].strip()
-                                logging.info(f"Enviando comando serial: {command_to_send}")
-                                self.serial_manager.send_command(command_to_send)
-                                response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
-                            elif self.mqtt_client and "mqtt_publish:" in response:
-                                parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
-                                if len(parts) == 2:
-                                    topic = parts[0].strip()
-                                    payload = parts[1].strip()
-                                    logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
-                                    self.mqtt_client.publish(topic, payload)
-                                    response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
-                                else:
-                                    logging.warning(f"Formato de comando MQTT inválido: {response}")
-
-                            self._update_memory(prompt, response, db)
-                            return response
+                if full_response_content:
+                    response = full_response_content.strip()
+                    # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
+                    if self.serial_manager and "serial_command:" in response:
+                        command_to_send = response.split("serial_command:")[1].strip()
+                        logging.info(f"Enviando comando serial: {command_to_send}")
+                        self.serial_manager.send_command(command_to_send)
+                        response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
+                    elif self.mqtt_client and "mqtt_publish:" in response:
+                        parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
+                        if len(parts) == 2:
+                            topic = parts[0].strip()
+                            payload = parts[1].strip()
+                            logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
+                            self.mqtt_client.publish(topic, payload)
+                            response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
                         else:
-                            logging.warning("Ollama devolvió una respuesta vacía")
-                    else:
-                        error_msg = f"Error al generar respuesta (intento {attempt + 1}/{retries}):\n"
-                        error_msg += f"Código de salida: {result.returncode}\n"
-                        error_msg += f"Salida de error: {result.stderr}"
-                        logging.error(error_msg)
+                            logging.warning(f"Formato de comando MQTT inválido: {response}")
+
+                    self._update_memory(prompt, response, db)
+                    return response
+                else:
+                    logging.warning("Ollama devolvió una respuesta vacía")
                 
-                except subprocess.TimeoutExpired:
-                    logging.error(f"Tiempo de espera agotado al ejecutar Ollama (intento {attempt + 1}/{retries})")
-                except subprocess.CalledProcessError as e:
-                    logging.error(f"Error al ejecutar comando Ollama (intento {attempt + 1}/{retries}): {e}")
-                except Exception as e:
-                    logging.error(f"Error inesperado al ejecutar Ollama (intento {attempt + 1}/{retries}): {e}")
-                
-                if attempt < retries - 1:
-                    await asyncio.sleep(2)  # Esperar antes de reintentar
-                    
+            except ollama.ResponseError as e:
+                logging.error(f"Error de Ollama al generar respuesta (intento {attempt + 1}/{retries}): {e}")
             except Exception as e:
                 logging.exception(f"Excepción al generar respuesta (intento {attempt + 1}/{retries}): {str(e)}")
-                if attempt < retries - 1:
-                    await asyncio.sleep(2)  # Esperar antes de reintentar
+                
+            if attempt < retries - 1:
+                await asyncio.sleep(2)  # Esperar antes de reintentar
         
         logging.error("Se agotaron todos los intentos para generar respuesta")
         self._online = False
@@ -305,7 +326,6 @@ class NLPModule:
         # Recuperar UserMemory dentro de la sesión actual
         memory_db = db.query(UserMemory).first()
         if not memory_db:
-            # Esto no debería ocurrir si __init__ es correcto, pero como salvaguarda
             memory_db = UserMemory()
             db.add(memory_db)
             db.commit()
@@ -336,77 +356,53 @@ class NLPModule:
         for attempt in range(retries):
             try:
                 prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
-                options = {
-                    "temperature": self._config['model']['temperature'],
-                    "num_predict": self._config['model']['max_tokens']
-                }
-                options_str = json.dumps(options, ensure_ascii=False)
                 
-                cmd = [
-                    "ollama", "run",
-                    self._config['model']['name'],
-                    prompt_text
-                ]
+                client = ollama.Client(host='http://localhost:11434')
+                response_data = client.chat(
+                    model=self._config['model']['name'],
+                    messages=[{'role': 'user', 'content': prompt_text}],
+                    options={
+                        "temperature": self._config['model']['temperature'],
+                        "num_predict": self._config['model']['max_tokens']
+                    }
+                )
                 
-                logging.info(f"Ejecutando comando Ollama sincrónico: ollama run {self._config['model']['name']} [prompt]")
-                
-                try:
-                    # Configurar variables de entorno
-                    env = os.environ.copy()
-                    env['OLLAMA_OPTIONS'] = options_str
-                    
-                    # Ejecutar el comando
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        env=env,
-                        encoding='utf-8'
-                    )
-                    
-                    if result.returncode == 0 and result.stdout:
-                        response = result.stdout.strip()
-                        if response:
-                            # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
-                            if self.serial_manager and "serial_command:" in response:
-                                command_to_send = response.split("serial_command:")[1].strip()
-                                logging.info(f"Enviando comando serial: {command_to_send}")
-                                self.serial_manager.send_command(command_to_send)
-                                response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
-                            elif self.mqtt_client and "mqtt_publish:" in response:
-                                parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
-                                if len(parts) == 2:
-                                    topic = parts[0].strip()
-                                    payload = parts[1].strip()
-                                    logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
-                                    self.mqtt_client.publish(topic, payload)
-                                    response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
-                                else:
-                                    logging.warning(f"Formato de comando MQTT inválido: {response}")
+                if response_data and 'message' in response_data and 'content' in response_data['message']:
+                    response = response_data['message']['content'].strip()
+                    if response:
+                        # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
+                        if self.serial_manager and "serial_command:" in response:
+                            command_to_send = response.split("serial_command:")[1].strip()
+                            logging.info(f"Enviando comando serial: {command_to_send}")
+                            self.serial_manager.send_command(command_to_send)
+                            response = f"Comando serial enviado: {command_to_send}. " + response.split("serial_command:")[0].strip()
+                        elif self.mqtt_client and "mqtt_publish:" in response:
+                            parts = response.split("mqtt_publish:")[1].strip().split(",", 1)
+                            if len(parts) == 2:
+                                topic = parts[0].strip()
+                                payload = parts[1].strip()
+                                logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
+                                self.mqtt_client.publish(topic, payload)
+                                response = f"Mensaje MQTT publicado en {topic}. " + response.split("mqtt_publish:")[0].strip()
+                            else:
+                                logging.warning(f"Formato de comando MQTT inválido: {response}")
 
-                            self._update_memory(prompt, response, db)
-                            return response
-                        else:
-                            logging.warning("Ollama devolvió una respuesta vacía")
+                        self._update_memory(prompt, response, db)
+                        return response
                     else:
-                        logging.error(f"Error en Ollama (intento {attempt + 1}/{retries}): {result.stderr}")
+                        logging.warning("Ollama devolvió una respuesta vacía")
+                else:
+                    logging.warning("Ollama devolvió una respuesta inesperada o vacía")
                 
-                except subprocess.TimeoutExpired:
-                    logging.error(f"Tiempo de espera agotado al ejecutar Ollama (intento {attempt + 1}/{retries})")
-                except Exception as e:
-                    logging.error(f"Error al ejecutar Ollama (intento {attempt + 1}/{retries}): {e}")
-                
-                if attempt < retries - 1:
-                    import time
-                    time.sleep(2)  # Esperar antes de reintentar
-                    
+            except ollama.ResponseError as e:
+                logging.error(f"Error de Ollama al generar respuesta (intento {attempt + 1}/{retries}): {e}")
             except Exception as e:
-                logging.exception(f"Excepción al generar respuesta sincrónica (intento {attempt + 1}/{retries}): {str(e)}")
-                if attempt < retries - 1:
-                    import time
-                    time.sleep(2)
+                logging.exception(f"Excepción al generar respuesta (intento {attempt + 1}/{retries}): {str(e)}")
+                
+            if attempt < retries - 1:
+                import time
+                time.sleep(2)
         
-        logging.error("Se agotaron todos los intentos para generar respuesta sincrónica")
+        logging.error("Se agotaron todos los intentos para generar respuesta")
         self._online = False
         return None

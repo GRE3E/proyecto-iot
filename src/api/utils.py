@@ -1,7 +1,7 @@
 from src.ai.nlp.nlp_core import NLPModule
 from src.ai.stt.stt import STTModule
 from src.ai.speaker.speaker import SpeakerRecognitionModule
-from src.ai.hotword.hotword import HotwordDetector
+from src.ai.hotword.hotword import HotwordDetector, hotword_callback_async
 from src.iot.serial_manager import SerialManager
 from src.iot.mqtt_client import MQTTClient
 import os
@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 from sqlalchemy.orm import Session
 from src.db.models import APILog
+import asyncio
 
 _nlp_module = None
 _stt_module = None
@@ -17,6 +18,7 @@ _speaker_module = None
 _hotword_module = None
 _serial_manager = None
 _mqtt_client = None
+_hotword_task = None
 
 def _save_api_log(endpoint: str, request_body: dict, response_data: dict, db: Session):
     """Guarda un log de la interacción de la API en la base de datos."""
@@ -36,7 +38,7 @@ def _save_api_log(endpoint: str, request_body: dict, response_data: dict, db: Se
 
 def initialize_nlp():
     """Inicializa los módulos NLP, STT y Speaker."""
-    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client
+    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task
     
     try:
         logging.info("Inicializando módulos...")
@@ -57,6 +59,8 @@ def initialize_nlp():
             try:
                 _hotword_module = HotwordDetector(access_key=access_key, hotword_path=hotword_path)
                 logging.info("Módulo Hotword inicializado correctamente")
+                # Iniciar el HotwordDetector como una tarea en segundo plano
+                _hotword_task = asyncio.create_task(_hotword_module.start(hotword_callback_async))
             except Exception as e:
                 logging.error(f"Error al inicializar HotwordDetector: {e}")
                 _hotword_module = None

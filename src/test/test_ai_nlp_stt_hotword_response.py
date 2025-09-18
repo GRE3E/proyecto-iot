@@ -77,15 +77,17 @@ class MicrophoneApp:
             self.log_message(f"Error al inicializar módulo NLP: {e}")
             messagebox.showerror("Error", f"No se pudo inicializar el módulo NLP: {e}")
 
-    def hotword_callback(self):
+    async def hotword_callback(self):
         self.log_message("¡Palabra clave detectada! La IA responderá...")
-        # Programar la ejecución de ai_response en el bucle de eventos principal
-        if self.main_asyncio_loop and self.main_asyncio_loop.is_running():
-            asyncio.run_coroutine_threadsafe(self.ai_response(), self.main_asyncio_loop)
+        if self.nlp_module and self.nlp_module.is_online():
+            await self.ai_response()
         else:
-            self.log_message("Error: El bucle de eventos principal de asyncio no está corriendo.")
+            self.log_message("Módulo NLP no disponible para responder en hotword_callback.")
+            await asyncio.sleep(0) # Asegura que la función siempre devuelva un awaitable
 
-    def _record_user_prompt_audio(self, duration=5, sample_rate=16000, chunk_size=1024, channels=1):
+    def _record_user_prompt_audio(self, sample_rate=16000, chunk_size=320, channels=1, silence_timeout=1.0, vad_aggressiveness=3):
+        import webrtcvad
+
         p = pyaudio.PyAudio()
         stream = p.open(format=pyaudio.paInt16,
                         channels=channels,
@@ -93,18 +95,32 @@ class MicrophoneApp:
                         input=True,
                         frames_per_buffer=chunk_size)
 
+        vad = webrtcvad.Vad(vad_aggressiveness)
         frames = []
-        self.log_message(f"[Micrófono] Grabando tu petición durante {duration} segundos...")
-        for _ in range(0, int(sample_rate / chunk_size * duration)):
+        silent_frames = 0
+        max_silent_frames = int(silence_timeout * sample_rate / chunk_size)
+
+        self.log_message("[Micrófono] Grabando tu petición... Habla ahora.")
+
+        while True:
             data = stream.read(chunk_size)
             frames.append(data)
 
-        self.log_message("[Micrófono] Grabación finalizada.")
+            is_speech = vad.is_speech(data, sample_rate)
+
+            if is_speech:
+                silent_frames = 0
+            else:
+                silent_frames += 1
+
+            if silent_frames > max_silent_frames:
+                self.log_message("[Micrófono] Silencio detectado, finalizando grabación.")
+                break
+
         stream.stop_stream()
         stream.close()
         p.terminate()
 
-        # Crear un archivo temporal
         temp_dir = tempfile.gettempdir()
         audio_filename = Path(temp_dir) / f"user_prompt_audio_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
 
@@ -123,7 +139,7 @@ class MicrophoneApp:
             audio_file_path = None
             try:
                 # 1. Grabar la petición del usuario
-                audio_file_path = await asyncio.to_thread(self._record_user_prompt_audio) # Ejecutar la grabación de audio bloqueante en un hilo
+                audio_file_path = await asyncio.to_thread(self._record_user_prompt_audio, silence_timeout=2.0) # Ejecutar la grabación de audio bloqueante en un hilo
 
                 # 2. Enviar el audio a la API para procesamiento completo (STT, Speaker ID, NLP)
                 async with httpx.AsyncClient(timeout=30.0) as client:
@@ -169,7 +185,10 @@ class MicrophoneApp:
     def _run_hotword_detector(self):
         try:
             self.hotword_detector = HotwordDetector(access_key=self.access_key, hotword_path=self.hotword_path)
-            self.hotword_detector.start(self.hotword_callback)
+            # Crear un nuevo bucle de eventos para este hilo
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.hotword_detector.start(self.hotword_callback))
         except Exception as e:
             self.log_message(f"Error en el detector de hotword: {e}")
             self.root.after(0, self.deactivate_microphone)  # Desactivar en el hilo principal

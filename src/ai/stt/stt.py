@@ -4,12 +4,14 @@ import numpy as np
 import soundfile as sf
 import subprocess
 import resampy
+import torch
 
 class STTModule:
     def __init__(self, model_name: str = "small"): #tiny", "base", "small", "medium"
         self._model = None
         self._online = False
         self.model_name = model_name
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self._load_model()
 
     def _check_ffmpeg(self):
@@ -57,9 +59,9 @@ class STTModule:
             audio = audio.astype(np.float32) # Convertir a float32 para compatibilidad con Whisper
             audio = whisper.pad_or_trim(audio)
             
-            mel = whisper.log_mel_spectrogram(audio).to(self._model.device)
+            mel = whisper.log_mel_spectrogram(audio).to(self.device)
             
-            options = whisper.DecodingOptions(language="es", fp16=False) # fp16=False para CPU
+            options = whisper.DecodingOptions(language="es", fp16=self.device == "cuda")
             result = whisper.decode(self._model, mel, options)
             
             return result.text

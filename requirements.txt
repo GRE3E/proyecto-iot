@@ -18,3 +18,4 @@ httpx
 python-dotenv
 pyserial
 paho-mqtt
+webrtcvad==2.0.10

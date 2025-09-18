@@ -14,7 +14,7 @@ from src.api.nlp_routes import nlp_router
 from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
-from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _serial_manager, _mqtt_client
+from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task
 from .db.database import Base, engine
 from .db import models  # Importa los modelos para asegurar que estén registrados con Base
 from src.ai.hotword.hotword import HotwordDetector
@@ -121,12 +121,15 @@ async def shutdown_event():
     
     try:
         # Detener HotwordDetector
-        if hotword_detector:
+        if _hotword_task:
+            logging.info("Cancelando tarea de HotwordDetector...")
+            _hotword_task.cancel()
             try:
-                hotword_detector.stop()
-                logging.info("HotwordDetector detenido")
+                await _hotword_task
+            except asyncio.CancelledError:
+                logging.info("Tarea de HotwordDetector cancelada correctamente")
             except Exception as e:
-                logging.error(f"Error al detener HotwordDetector: {e}")
+                logging.error(f"Error al esperar la tarea de HotwordDetector: {e}")
 
         # Desconectar SerialManager
         if hasattr(app.state, 'serial_manager') and app.state.serial_manager:

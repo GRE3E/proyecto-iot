@@ -9,6 +9,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 import tempfile
+
+# Importar módulos globales desde utils
 from src.api import utils
 
 iot_router = APIRouter()
@@ -16,7 +18,7 @@ iot_router = APIRouter()
 async def continuous_audio_processing_loop():
     """Bucle de procesamiento de audio continuo."""
     from fastapi import FastAPI
-    app = FastAPI.current()  # Obtener la instancia actual de FastAPI
+    app = FastAPI.current()  # Instancia actual de FastAPI
     
     logging.info("[Escucha Continua] Iniciando procesamiento de audio continuo...")
     
@@ -80,7 +82,7 @@ async def continuous_audio_processing_loop():
 
             except Exception as e:
                 logging.error(f"[Escucha Continua] Error en el bucle: {e}")
-                await asyncio.sleep(1)  # Esperar antes de continuar
+                await asyncio.sleep(1)
 
         stream.stop_stream()
         stream.close()
@@ -97,7 +99,7 @@ async def toggle_continuous_listening(request: ContinuousListeningToggle):
     """Controla la escucha continua (iniciar/detener)."""
     try:
         from fastapi import FastAPI
-        app = FastAPI.current()  # Obtener la instancia actual de FastAPI
+        app = FastAPI.current()
 
         if request.action == "start":
             if not hasattr(app.state, "continuous_listening_task") or app.state.continuous_listening_task.done():
@@ -110,7 +112,7 @@ async def toggle_continuous_listening(request: ContinuousListeningToggle):
         elif request.action == "stop":
             if hasattr(app.state, "stop_continuous_listening_event"):
                 app.state.stop_continuous_listening_event.set()
-                await app.state.continuous_listening_task  # Esperar a que la tarea finalice
+                await app.state.continuous_listening_task
                 del app.state.continuous_listening_task
                 del app.state.stop_continuous_listening_event
                 logging.info("Escucha continua detenida.")

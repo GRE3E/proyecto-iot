@@ -84,6 +84,9 @@ async def startup_event():
         # Cargar configuración
         config = load_config()
         logging.info(f"Configuración cargada: {config}")
+
+        # Crear tablas de base de datos
+        Base.metadata.create_all(bind=engine)
         
         # Inicializar módulos NLP
         initialize_nlp()
@@ -93,9 +96,6 @@ async def startup_event():
         app.state.mqtt_client = _mqtt_client
 
 
-        # Crear tablas de base de datos
-        Base.metadata.create_all(bind=engine)
-        
         # Inicializar variables de escucha continua en app.state
         app.state.continuous_listening_task = None
         app.state.stop_continuous_listening_event = asyncio.Event()

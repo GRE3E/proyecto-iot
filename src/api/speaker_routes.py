@@ -42,7 +42,7 @@ async def register_speaker(name: str, audio_file: UploadFile = File(...), db: Se
             stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
             speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
             hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_module and utils._serial_module.is_online() else "OFFLINE",
+            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_connected else "OFFLINE",
             mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
         )
         utils._save_api_log("/speaker/register", {"name": name, "filename": audio_file.filename}, response_data.dict(), db)

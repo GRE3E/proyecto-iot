@@ -62,7 +62,7 @@ async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depen
             stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
             speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
             hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_module and utils._serial_module.is_online() else "OFFLINE",
+            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
             mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
         )
         utils._save_api_log("/config/assistant-name", update.dict(), response_data.dict(), db)
@@ -88,7 +88,7 @@ async def update_owner_name(update: OwnerNameUpdate, db: Session = Depends(get_d
             stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
             speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
             hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_module and utils._serial_module.is_online() else "OFFLINE",
+            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
             mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
         )
         utils._save_api_log("/config/owner-name", update.dict(), response_data.dict(), db)

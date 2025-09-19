@@ -9,6 +9,8 @@ import tempfile
 # Importar módulos globales desde utils
 from src.api import utils
 
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+
 hotword_router = APIRouter()
 
 def get_db():
@@ -22,10 +24,13 @@ def get_db():
 async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Procesa el audio después de la detección de hotword: STT, identificación de hablante y NLP."""
     if utils._stt_module is None or not utils._stt_module.is_online():
+        logging.error("El módulo STT está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")
     if utils._speaker_module is None or not utils._speaker_module.is_online():
+        logging.error("El módulo de hablante está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
     if utils._nlp_module is None or not utils._nlp_module.is_online():
+        logging.error("El módulo NLP está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
 
     transcribed_text = ""
@@ -38,21 +43,27 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             with open(file_location, "wb+") as file_object:
                 content = await audio_file.read()
                 file_object.write(content)
+            logging.info(f"Archivo de audio temporal guardado en: {file_location}")
 
             # 1. Transcripción de voz a texto
             transcribed_text = utils._stt_module.transcribe_audio(str(file_location))
             if transcribed_text is None:
+                logging.error("No se pudo transcribir el audio después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo transcribir el audio después de la hotword")
+            logging.info(f"Texto transcribido: {transcribed_text}")
 
             # 2. Identificación de hablante
             identified_speaker = utils._speaker_module.identify_speaker(str(file_location))
             if identified_speaker is None:
                 identified_speaker = "Unknown"
+            logging.info(f"Hablante identificado: {identified_speaker}")
 
             # 3. Procesamiento NLP
-            nlp_response = await utils._nlp_module.generate_response(transcribed_text)
+            nlp_response = await utils._nlp_module.generate_response(transcribed_text, identified_speaker)
             if nlp_response is None:
+                logging.error("No se pudo generar la respuesta NLP después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")
+            logging.info(f"Respuesta NLP: {nlp_response}")
 
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,

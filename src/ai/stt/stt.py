@@ -5,6 +5,8 @@ import soundfile as sf
 import subprocess
 import resampy
 import torch
+import warnings
+warnings.filterwarnings("ignore", message=".*flash attention.*")
 
 class STTModule:
     def __init__(self, model_name: str = "small"): #tiny", "base", "small", "medium"

@@ -144,7 +144,7 @@ async def hotword_callback_async():
     audio_filename = f"hotword_audio_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
     await asyncio.to_thread(record_audio, audio_filename)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             with open(audio_filename, "rb") as f:
                 files = {'audio_file': (audio_filename, f, 'audio/wav')}

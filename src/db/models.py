@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime # Importar ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -34,6 +34,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
     embedding = Column(Text, nullable=False) # Vector serializado
+    is_owner = Column(Boolean, default=False) # Nuevo campo para identificar al propietario
 
     preferences = relationship("Preference", back_populates="user", uselist=False)
 

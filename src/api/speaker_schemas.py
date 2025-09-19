@@ -12,3 +12,16 @@ class SpeakerIdentifyRequest(BaseModel):
 class SpeakerIdentifyResponse(BaseModel):
     """Modelo para la respuesta de identificación de hablante."""
     speaker_name: str
+    user_id: int | None = None
+    is_owner: bool | None = None
+
+class UserCharacteristic(BaseModel):
+    """Modelo para las características de un usuario."""
+    id: int
+    name: str
+    is_owner: bool
+
+class UserListResponse(BaseModel):
+    """Modelo para la respuesta de la lista de usuarios."""
+    user_count: int
+    users: list[UserCharacteristic]

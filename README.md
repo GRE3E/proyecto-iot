@@ -133,7 +133,28 @@ Respuesta:
 
 ### POST /speaker/register
 
-Registra un nuevo usuario con su voz, guardando el embedding en la base de datos.
+Registra un nuevo usuario con su voz, guardando el embedding en la base de datos. Ahora incluye la opción de registrar al usuario como propietario.
+
+Cuerpo de la solicitud (multipart/form-data):
+
+```
+name: [nombre del usuario]
+file: [archivo de audio .wav]
+is_owner: [true/false, opcional, por defecto false]
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Usuario registrado exitosamente",
+  "user_id": 1
+}
+```
+
+### POST /speaker/register_owner
+
+Registra un nuevo usuario como propietario con su voz, guardando el embedding en la base de datos.
 
 Cuerpo de la solicitud (multipart/form-data):
 
@@ -146,8 +167,67 @@ Respuesta:
 
 ```json
 {
-  "message": "Usuario registrado exitosamente",
+  "message": "Usuario propietario registrado exitosamente",
   "user_id": 1
+}
+```
+
+### POST /speaker/identify
+
+Identifica al hablante a partir de un archivo de audio, devolviendo también el ID del usuario y si es propietario.
+
+Cuerpo de la solicitud (multipart/form-data):
+
+```
+file: [archivo de audio .wav]
+```
+
+Respuesta:
+
+```json
+{
+  "speaker_name": "Nombre del usuario identificado",
+  "user_id": 1,
+  "is_owner": true
+}
+```
+
+### POST /nlp/query
+
+Procesa una consulta en lenguaje natural. Ahora puede incluir un `user_id` para personalizar la interacción y aplicar permisos.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "prompt": "Enciende la luz de la sala",
+  "user_id": 1 // Opcional: ID del usuario identificado
+}
+```
+
+Respuesta:
+
+```json
+{
+  "response": "[Respuesta del modelo]"
+}
+```
+
+### POST /stt/transcribe
+
+Convierte audio a texto utilizando el módulo Whisper.
+
+Cuerpo de la solicitud (multipart/form-data):
+
+```
+file: [archivo de audio .wav]
+```
+
+Respuesta:
+
+```json
+{
+  "text": "Texto transcrito del audio"
 }
 ```
 

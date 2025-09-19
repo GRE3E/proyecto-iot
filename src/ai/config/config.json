@@ -3,7 +3,7 @@
   "owner_name": "Gre",
   "language": "es",
   "model": {
-    "name": "mistral:7b-instruct",
+    "name": "qwen2.5:3b-instruct",
     "temperature": 0.7,
     "max_tokens": 500
   },
@@ -13,5 +13,7 @@
     "control_dispositivos",
     "consulta_estado"
   ],
-  "memory_size": 100
+  "memory_size": 100,
+  "database_url": "sqlite:///./data/casa_inteligente.db"
 }
+

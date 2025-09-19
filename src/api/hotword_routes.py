@@ -5,6 +5,7 @@ from src.api.hotword_schemas import HotwordAudioProcessResponse
 import logging
 from pathlib import Path
 import tempfile
+from src.db.models import User # Importar el modelo User
 
 # Importar módulos globales desde utils
 from src.api import utils
@@ -53,13 +54,29 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             logging.info(f"Texto transcribido: {transcribed_text}")
 
             # 2. Identificación de hablante
-            identified_speaker = utils._speaker_module.identify_speaker(str(file_location))
-            if identified_speaker is None:
-                identified_speaker = "Unknown"
-            logging.info(f"Hablante identificado: {identified_speaker}")
+            identified_user_from_speaker = utils._speaker_module.identify_speaker(str(file_location))
+            identified_speaker_name = "Unknown"
+            # Buscar el objeto User en la base de datos
+            identified_user_obj = None
+            user_name_for_nlp = None
+            is_owner_for_nlp = False
+
+            if identified_user_from_speaker:
+                identified_speaker_name = identified_user_from_speaker.nombre
+                identified_user_obj = identified_user_from_speaker
+                user_name_for_nlp = identified_user_obj.nombre
+                is_owner_for_nlp = identified_user_obj.is_owner
+            else:
+                # Si no se identifica al hablante, intentamos buscar por nombre si es necesario (aunque identify_speaker ya debería devolver el objeto)
+                # Esto es un fallback, pero la lógica principal debería ser usar identified_user_from_speaker
+                identified_user_obj = db.query(User).filter(User.nombre == identified_speaker_name).first()
+                if identified_user_obj:
+                    user_name_for_nlp = identified_user_obj.nombre
+                    is_owner_for_nlp = identified_user_obj.is_owner
+
 
             # 3. Procesamiento NLP
-            nlp_response = await utils._nlp_module.generate_response(transcribed_text, identified_speaker)
+            nlp_response = await utils._nlp_module.generate_response(transcribed_text, user_name=user_name_for_nlp, is_owner=is_owner_for_nlp)
             if nlp_response is None:
                 logging.error("No se pudo generar la respuesta NLP después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")
@@ -67,7 +84,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
 
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,
-            identified_speaker=identified_speaker,
+            identified_speaker=identified_speaker_name,
             nlp_response=nlp_response
         )
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)

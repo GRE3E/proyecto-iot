@@ -36,7 +36,7 @@ export default function App() {
   const [filter, setFilter] = useState("Todos")
 
   // 🔧 Estados para Configuración
-  const [ownerName, setOwnerName] = useState("Eddyn")
+  const [ownerName, setOwnerName] = useState("Usuario")
   const [language, setLanguage] = useState("es")
   const [notifications, setNotifications] = useState(true)
 
@@ -50,7 +50,6 @@ export default function App() {
       const hour = new Date().getHours()
       if (hour >= 6 && hour < 12) setThemeByTime("morning")
       else if (hour >= 12 && hour < 18) setThemeByTime("afternoon")
-      else if (hour >= 18 && hour < 21) setThemeByTime("evening")
       else setThemeByTime("night")
     }
     updateTheme()
@@ -59,9 +58,9 @@ export default function App() {
   }, [])
 
   const themeClasses: Record<string, string> = {
-    morning: "bg-gradient-to-br from-sky-100 via-blue-50 to-sky-200 text-slate-900",
-    afternoon: "bg-gradient-to-br from-amber-100 via-orange-200 to-rose-100 text-slate-800",
-    night: "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-slate-100",
+    morning: "bg-gradient-to-br from-slate-100 via-sky-100 to-slate-200 text-slate-800",
+    afternoon: "bg-gradient-to-br from-slate-200 via-amber-100 to-slate-300 text-slate-900",
+    night: "bg-gradient-to-br from-slate-800 via-purple-900 to-slate-950 text-slate-100",
   }
 
   // -------------------------------

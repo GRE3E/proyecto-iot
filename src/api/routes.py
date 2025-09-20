@@ -9,6 +9,7 @@ from src.api.nlp_routes import nlp_router
 from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
+from src.api.addons_routes import router as addons_router
 # Importar módulos globales desde utils
 from src.api import utils
 
@@ -19,6 +20,7 @@ router.include_router(nlp_router, prefix="/nlp", tags=["nlp"])
 router.include_router(stt_router, prefix="/stt", tags=["stt"])
 router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
 router.include_router(iot_router, prefix="/iot", tags=["iot"])
+router.include_router(addons_router, prefix="/addons", tags=["addons"])
 
 def get_db():
     db = SessionLocal()
@@ -37,6 +39,7 @@ async def get_status(db: Session = Depends(get_db)):
         hotword_status = "ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE"
         serial_status = "ONLINE" if utils._serial_manager and utils._serial_manager.is_connected else "OFFLINE"
         mqtt_status = "ONLINE" if utils._mqtt_client and utils._mqtt_client.is_connected else "OFFLINE"
+        utils_status = "ONLINE" if utils._nlp_module else "OFFLINE"
         
         status = StatusResponse(
             nlp=nlp_status,
@@ -44,7 +47,8 @@ async def get_status(db: Session = Depends(get_db)):
             speaker=speaker_status,
             hotword=hotword_status,
             serial=serial_status,
-            mqtt=mqtt_status
+            mqtt=mqtt_status,
+            utils=utils_status
         )
         logging.info(f"Status Response: {status.model_dump_json()}")
         return status

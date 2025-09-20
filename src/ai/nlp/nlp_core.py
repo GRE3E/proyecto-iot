@@ -14,6 +14,7 @@ from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.memory_manager import MemoryManager
 from src.db.models import UserMemory
+from src.utils.datetime_utils import get_current_datetime, format_datetime
 
 # Configurar el registro de eventos
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -61,8 +62,9 @@ class NLPModule:
                     "max_tokens": 150
                 },
                 "memory_size": 10,
-                "database_url": "sqlite:///./data/database.db", # Añadir database_url por defecto
-                "owner_only_commands": ["LIGHT_ON", "SET_TEMPERATURE"]
+                "database_url": "sqlite:///./data/database.db",
+                "owner_only_commands": ["LIGHT_ON", "SET_TEMPERATURE"],
+                "timezone": "America/Lima" # Zona horaria por defecto
             }
             self._save_config()
 
@@ -123,7 +125,8 @@ class NLPModule:
             user_preferences=memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas.",
             identified_speaker=user_name if user_name else "Desconocido",
             is_owner=is_owner,
-            owner_name=self._config['owner_name']
+            owner_name=self._config['owner_name'],
+            current_datetime=format_datetime(get_current_datetime(self._config.get("timezone", "UTC")))
         )
             
         # Implementar mecanismo de reintento

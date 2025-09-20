@@ -16,6 +16,7 @@ SYSTEM_PROMPT_TEMPLATE = """Eres {assistant_name}, un asistente de hogar intelig
 - Preferencias del usuario: {user_preferences}
 - Hablante identificado: {identified_speaker}
 - Es propietario: {is_owner}
+- Fecha y Hora Actual: {current_datetime}
 
 **Información del Asistente y Propietario:**
 - Tu nombre es {assistant_name}.

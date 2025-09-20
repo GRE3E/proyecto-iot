@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, detección de hotword para activar el asistente por voz, y un **módulo de integración IoT para control de dispositivos seriales y MQTT**. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente, permitiendo la interacción con dispositivos IoT.
+Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, detección de hotword para activar el asistente por voz, un **módulo de integración IoT para control de dispositivos seriales y MQTT**, y la capacidad de **gestionar la zona horaria del asistente**. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente, permitiendo la interacción con dispositivos IoT y la adaptación a diferentes regiones horarias.
 
 ## Requisitos
 
@@ -80,7 +80,7 @@ uvicorn src.main:app --reload
 
 ### GET /status
 
-Verifica el estado de los módulos NLP, STT y Speaker.
+Verifica el estado actual de los módulos.
 
 Respuesta:
 
@@ -89,7 +89,10 @@ Respuesta:
   "nlp": "ONLINE",
   "stt": "ONLINE",
   "speaker": "ONLINE",
-  "hotword": "ONLINE"
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "utils": "ONLINE"
 }
 ```
 
@@ -289,6 +292,26 @@ Respuesta:
 }
 ```
 
+### PUT /addons/timezone
+
+Actualiza la configuración de la zona horaria del asistente.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "timezone": "America/Lima"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Timezone updated successfully to America/Lima"
+}
+```
+
 ### POST /continuous_listening
 
 Controla el inicio y la parada del modo de escucha continua.
@@ -436,8 +459,22 @@ MQTT_PORT=1883
     │       └── speaker.py        # Embeddings con resemblyzer
     │
     ├── api/                      # Rutas y esquemas de la API
+    │   ├── __init__.py
+    │   ├── addons_routes.py      # Rutas para funcionalidades adicionales
+    │   ├── addons_schemas.py     # Esquemas para funcionalidades adicionales
+    │   ├── hotword_routes.py     # Rutas para el módulo Hotword
+    │   ├── hotword_schemas.py    # Esquemas para el módulo Hotword
+    │   ├── iot_routes.py         # Rutas para el módulo IoT
+    │   ├── iot_schemas.py        # Esquemas para el módulo IoT
+    │   ├── nlp_routes.py         # Rutas para el módulo NLP
+    │   ├── nlp_schemas.py        # Esquemas para el módulo NLP
     │   ├── routes.py             # Endpoints principales
-    │   └── schemas.py            # Pydantic schemas
+    │   ├── schemas.py            # Pydantic schemas generales
+    │   ├── speaker_routes.py     # Rutas para el módulo Speaker
+    │   ├── speaker_schemas.py    # Esquemas para el módulo Speaker
+    │   ├── stt_routes.py         # Rutas para el módulo STT
+    │   ├── stt_schemas.py        # Esquemas para el módulo STT
+    │   └── utils.py              # Utilidades para la API
     ├── db/                       # Rutas de db
     │   ├── database.py
     │   └── models.py
@@ -449,8 +486,11 @@ MQTT_PORT=1883
     │   └── devices.py            # Definición de dispositivos IoT
     │
     ├── main.py                   # Punto de entrada de la aplicación
-    └── test/
-        ├── test_ai_nlp_stt_hotword_response.py # Archivo de prueba para hotword, STT, NLP Response
-        ├── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
-        └── test_iot.py               # Archivo de prueba para el módulo IoT
+    ├── test/
+    │   ├── test_ai_nlp_stt_hotword_response.py # Archivo de prueba para hotword, STT, NLP Response
+    │   ├── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
+    │   └── test_iot.py               # Archivo de prueba para el módulo IoT
+    └── utils/                    # Utilidades generales
+        ├── __init__.py
+        └── datetime_utils.py     # Utilidades para manejo de fecha y hora
 ```

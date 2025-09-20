@@ -319,6 +319,28 @@ Respuesta (ejemplo para "stop"):
 }
 ```
 
+### POST /iot/serial_command
+
+Envía un comando serial al Arduino.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "command": "{"device": "LED", "action": "ON"}"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "status": "success",
+  "message": "Comando serial enviado exitosamente",
+  "response": "OK"
+}
+```
+
 ### POST /hotword/process_audio
 
 Procesa el audio después de la detección de hotword, realizando STT, identificación de hablante y NLP.

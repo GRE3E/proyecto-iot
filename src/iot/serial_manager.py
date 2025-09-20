@@ -1,5 +1,6 @@
 import serial
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -10,17 +11,24 @@ class SerialManager:
         self.serial_connection = None
         self.is_connected = False
 
-    def connect(self):
+    def connect(self, retries: int = 5, delay: int = 2):
         if self.is_connected:
             logging.info(f"SerialManager: Ya conectado a {self.port}.")
             return
-        try:
-            self.serial_connection = serial.Serial(self.port, self.baudrate, timeout=1)
-            self.is_connected = True
-            logging.info(f"SerialManager: Conectado a {self.port} a {self.baudrate} baudios.")
-        except serial.SerialException as e:
-            logging.warning(f"SerialManager: No se pudo conectar al puerto {self.port}: {e}")
-            self.is_connected = False
+
+        for attempt in range(retries):
+            try:
+                self.serial_connection = serial.Serial(self.port, self.baudrate, timeout=1)
+                self.is_connected = True
+                logging.info(f"SerialManager: Conectado a {self.port} a {self.baudrate} baudios.")
+                return
+            except serial.SerialException as e:
+                logging.warning(f"SerialManager: Intento {attempt + 1}/{retries}: No se pudo conectar al puerto {self.port}: {e}")
+                self.is_connected = False
+                if attempt < retries - 1:
+                    logging.info(f"SerialManager: Reintentando en {delay} segundos...")
+                    time.sleep(delay)
+        logging.error(f"SerialManager: Fallo al conectar al puerto {self.port} después de {retries} intentos.")
 
     def read_data(self) -> str:
         if self.is_connected and self.serial_connection.in_waiting > 0:

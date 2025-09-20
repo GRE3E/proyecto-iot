@@ -1,6 +1,7 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Login from "./login"
+import { useThemeByTime } from "./components/hooks/useThemeByTime"
 
 // UI
 import SimpleButton from "./components/UI/SimpleButton"
@@ -21,9 +22,9 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [selectedMenu, setSelectedMenu] = useState("Inicio")
 
-  // -------------------------------
+  const { theme, colors } = useThemeByTime()
+
   // Estados globales
-  // -------------------------------
   const [devices, setDevices] = useState([
     { name: "Lámpara", on: true, power: "50W" },
     { name: "TV", on: false, power: "120W" },
@@ -35,63 +36,24 @@ export default function App() {
   const [humidity, setHumidity] = useState(45)
   const [filter, setFilter] = useState("Todos")
 
-  // 🔧 Estados para Configuración
-  const [ownerName, setOwnerName] = useState("Usuario")
+  // Estados para Configuración
+  const [ownerName, setOwnerName] = useState("Eddyn")
   const [language, setLanguage] = useState("es")
   const [notifications, setNotifications] = useState(true)
 
-  // -------------------------------
-  // Hook de tema dinámico por hora
-  // -------------------------------
-  const [themeByTime, setThemeByTime] = useState("morning")
-
-  useEffect(() => {
-    const updateTheme = () => {
-      const hour = new Date().getHours()
-      if (hour >= 6 && hour < 12) setThemeByTime("morning")
-      else if (hour >= 12 && hour < 18) setThemeByTime("afternoon")
-      else setThemeByTime("night")
-    }
-    updateTheme()
-    const interval = setInterval(updateTheme, 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const themeClasses: Record<string, string> = {
-    morning: "bg-gradient-to-br from-slate-100 via-sky-100 to-slate-200 text-slate-800",
-    afternoon: "bg-gradient-to-br from-slate-200 via-amber-100 to-slate-300 text-slate-900",
-    night: "bg-gradient-to-br from-slate-800 via-purple-900 to-slate-950 text-slate-100",
-  }
-
-  // -------------------------------
   // Login
-  // -------------------------------
   if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />
 
   return (
-    <div
-      className={`flex h-screen bg-gradient-to-br text-white transition-colors duration-700 ${themeClasses[themeByTime]}`}
-    >
-      
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-950/60 backdrop-blur-lg p-6 border-r border-cyan-500/20 flex flex-col">
-        <h1 className="text-2xl font-bold text-cyan-400 mb-8">🏠 SmartHome</h1>
+    <div className={`flex h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700`}>
+      <div className={`w-64 ${colors.cardBg} backdrop-blur-lg p-6 border-r border-current/20 flex flex-col`}>
+        <h1 className={`text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent mb-8`}>
+          🏠 SmartHome
+        </h1>
 
         <nav className="flex flex-col gap-3 flex-grow">
-          {[
-            "Inicio",
-            "Dispositivos",
-            "Seguridad",
-            "Monitoreo",
-            "Energía",
-            "Chat",
-            "Configuración",
-          ].map((menu) => (
-            <SimpleButton
-              key={menu}
-              onClick={() => setSelectedMenu(menu)}
-              active={selectedMenu === menu}
-            >
+          {["Inicio", "Dispositivos", "Seguridad", "Monitoreo", "Energía", "Chat", "Configuración"].map((menu) => (
+            <SimpleButton key={menu} onClick={() => setSelectedMenu(menu)} active={selectedMenu === menu}>
               {menu}
             </SimpleButton>
           ))}
@@ -99,7 +61,7 @@ export default function App() {
 
         <SimpleButton
           onClick={() => setIsLoggedIn(false)}
-          className="bg-red-600/20 border-red-500/30 text-red-400 hover:bg-red-600/30"
+          className="bg-red-950/30 border-red-500/30 text-red-400 hover:bg-red-900/40 hover:border-red-400/50"
         >
           🔒 Cerrar sesión
         </SimpleButton>
@@ -107,14 +69,16 @@ export default function App() {
 
       {/* Main content */}
       <div className="flex-1 p-10 overflow-y-auto">
-        {selectedMenu === "Inicio" && <Inicio 
-          temperature={temperature}
-          humidity={humidity}
-          energyUsage={energyUsage}
-          devices={devices}
-          lightOn={devices.some(d => d.on)}
-          securityOn={true}
-        />}
+        {selectedMenu === "Inicio" && (
+          <Inicio
+            temperature={temperature}
+            humidity={humidity}
+            energyUsage={energyUsage}
+            devices={devices}
+            lightOn={devices.some((d) => d.on)}
+            securityOn={true}
+          />
+        )}
 
         {selectedMenu === "Dispositivos" && (
           <Dispositivos
@@ -138,13 +102,9 @@ export default function App() {
             setEnergyUsage={setEnergyUsage}
           />
         )}
-        
+
         {selectedMenu === "Energía" && (
-          <Energia
-            devices={devices}
-            energyUsage={energyUsage}
-            setEnergyUsage={setEnergyUsage}
-          />
+          <Energia devices={devices} energyUsage={energyUsage} setEnergyUsage={setEnergyUsage} />
         )}
 
         {selectedMenu === "Configuración" && (
@@ -161,17 +121,22 @@ export default function App() {
 
         {selectedMenu === "Chat" && <Chat />}
 
-        {/* Información rápida adicional */}
         {selectedMenu === "Inicio" && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <SimpleCard className="p-6">
-              <h3 className="text-xl font-bold text-yellow-400 mb-2">⚡ Consumo promedio diario</h3>
-              <p className="text-slate-300">~{energyUsage} kWh</p>
+              <h3 className={`text-xl font-bold bg-gradient-to-r ${colors.accent} bg-clip-text text-transparent mb-2`}>
+                ⚡ Consumo promedio diario
+              </h3>
+              <p className={colors.text}>~{energyUsage} kWh</p>
             </SimpleCard>
 
             <SimpleCard className="p-6">
-              <h3 className="text-xl font-bold text-red-400 mb-2">🛡️ Últimas alertas de seguridad</h3>
-              <ul className="text-slate-300 list-disc ml-5">
+              <h3
+                className={`text-xl font-bold bg-gradient-to-r ${colors.secondary} bg-clip-text text-transparent mb-2`}
+              >
+                🛡️ Últimas alertas de seguridad
+              </h3>
+              <ul className={`${colors.text} list-disc ml-5`}>
                 <li>Ninguna alerta reciente</li>
               </ul>
             </SimpleCard>

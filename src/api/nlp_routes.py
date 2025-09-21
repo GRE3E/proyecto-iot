@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
-from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, OwnerNameUpdate, CapabilitiesUpdate, OwnerOnlyCommandsUpdate
+from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, OwnerOnlyCommandsUpdate
 from src.api.schemas import StatusResponse
 import logging
 
@@ -62,48 +62,15 @@ async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depen
     try:
         utils._nlp_module._config["assistant_name"] = update.name
         utils._nlp_module._save_config()
-        utils.initialize_nlp()
+
         
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
-        )
+        response_data = utils.get_module_status()
         utils._save_api_log("/config/assistant-name", update.dict(), response_data.dict(), db)
         return response_data
         
     except Exception as e:
         logging.error(f"Error al actualizar nombre del asistente: {e}")
         raise HTTPException(status_code=500, detail=f"No se pudo actualizar el nombre del asistente: {str(e)}")
-
-@nlp_router.put("/config/owner-name", response_model=StatusResponse)
-async def update_owner_name(update: OwnerNameUpdate, db: Session = Depends(get_db)):
-    """Actualiza el nombre del propietario en la configuración."""
-    if utils._nlp_module is None:
-        raise HTTPException(status_code=503, detail="El módulo NLP no está inicializado")
-    
-    try:
-        utils._nlp_module._config["owner_name"] = update.name
-        utils._nlp_module._save_config()
-        utils.initialize_nlp()
-        
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
-        )
-        utils._save_api_log("/config/owner-name", update.dict(), response_data.dict(), db)
-        return response_data
-        
-    except Exception as e:
-        logging.error(f"Error al actualizar nombre del propietario: {e}")
-        raise HTTPException(status_code=500, detail=f"No se pudo actualizar el nombre del propietario: {str(e)}")
 
 @nlp_router.put("/config/capabilities", response_model=StatusResponse)
 async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(get_db)):
@@ -114,16 +81,9 @@ async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(
     try:
         utils._nlp_module._config["capabilities"] = update.capabilities
         utils._nlp_module._save_config()
-        utils.initialize_nlp()
+
         
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
-        )
+        response_data = utils.get_module_status()
         utils._save_api_log("/config/capabilities", update.dict(), response_data.dict(), db)
         return response_data
         
@@ -140,16 +100,9 @@ async def update_owner_only_commands(update: OwnerOnlyCommandsUpdate, db: Sessio
     try:
         utils._nlp_module._config["owner_only_commands"] = update.commands
         utils._nlp_module._save_config()
-        utils.initialize_nlp()
+
         
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_online() else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_online() else "OFFLINE"
-        )
+        response_data = utils.get_module_status()
         utils._save_api_log("/config/owner-only-commands", update.dict(), response_data.dict(), db)
         return response_data
         

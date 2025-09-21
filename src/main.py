@@ -96,10 +96,6 @@ async def startup_event():
         app.state.mqtt_client = _mqtt_client
 
 
-        # Inicializar variables de escucha continua en app.state
-        app.state.continuous_listening_task = None
-        app.state.stop_continuous_listening_event = asyncio.Event()
-
         # HotwordDetector se inicializa dentro de initialize_nlp() en utils.py
         # No es necesario inicializarlo aquí directamente.
         # La variable global hotword_detector en main.py ya apunta a _hotword_module de utils.
@@ -146,27 +142,6 @@ async def shutdown_event():
                 logging.info("MQTTClient desconectado")
             except Exception as e:
                 logging.error(f"Error al desconectar MQTTClient: {e}")
-        
-        # Detener escucha continua
-        if hasattr(app.state, 'continuous_listening_task') and \
-           app.state.continuous_listening_task and \
-           not app.state.continuous_listening_task.done():
-            
-            logging.info("Deteniendo escucha continua...")
-            app.state.stop_continuous_listening_event.set()
-            
-            try:
-                await asyncio.wait_for(app.state.continuous_listening_task, timeout=5.0)
-                logging.info("Escucha continua detenida correctamente")
-            except asyncio.TimeoutError:
-                logging.warning("Timeout al detener escucha continua, cancelando tarea...")
-                app.state.continuous_listening_task.cancel()
-                try:
-                    await app.state.continuous_listening_task
-                except asyncio.CancelledError:
-                    logging.info("Tarea de escucha continua cancelada")
-            except Exception as e:
-                logging.error(f"Error al detener escucha continua: {e}")
         
         logging.info("Aplicación cerrada correctamente")
         

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, FastAPI, Request
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
 from src.api.hotword_schemas import HotwordAudioProcessResponse
@@ -6,6 +6,12 @@ import logging
 from pathlib import Path
 import tempfile
 from src.db.models import User # Importar el modelo User
+import asyncio
+import pyaudio
+import wave
+import httpx
+import os
+from datetime import datetime
 
 # Importar módulos globales desde utils
 from src.api import utils
@@ -67,16 +73,17 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 user_name_for_nlp = identified_user_obj.nombre
                 is_owner_for_nlp = identified_user_obj.is_owner
             else:
-                # Si no se identifica al hablante, intentamos buscar por nombre si es necesario (aunque identify_speaker ya debería devolver el objeto)
-                # Esto es un fallback, pero la lógica principal debería ser usar identified_user_from_speaker
                 identified_user_obj = db.query(User).filter(User.nombre == identified_speaker_name).first()
                 if identified_user_obj:
                     user_name_for_nlp = identified_user_obj.nombre
                     is_owner_for_nlp = identified_user_obj.is_owner
 
-
             # 3. Procesamiento NLP
-            nlp_response = await utils._nlp_module.generate_response(transcribed_text, user_name=user_name_for_nlp, is_owner=is_owner_for_nlp)
+            nlp_response = await utils._nlp_module.generate_response(
+                transcribed_text,
+                user_name=user_name_for_nlp,
+                is_owner=is_owner_for_nlp
+            )
             if nlp_response is None:
                 logging.error("No se pudo generar la respuesta NLP después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")

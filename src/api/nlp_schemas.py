@@ -14,10 +14,6 @@ class AssistantNameUpdate(BaseModel):
     """Modelo para actualizar el nombre del asistente."""
     name: str
 
-class OwnerNameUpdate(BaseModel):
-    """Modelo para actualizar el nombre del propietario."""
-    name: str
-
 class CapabilitiesUpdate(BaseModel):
     """Modelo para actualizar las capacidades del asistente."""
     capabilities: list[str]

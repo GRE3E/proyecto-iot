@@ -33,23 +33,7 @@ def get_db():
 async def get_status(db: Session = Depends(get_db)):
     """Devuelve el estado actual de los módulos."""
     try:
-        nlp_status = "ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE"
-        stt_status = "ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE"
-        speaker_status = "ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE"
-        hotword_status = "ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE"
-        serial_status = "ONLINE" if utils._serial_manager and utils._serial_manager.is_connected else "OFFLINE"
-        mqtt_status = "ONLINE" if utils._mqtt_client and utils._mqtt_client.is_connected else "OFFLINE"
-        utils_status = "ONLINE" if utils._nlp_module else "OFFLINE"
-        
-        status = StatusResponse(
-            nlp=nlp_status,
-            stt=stt_status,
-            speaker=speaker_status,
-            hotword=hotword_status,
-            serial=serial_status,
-            mqtt=mqtt_status,
-            utils=utils_status
-        )
+        status = utils.get_module_status()
         logging.info(f"Status Response: {status.model_dump_json()}")
         return status
     except Exception as e:

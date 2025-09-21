@@ -11,6 +11,7 @@ import json
 from sqlalchemy.orm import Session
 from src.db.models import APILog
 import asyncio
+from src.api.schemas import StatusResponse
 
 _nlp_module = None
 _stt_module = None
@@ -19,6 +20,26 @@ _hotword_module = None
 _serial_manager = None
 _mqtt_client = None
 _hotword_task = None
+
+def get_module_status():
+    """Devuelve el estado actual de los módulos."""
+    nlp_status = "ONLINE" if _nlp_module and _nlp_module.is_online() else "OFFLINE"
+    stt_status = "ONLINE" if _stt_module and _stt_module.is_online() else "OFFLINE"
+    speaker_status = "ONLINE" if _speaker_module and _speaker_module.is_online() else "OFFLINE"
+    hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
+    serial_status = "ONLINE" if _serial_manager and _serial_manager.is_connected else "OFFLINE"
+    mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
+    utils_status = "ONLINE" if _nlp_module else "OFFLINE" # Assuming NLP module initialization implies utils are online
+    
+    return StatusResponse(
+        nlp=nlp_status,
+        stt=stt_status,
+        speaker=speaker_status,
+        hotword=hotword_status,
+        serial=serial_status,
+        mqtt=mqtt_status,
+        utils=utils_status
+    )
 
 def _save_api_log(endpoint: str, request_body: dict, response_data: dict, db: Session):
     """Guarda un log de la interacción de la API en la base de datos."""

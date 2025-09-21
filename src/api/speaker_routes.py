@@ -35,17 +35,15 @@ async def register_speaker(name: str = Form(...), audio_file: UploadFile = File(
             
             success = utils._speaker_module.register_speaker(name, str(file_location), is_owner=is_owner)
 
+        if success and is_owner:
+            utils._nlp_module._config["owner_name"] = name
+            utils._nlp_module._save_config()
+            utils.initialize_nlp()
+
         if not success:
             raise HTTPException(status_code=500, detail="No se pudo registrar al hablante")
         
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_connected else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_connected else "OFFLINE"
-        )
+        response_data = utils.get_module_status()
         utils._save_api_log("/speaker/register", {"name": name, "filename": audio_file.filename, "is_owner": is_owner}, response_data.dict(), db)
         return response_data
         
@@ -68,17 +66,15 @@ async def register_owner_speaker(name: str = Form(...), audio_file: UploadFile =
             
             success = utils._speaker_module.register_speaker(name, str(file_location), is_owner=True)
 
+        if success:
+            utils._nlp_module._config["owner_name"] = name
+            utils._nlp_module._save_config()
+            utils.initialize_nlp()
+
         if not success:
             raise HTTPException(status_code=500, detail="No se pudo registrar al propietario")
         
-        response_data = StatusResponse(
-            nlp="ONLINE" if utils._nlp_module and utils._nlp_module.is_online() else "OFFLINE",
-            stt="ONLINE" if utils._stt_module and utils._stt_module.is_online() else "OFFLINE",
-            speaker="ONLINE" if utils._speaker_module and utils._speaker_module.is_online() else "OFFLINE",
-            hotword="ONLINE" if utils._hotword_module and utils._hotword_module.is_online() else "OFFLINE",
-            serial="ONLINE" if utils._serial_manager and utils._serial_manager.is_connected else "OFFLINE",
-            mqtt="ONLINE" if utils._mqtt_client and utils._mqtt_client.is_connected else "OFFLINE"
-        )
+        response_data = utils.get_module_status()
         utils._save_api_log("/speaker/register_owner", {"name": name, "filename": audio_file.filename}, response_data.dict(), db)
         return response_data
         

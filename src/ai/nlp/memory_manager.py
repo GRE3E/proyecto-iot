@@ -3,15 +3,13 @@ from typing import Generator, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from src.db.models import Base, UserMemory, ConversationLog
-from src.db.database import engine, SessionLocal # Importar engine y SessionLocal
+from src.db.database import get_db, create_all_tables # Importar get_db y create_all_tables
 from datetime import datetime
 
 class MemoryManager:
     def __init__(self):
         """Inicializa la conexión con Ollama y carga la configuración."""
-        self.engine = engine
-        Base.metadata.create_all(bind=self.engine)
-        self.SessionLocal = SessionLocal
+        create_all_tables()
         self._initialize_user_memory()
 
     def _initialize_user_memory(self):
@@ -27,12 +25,8 @@ class MemoryManager:
         finally:
             db.close()
 
-    def get_db(self) -> Generator[Session, None, None]:
-        db = self.SessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
+    def get_db(self):
+        return get_db()
 
     def get_user_memory(self, db: Session) -> UserMemory:
         memory_db = db.query(UserMemory).first()

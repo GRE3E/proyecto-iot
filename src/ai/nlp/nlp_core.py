@@ -29,12 +29,6 @@ class NLPModule:
         self.serial_manager = None
         self.mqtt_client = None
         self._memory_manager = MemoryManager()
-        db = next(self._memory_manager.get_db())
-        if not db.query(UserMemory).first():
-            new_memory = UserMemory()
-            db.add(new_memory)
-            db.commit()
-        db.close()
 
     def __del__(self):
         """Asegura que el proceso de Ollama se termine al cerrar la aplicación."""
@@ -62,7 +56,7 @@ class NLPModule:
                     "max_tokens": 150
                 },
                 "memory_size": 10,
-                "database_url": "sqlite:///./data/database.db",
+
                 "owner_only_commands": ["LIGHT_ON", "SET_TEMPERATURE"],
                 "timezone": "America/Lima" # Zona horaria por defecto
             }
@@ -107,14 +101,7 @@ class NLPModule:
                 asyncio.set_event_loop_policy(asyncio.windows_events.WindowsSelectorEventLoopPolicy())
             
         db = next(self._memory_manager.get_db())
-
-        # Recuperar UserMemory dentro de la sesión actual
-        memory_db = db.query(UserMemory).first()
-        if not memory_db:
-            memory_db = UserMemory()
-            db.add(memory_db)
-            db.commit()
-            db.refresh(memory_db)
+        memory_db = self._memory_manager.get_user_memory(db)
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             assistant_name=self._config['assistant_name'],

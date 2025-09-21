@@ -14,6 +14,6 @@
         "consulta_estado"
     ],
     "memory_size": 100,
-    "database_url": "sqlite:///./data/casa_inteligente.db",
+
     "timezone": "America/Lima"
 }

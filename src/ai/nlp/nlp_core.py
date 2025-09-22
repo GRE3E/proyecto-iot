@@ -13,7 +13,7 @@ import ollama
 from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.memory_manager import MemoryManager
-from src.db.models import UserMemory
+from src.db.models import UserMemory, User, Permission
 from src.utils.datetime_utils import get_current_datetime, format_datetime
 
 # Configurar el registro de eventos
@@ -103,6 +103,13 @@ class NLPModule:
         db = next(self._memory_manager.get_db())
         memory_db = self._memory_manager.get_user_memory(db)
 
+        user_permissions_str = ""
+        if user_name:
+            db_user = db.query(User).filter(User.nombre == user_name).first()
+            if db_user:
+                permissions = [up.permission.name for up in db_user.permissions]
+                user_permissions_str = ", ".join(permissions)
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             assistant_name=self._config['assistant_name'],
             language=self._config['language'],
@@ -112,6 +119,7 @@ class NLPModule:
             user_preferences=memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas.",
             identified_speaker=user_name if user_name else "Desconocido",
             is_owner=is_owner,
+            user_permissions=user_permissions_str,
             owner_name=self._config['owner_name'],
             current_datetime=format_datetime(get_current_datetime(self._config.get("timezone", "UTC")))
         )

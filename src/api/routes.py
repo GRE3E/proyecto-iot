@@ -10,6 +10,7 @@ from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
 from src.api.addons_routes import router as addons_router
+from src.api.permissions_routes import router as permissions_router
 # Importar módulos globales desde utils
 from src.api import utils
 
@@ -21,6 +22,7 @@ router.include_router(stt_router, prefix="/stt", tags=["stt"])
 router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
 router.include_router(iot_router, prefix="/iot", tags=["iot"])
 router.include_router(addons_router, prefix="/addons", tags=["addons"])
+router.include_router(permissions_router, prefix="/permissions", tags=["permissions"])
 
 def get_db():
     db = SessionLocal()

@@ -17,7 +17,3 @@ class AssistantNameUpdate(BaseModel):
 class CapabilitiesUpdate(BaseModel):
     """Modelo para actualizar las capacidades del asistente."""
     capabilities: list[str]
-
-class OwnerOnlyCommandsUpdate(BaseModel):
-    """Modelo para actualizar los comandos que solo el propietario puede ejecutar."""
-    commands: list[str]

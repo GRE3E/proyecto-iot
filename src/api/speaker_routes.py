@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
-from src.api.speaker_schemas import SpeakerIdentifyResponse, UserListResponse, UserCharacteristic
+from src.api.speaker_schemas import SpeakerIdentifyResponse, UserListResponse, UserCharacteristic, SpeakerUpdateOwnerRequest
 from src.api.schemas import StatusResponse
 import logging
 from pathlib import Path
@@ -123,3 +123,39 @@ async def get_all_users(db: Session = Depends(get_db)):
     except Exception as e:
         logging.error(f"Error al obtener la lista de usuarios: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener la lista de usuarios")
+
+@speaker_router.put("/speaker/update_owner", response_model=StatusResponse)
+async def update_speaker_owner(request: SpeakerUpdateOwnerRequest, db: Session = Depends(get_db)):
+    """Actualiza el estado de propietario de un usuario registrado."""
+    if utils._speaker_module is None or not utils._speaker_module.is_online():
+        raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
+    
+    try:
+        user = db.query(User).filter(User.id == request.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        user.is_owner = request.is_owner
+        db.commit()
+        db.refresh(user)
+
+        if request.is_owner:
+            utils._nlp_module._config["owner_name"] = user.nombre
+            utils._nlp_module._save_config()
+            utils.initialize_nlp()
+        else:
+            # If the owner is being removed, check if this was the current owner
+            if utils._nlp_module._config.get("owner_name") == user.nombre:
+                utils._nlp_module._config["owner_name"] = None
+                utils._nlp_module._save_config()
+                utils.initialize_nlp()
+
+        response_data = utils.get_module_status()
+        utils._save_api_log("/speaker/update_owner", request.dict(), response_data.dict(), db)
+        return response_data
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logging.error(f"Error al actualizar el estado de propietario del hablante: {e}")
+        raise HTTPException(status_code=500, detail="Error al actualizar el estado de propietario del hablante")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
-from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, OwnerOnlyCommandsUpdate
+from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate
 from src.api.schemas import StatusResponse
 import logging
 
@@ -38,6 +38,8 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
         identified_user = None
         if query.user_id:
             identified_user = db.query(User).filter(User.id == query.user_id).first()
+            if identified_user:
+                db.refresh(identified_user)
             if identified_user is None:
                 logging.warning(f"Usuario con ID {query.user_id} no encontrado en la base de datos.")
 
@@ -90,22 +92,3 @@ async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(
     except Exception as e:
         logging.error(f"Error al actualizar capacidades: {e}")
         raise HTTPException(status_code=500, detail=f"No se pudieron actualizar las capacidades: {str(e)}")
-
-@nlp_router.put("/config/owner-only-commands", response_model=StatusResponse)
-async def update_owner_only_commands(update: OwnerOnlyCommandsUpdate, db: Session = Depends(get_db)):
-    """Actualiza los comandos que solo el propietario puede ejecutar en la configuración."""
-    if utils._nlp_module is None:
-        raise HTTPException(status_code=503, detail="El módulo NLP no está inicializado")
-    
-    try:
-        utils._nlp_module._config["owner_only_commands"] = update.commands
-        utils._nlp_module._save_config()
-
-        
-        response_data = utils.get_module_status()
-        utils._save_api_log("/config/owner-only-commands", update.dict(), response_data.dict(), db)
-        return response_data
-        
-    except Exception as e:
-        logging.error(f"Error al actualizar comandos de propietario: {e}")
-        raise HTTPException(status_code=500, detail=f"No se pudieron actualizar los comandos de propietario: {str(e)}")

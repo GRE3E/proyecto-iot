@@ -11,7 +11,7 @@ class SerialManager:
         self.serial_connection = None
         self.is_connected = False
 
-    def connect(self, retries: int = 5, delay: int = 2):
+    def connect(self, retries: int = 1, delay: int = 2):
         if self.is_connected:
             logging.info(f"SerialManager: Ya conectado a {self.port}.")
             return

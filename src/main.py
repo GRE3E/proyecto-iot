@@ -51,7 +51,6 @@ def load_config():
         # Crear configuración por defecto
         config = {
             "assistant_name": "Murph",
-            "owner_name": "Gre",
             "language": "es",
             "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
             "model": {

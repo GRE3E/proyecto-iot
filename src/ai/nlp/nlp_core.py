@@ -48,7 +48,6 @@ class NLPModule:
         except FileNotFoundError:
             self._config = {
                 "assistant_name": "Murph",
-                "owner_name": "Propietario",
                 "language": "es",
                 "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
                 "model": {
@@ -58,7 +57,6 @@ class NLPModule:
                 },
                 "memory_size": 10,
 
-                "owner_only_commands": ["LIGHT_ON", "SET_TEMPERATURE"],
                 "timezone": "America/Lima" # Zona horaria por defecto
             }
             self._save_config()
@@ -121,7 +119,6 @@ class NLPModule:
             identified_speaker=user_name if user_name else "Desconocido",
             is_owner=is_owner,
             user_permissions=user_permissions_str,
-            owner_name=self._config['owner_name'],
             current_datetime=format_datetime(get_current_datetime(self._config.get("timezone", "UTC")))
         )
             
@@ -155,8 +152,8 @@ class NLPModule:
                     if self.serial_manager and "serial_command:" in full_response_content:
                         iot_command_attempted = True
                         command_to_send = full_response_content.split("serial_command:")[1].strip()
-                        if command_to_send in self._config.get("owner_only_commands", []) and not is_owner:
-                            full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'. Solo el propietario puede hacerlo."
+                        if not is_owner and not db_user.has_permission(command_to_send):
+                            full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'."
                         else:
                             logging.info(f"Enviando comando serial: {command_to_send}")
                             self.serial_manager.send_command(command_to_send)
@@ -167,11 +164,9 @@ class NLPModule:
                         if len(parts) == 2:
                             topic = parts[0].strip()
                             payload = parts[1].strip()
-                            # Asumimos que el topic o una parte del payload podría ser el "comando" para owner_only_commands
-                            # Aquí se podría implementar una lógica más sofisticada para extraer el comando real
-                            mqtt_command_identifier = topic # O alguna parte del payload
-                            if mqtt_command_identifier in self._config.get("owner_only_commands", []) and not is_owner:
-                                full_response_content = f"Lo siento {user_name}, no tienes permiso para publicar en el tópico '{topic}'. Solo el propietario puede hacerlo."
+                            mqtt_command_identifier = topic  # O alguna parte del payload
+                            if not is_owner and not db_user.has_permission(mqtt_command_identifier):
+                                full_response_content = f"Lo siento {user_name}, no tienes permiso para publicar en el tópico '{topic}'."
                             else:
                                 logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
                                 self.mqtt_client.publish(topic, payload)
@@ -202,7 +197,7 @@ class NLPModule:
                             logging.warning(f"No se encontró el usuario '{user_name}' para cambiar el nombre.")
 
                     self._memory_manager.update_memory(prompt, full_response_content, db)
-                    return full_response_content
+                    return {"identified_speaker": user_name if user_name else "Desconocido", "response": full_response_content}
                 else:
                     logging.warning("Ollama devolvió una respuesta vacía")
                 

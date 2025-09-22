@@ -53,6 +53,7 @@ class SpeakerRecognitionModule:
             return False
 
     def identify_speaker(self, audio_path: str) -> User | None:
+        self._load_registered_users() # Asegurarse de que la lista de usuarios esté actualizada
         if not self.is_online():
             logging.warning("El módulo de reconocimiento de hablante está fuera de línea.")
             return None

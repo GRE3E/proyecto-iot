@@ -62,18 +62,12 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             # 2. Identificación de hablante
             identified_user_from_speaker, speaker_embedding = utils._speaker_module.identify_speaker(str(file_location))
             
-            if speaker_embedding is None:
-                logging.error("No se pudo obtener el embedding del hablante.")
-                raise HTTPException(status_code=500, detail="No se pudo identificar o registrar al hablante.")
-
-            identified_speaker_name = "Unknown"
-            # Buscar el objeto User en la base de datos
-            identified_user_obj = None
-            user_name_for_nlp = None
-            is_owner_for_nlp = False
-
             if identified_user_from_speaker:
-                identified_speaker_name = identified_user_from_speaker.nombre
+                # Obtener el usuario de la sesión actual para asegurar que sea persistente
+                identified_user_from_speaker = db.query(User).filter(User.id == identified_user_from_speaker.id).first()
+                if identified_user_from_speaker:
+                    db.refresh(identified_user_from_speaker)
+                    identified_speaker_name = identified_user_from_speaker.nombre
                 identified_user_obj = identified_user_from_speaker
                 user_name_for_nlp = identified_user_obj.nombre
                 is_owner_for_nlp = identified_user_obj.is_owner
@@ -94,20 +88,20 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 logging.info(f"Nuevo hablante desconocido registrado como: {new_unknown_name}")
             
             # 3. Procesamiento NLP
-            nlp_response = await utils._nlp_module.generate_response(
+            nlp_response_data = await utils._nlp_module.generate_response(
                 transcribed_text,
                 user_name=user_name_for_nlp,
                 is_owner=is_owner_for_nlp
             )
-            if nlp_response is None:
+            if nlp_response_data is None:
                 logging.error("No se pudo generar la respuesta NLP después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")
-            logging.info(f"Respuesta NLP: {nlp_response}")
+            logging.info(f"Respuesta NLP: {nlp_response_data['response']}")
 
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,
-            identified_speaker=identified_speaker_name,
-            nlp_response=nlp_response
+            identified_speaker=nlp_response_data["identified_speaker"],
+            nlp_response=nlp_response_data["response"]
         )
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)
         return response_data

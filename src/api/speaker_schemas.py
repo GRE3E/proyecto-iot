@@ -25,3 +25,8 @@ class UserListResponse(BaseModel):
     """Modelo para la respuesta de la lista de usuarios."""
     user_count: int
     users: list[UserCharacteristic]
+
+class SpeakerUpdateOwnerRequest(BaseModel):
+    """Modelo para la solicitud de actualización de propietario de hablante."""
+    user_id: int
+    is_owner: bool

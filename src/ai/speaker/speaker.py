@@ -84,6 +84,8 @@ class SpeakerRecognitionModule:
                 # Convertir similitud a distancia (menor distancia es mejor)
                 distance = 1 - similarity
 
+                logging.debug(f"Comparando con {user.nombre}: distancia = {distance:.4f}")
+
                 if distance < min_dist:
                     min_dist = distance
                     identified_user = user

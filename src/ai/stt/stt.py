@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings("ignore", message=".*flash attention.*")
 
 class STTModule:
-    def __init__(self, model_name: str = "small"): #tiny", "base", "small", "medium"
+    def __init__(self, model_name: str = "medium"): #tiny", "base", "small", "medium"
         self._model = None
         self._online = False
         self.model_name = model_name

@@ -15,6 +15,7 @@ from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.memory_manager import MemoryManager
 from src.db.models import UserMemory, User, Permission
 from src.utils.datetime_utils import get_current_datetime, format_datetime
+import re
 
 # Configurar el registro de eventos
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -183,6 +184,22 @@ class NLPModule:
                     # entonces la respuesta ya está formateada correctamente.
                     # Si se intentó enviar un comando IoT y el usuario no tenía permiso,
                     # la respuesta ya contiene el mensaje de denegación.
+
+                    # Check for name change command in the prompt
+                    name_change_pattern = r"(?:llámame|mi nombre es)\s+([A-Za-zÀ-ÿ]+)"
+                    match = re.search(name_change_pattern, prompt, re.IGNORECASE)
+                    
+                    if match and user_name:
+                        new_name = match.group(1).capitalize() # Capitalize the new name
+                        db_session = next(self._memory_manager.get_db())
+                        existing_user = db_session.query(User).filter(User.nombre == user_name).first()
+                        if existing_user:
+                            logging.info(f"Cambiando nombre de '{existing_user.nombre}' a '{new_name}' en la base de datos.")
+                            existing_user.nombre = new_name
+                            db_session.commit()
+                            full_response_content = f"De acuerdo, a partir de ahora te llamaré {new_name}."
+                        else:
+                            logging.warning(f"No se encontró el usuario '{user_name}' para cambiar el nombre.")
 
                     self._memory_manager.update_memory(prompt, full_response_content, db)
                     return full_response_content

@@ -59,7 +59,14 @@ class SpeakerRecognitionModule:
         
         if not self._registered_users:
             logging.info("No se encontraron usuarios registrados.")
-            return None
+            # If no registered users, we still want to generate an embedding for potential registration
+            try:
+                wav = preprocess_wav(audio_path)
+                new_embedding = self._encoder.embed_utterance(wav)
+                return None, new_embedding # Return embedding even if no users to compare against
+            except Exception as e:
+                logging.error(f"Error al generar embedding para hablante no registrado: {e}")
+                return None, None # If embedding generation fails, return None, None
 
         try:
             wav = preprocess_wav(audio_path)
@@ -84,11 +91,11 @@ class SpeakerRecognitionModule:
             # Es posible que desee establecer un umbral para la identificación
             if identified_user and min_dist < 0.5: # Umbral de ejemplo, ajustar según sea necesario
                 logging.info(f"Hablante identificado: {identified_user.nombre}")
-                return identified_user
+                return identified_user, new_embedding # Return the identified user and their embedding
             else:
                 logging.info("Hablante Desconocido")
-                return None
+                return None, new_embedding # Return the embedding even if no user is identified
 
         except Exception as e:
             logging.error(f"Error al identificar hablante: {e}")
-            return None
+            return None, None # Return None for both user and embedding on error

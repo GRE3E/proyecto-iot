@@ -60,7 +60,12 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             logging.info(f"Texto transcribido: {transcribed_text}")
 
             # 2. Identificación de hablante
-            identified_user_from_speaker = utils._speaker_module.identify_speaker(str(file_location))
+            identified_user_from_speaker, speaker_embedding = utils._speaker_module.identify_speaker(str(file_location))
+            
+            if speaker_embedding is None:
+                logging.error("No se pudo obtener el embedding del hablante.")
+                raise HTTPException(status_code=500, detail="No se pudo identificar o registrar al hablante.")
+
             identified_speaker_name = "Unknown"
             # Buscar el objeto User en la base de datos
             identified_user_obj = None
@@ -72,12 +77,22 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 identified_user_obj = identified_user_from_speaker
                 user_name_for_nlp = identified_user_obj.nombre
                 is_owner_for_nlp = identified_user_obj.is_owner
-            else:
-                identified_user_obj = db.query(User).filter(User.nombre == identified_speaker_name).first()
+            else: # Si no se identificó pero se obtuvo un embedding
+                # Registrar al usuario como desconocido
+                next_unknown_id = db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1
+                new_unknown_name = f"Desconocido {next_unknown_id}"
+                
+                # Registrar el nuevo usuario con el embedding
+                utils._speaker_module.register_speaker(new_unknown_name, str(file_location), is_owner=False)
+                
+                # Obtener el usuario recién registrado de la base de datos
+                identified_user_obj = db.query(User).filter(User.nombre == new_unknown_name).first()
                 if identified_user_obj:
-                    user_name_for_nlp = identified_user_obj.nombre
-                    is_owner_for_nlp = identified_user_obj.is_owner
-
+                    identified_speaker_name = new_unknown_name
+                    user_name_for_nlp = new_unknown_name
+                    is_owner_for_nlp = False
+                logging.info(f"Nuevo hablante desconocido registrado como: {new_unknown_name}")
+            
             # 3. Procesamiento NLP
             nlp_response = await utils._nlp_module.generate_response(
                 transcribed_text,

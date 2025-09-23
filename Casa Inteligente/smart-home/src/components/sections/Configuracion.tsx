@@ -97,7 +97,7 @@ export default function Configuracion({ ownerName, setOwnerName, language, setLa
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         {/* Perfil (display-only) */}
         <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
             <div className="w-36 flex flex-col items-center">
               <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-3xl font-bold shadow">{localOwnerName ? localOwnerName.charAt(0).toUpperCase() : 'U'}</div>
               <div className="text-xs text-slate-400 mt-2">Avatar</div>
@@ -110,7 +110,7 @@ export default function Configuracion({ ownerName, setOwnerName, language, setLa
               }} className="mt-3">Editar perfil</SimpleButton>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-slate-300 mb-1">Nombre</div>
@@ -136,9 +136,9 @@ export default function Configuracion({ ownerName, setOwnerName, language, setLa
 
         {/* Miembros y permisos */}
         <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap">
             <h3 className="text-lg font-semibold text-white">Miembros y permisos</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mt-4 md:mt-0 flex-wrap justify-center md:justify-end">
               <SimpleButton onClick={() => setShowAddModal(true)}>+ Agregar</SimpleButton>
               <SimpleButton onClick={() => { setMembers([]) }} className="bg-red-600">Eliminar todos</SimpleButton>
             </div>
@@ -146,15 +146,15 @@ export default function Configuracion({ ownerName, setOwnerName, language, setLa
 
           <div className="grid gap-3">
             {members.map((mem) => (
-              <div key={mem.id} className="flex items-center justify-between bg-slate-800/20 p-3 rounded-lg">
-                <div className="flex items-center gap-3">
+              <div key={mem.id} className="flex flex-col sm:flex-row items-center justify-between bg-slate-800/20 p-3 rounded-lg">
+                <div className="flex items-center gap-3 mb-2 sm:mb-0">
                   <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-medium">{mem.name ? mem.name.charAt(0).toUpperCase() : 'U'}</div>
                   <div>
                     <div className="text-sm text-white font-medium">{mem.name}</div>
                     <div className="text-xs text-slate-400">{mem.role}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
                   <button onClick={() => toggleMemberPrivilege(mem.id, 'controlDevices')} className={`px-3 py-1 rounded-full text-xs transition ${mem.privileges.controlDevices ? 'bg-green-500 text-white' : 'bg-slate-700 text-slate-300'}`}>Control</button>
                   <button onClick={() => toggleMemberPrivilege(mem.id, 'viewCamera')} className={`px-3 py-1 rounded-full text-xs transition ${mem.privileges.viewCamera ? 'bg-green-500 text-white' : 'bg-slate-700 text-slate-300'}`}>Cámara</button>
                   <SimpleButton onClick={() => removeMember(mem.id)} className="bg-red-600">Eliminar</SimpleButton>

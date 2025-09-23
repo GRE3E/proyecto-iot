@@ -21,6 +21,7 @@ import SimpleCard from "./components/UI/SimpleCard"
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [selectedMenu, setSelectedMenu] = useState("Inicio")
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false) // New state for sidebar visibility
 
   const { colors } = useThemeByTime()
 
@@ -46,14 +47,51 @@ export default function App() {
 
   return (
     <div className={`flex h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700`}>
-      <div className={`w-64 ${colors.cardBg} backdrop-blur-lg p-6 border-r border-current/20 flex flex-col`}>
+      {/* Hamburger menu button for small screens */}
+      <button
+        className={`md:hidden fixed top-4 p-2 rounded-md bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-white
+          ${isSidebarOpen ? 'left-68' : 'left-4'} z-60`}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        <svg
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d={isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+          />
+        </svg>
+      </button>
+
+      {/* Overlay when sidebar is open on small screens */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 w-64 ${colors.cardBg} backdrop-blur-lg p-6 border-r border-current/20 flex flex-col
+          transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 z-50`}
+      >
         <h1 className={`text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent mb-8`}>
           🏠 SmartHome
         </h1>
 
         <nav className="flex flex-col gap-3 flex-grow">
           {["Inicio", "Casa 3D", "Gestión de Dispositivos", "Monitoreo y Seguridad", "Chat", "Configuración"].map((menu) => (
-            <SimpleButton key={menu} onClick={() => setSelectedMenu(menu)} active={selectedMenu === menu}>
+            <SimpleButton key={menu} onClick={() => {
+              setSelectedMenu(menu)
+              setIsSidebarOpen(false) // Close sidebar on menu item click for mobile
+            }} active={selectedMenu === menu}>
               {menu}
             </SimpleButton>
           ))}
@@ -68,7 +106,7 @@ export default function App() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 p-10 overflow-y-auto">
+      <div className={`flex-1 p-10 overflow-y-auto transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'} z-10`}>
         {selectedMenu === "Inicio" && (
           <Inicio
             temperature={temperature}

@@ -103,7 +103,8 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,
             identified_speaker=nlp_response_data["identified_speaker"],
-            nlp_response=nlp_response_data["response"]
+            nlp_response=nlp_response_data["response"],
+            serial_command_identified=nlp_response_data.get("serial_command")
         )
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)
         return response_data

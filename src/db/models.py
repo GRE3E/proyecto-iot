@@ -26,6 +26,7 @@ class ConversationLog(Base):
     timestamp = Column(DateTime, default=func.now())
     prompt = Column(Text)
     response = Column(Text)
+    speaker_identifier = Column(String(100), nullable=True)
 
 class APILog(Base):
     __tablename__ = "api_log"

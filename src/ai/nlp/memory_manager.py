@@ -37,7 +37,7 @@ class MemoryManager:
             db.refresh(memory_db)
         return memory_db
 
-    def update_memory(self, prompt: str, response: str, db: Session):
+    def update_memory(self, prompt: str, response: str, db: Session, speaker_identifier: Optional[str] = None):
         timestamp = datetime.now()
 
         memory_db = self.get_user_memory(db)
@@ -49,7 +49,8 @@ class MemoryManager:
         conversation = ConversationLog(
             timestamp=timestamp,
             prompt=prompt,
-            response=response
+            response=response,
+            speaker_identifier=speaker_identifier
         )
         db.add(conversation)
         db.commit()

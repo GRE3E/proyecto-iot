@@ -24,15 +24,19 @@ async def send_serial_command(request: Request, command: SerialCommand):
     else:
         raise HTTPException(status_code=500, detail=f"Fallo al enviar el comando '{command.command}' al Arduino.")
 
-@iot_router.post("/commands", response_model=IoTCommand, status_code=status.HTTP_201_CREATED)
-def create_iot_command(command: IoTCommandCreate, db: Session = Depends(get_db)):
-    db_command = models.IoTCommand(name=command.name, description=command.description, 
-                                   command_type=command.command_type, command_payload=command.command_payload,
-                                   mqtt_topic=command.mqtt_topic)
-    db.add(db_command)
+@iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
+def create_iot_commands(commands: List[IoTCommandCreate], db: Session = Depends(get_db)):
+    created_commands = []
+    for command in commands:
+        db_command = models.IoTCommand(name=command.name, description=command.description, 
+                                       command_type=command.command_type, command_payload=command.command_payload,
+                                       mqtt_topic=command.mqtt_topic)
+        db.add(db_command)
+        created_commands.append(db_command)
     db.commit()
-    db.refresh(db_command)
-    return db_command
+    for cmd in created_commands:
+        db.refresh(cmd)
+    return created_commands
 
 @iot_router.get("/commands", response_model=List[IoTCommand])
 def read_iot_commands(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

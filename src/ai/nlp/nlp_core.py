@@ -82,7 +82,7 @@ class NLPModule:
         self._ollama_manager.reload(self._config["model"])
         self._online = self._ollama_manager.is_online()
     
-    async def generate_response(self, prompt: str, user_name: Optional[str] = None, is_owner: bool = False) -> Optional[str]:
+    async def generate_response(self, prompt: str, user_name: Optional[str] = None, is_owner: bool = False) -> Optional[dict]:
         """Envía el prompt al modelo Ollama y devuelve la respuesta en texto."""
         if not prompt or not prompt.strip():
             logging.warning("El prompt no puede estar vacío.")
@@ -170,9 +170,15 @@ class NLPModule:
                     serial_command_match = re.search(r"serial_command:\s*([^\s]+)", full_response_content)
                     mqtt_publish_match = re.search(r"mqtt_publish:\s*([^,]+),\s*(.+)", full_response_content)
 
+                    # Inicializar variables para comandos IoT
+                    identified_serial_command = None
+                    identified_mqtt_topic = None
+                    identified_mqtt_payload = None
+
                     if self.serial_manager and serial_command_match:
                         iot_command_attempted = True
                         command_to_send = serial_command_match.group(1).strip()
+                        identified_serial_command = command_to_send # Guardar el comando serial identificado
                         
                         # Obtener el objeto IoTCommand para verificar sus permisos
                         iot_command_obj = db.query(IoTCommand).filter(IoTCommand.command_payload == command_to_send).first()
@@ -191,7 +197,8 @@ class NLPModule:
                             else:
                                 logging.info(f"Enviando comando serial: {command_to_send}")
                                 self.serial_manager.send_command(command_to_send)
-                                full_response_content = f"Comando serial enviado: {command_to_send}. " + full_response_content.split(serial_command_match.group(0))[0].strip()
+                                # Eliminar el prefijo 'serial_command:COMMAND' de la respuesta conversacional
+                                full_response_content = full_response_content.split(serial_command_match.group(0))[0].strip()
                         else:
                             logging.warning(f"Comando IoT '{command_to_send}' no encontrado en la base de datos.")
                             full_response_content = f"Lo siento, el comando '{command_to_send}' no está registrado o no tiene permisos asociados."
@@ -201,6 +208,8 @@ class NLPModule:
                         topic = mqtt_publish_match.group(1).strip()
                         payload = mqtt_publish_match.group(2).strip()
                         mqtt_command_identifier = topic  # Usar el tópico como identificador para buscar el comando IoT
+                        identified_mqtt_topic = topic # Guardar el tópico MQTT identificado
+                        identified_mqtt_payload = payload # Guardar el payload MQTT identificado
                             
                         # Obtener el objeto IoTCommand para verificar sus permisos
                         iot_command_obj = db.query(IoTCommand).filter(IoTCommand.mqtt_topic == mqtt_command_identifier).first() # Asumiendo que el tópico es único para un comando IoT
@@ -245,8 +254,14 @@ class NLPModule:
                         else:
                             logging.warning(f"No se encontró el usuario '{user_name}' para cambiar el nombre.")
 
-                    self._memory_manager.update_memory(prompt, full_response_content, db)
-                    return {"identified_speaker": user_name if user_name else "Desconocido", "response": full_response_content}
+                    self._memory_manager.update_memory(prompt, full_response_content, db, speaker_identifier=user_name)
+                    return {
+                        "identified_speaker": user_name if user_name else "Desconocido", 
+                        "response": full_response_content,
+                        "serial_command": identified_serial_command,
+                        "mqtt_topic": identified_mqtt_topic,
+                        "mqtt_payload": identified_mqtt_payload
+                    }
                 else:
                     logging.warning("Ollama devolvió una respuesta vacía")
                 

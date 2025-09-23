@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class HotwordAudioProcessRequest(BaseModel):
     """Modelo para la solicitud de procesamiento de audio de hotword."""
@@ -9,3 +10,4 @@ class HotwordAudioProcessResponse(BaseModel):
     transcribed_text: str
     identified_speaker: str
     nlp_response: str
+    serial_command_identified: Optional[str] = None

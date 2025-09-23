@@ -13,7 +13,7 @@ import ollama
 from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.memory_manager import MemoryManager
-from src.db.models import UserMemory, User, Permission, IoTCommand # Importar IoTCommand
+from src.db.models import UserMemory, User, Permission, IoTCommand, Preference # Importar IoTCommand y Preference
 import src.db.models as models # Importar el módulo models
 from src.utils.datetime_utils import get_current_datetime, format_datetime
 import re
@@ -104,6 +104,7 @@ class NLPModule:
         memory_db = self._memory_manager.get_user_memory(db)
 
         user_permissions_str = ""
+        user_preferences_str = ""
         if user_name:
             db_user = db.query(User).filter(User.nombre == user_name).first()
             if db_user:
@@ -111,6 +112,13 @@ class NLPModule:
                 db.refresh(db_user)
                 permissions = [up.permission.name for up in db_user.permissions]
                 user_permissions_str = ", ".join(permissions)
+
+                # Cargar preferencias del usuario
+                user_preferences = db.query(Preference).filter(Preference.user_id == db_user.id).all()
+                if user_preferences:
+                    user_preferences_str = ", ".join([f"{p.key}: {p.value}" for p in user_preferences])
+                else:
+                    user_preferences_str = "No hay preferencias de usuario registradas."
 
         # Fetch IoTCommand objects from the database
         iot_commands_db = db.query(models.IoTCommand).all()
@@ -133,7 +141,7 @@ class NLPModule:
             iot_commands=formatted_iot_commands,
             last_interaction=memory_db.last_interaction.isoformat() if memory_db.last_interaction else "No hay registro de interacciones previas.",
             device_states=memory_db.device_states if memory_db.device_states else "No hay estados de dispositivos registrados.",
-            user_preferences=memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas.",
+            user_preferences=user_preferences_str, # Usar las preferencias cargadas dinámicamente
             identified_speaker=user_name if user_name else "Desconocido",
             is_owner=is_owner,
             user_permissions=user_permissions_str,
@@ -169,6 +177,30 @@ class NLPModule:
                     # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
                     serial_command_match = re.search(r"serial_command:\s*([^\s]+)", full_response_content)
                     mqtt_publish_match = re.search(r"mqtt_publish:\s*([^,]+),\s*(.+)", full_response_content)
+
+                    # Lógica para detectar y guardar preferencias del usuario
+                    preference_match = re.search(r"preference_set:\s*([^,]+),\s*(.+)", full_response_content)
+                    if preference_match and db_user:
+                        pref_key = preference_match.group(1).strip()
+                        pref_value = preference_match.group(2).strip()
+                        
+                        existing_preference = db.query(Preference).filter(
+                            Preference.user_id == db_user.id,
+                            Preference.key == pref_key
+                        ).first()
+
+                        if existing_preference:
+                            existing_preference.value = pref_value
+                            logging.info(f"Preferencia '{pref_key}' actualizada para el usuario '{db_user.nombre}': {pref_value}")
+                        else:
+                            new_preference = Preference(user_id=db_user.id, key=pref_key, value=pref_value)
+                            db.add(new_preference)
+                            logging.info(f"Nueva preferencia '{pref_key}' guardada para el usuario '{db_user.nombre}': {pref_value}")
+                        db.commit()
+                        db.refresh(db_user) # Refrescar el usuario para que las preferencias se actualicen en la sesión
+                        full_response_content = full_response_content.split(preference_match.group(0))[0].strip()
+                        if not full_response_content:
+                            full_response_content = f"Entendido, he guardado tu preferencia de {pref_key} como {pref_value}."
 
                     # Inicializar variables para comandos IoT
                     identified_serial_command = None

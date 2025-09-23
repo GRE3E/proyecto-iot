@@ -57,7 +57,7 @@ class User(Base):
     embedding = Column(Text, nullable=False) # Vector serializado
     is_owner = Column(Boolean, default=False) # Nuevo campo para identificar al propietario
 
-    preferences = relationship("Preference", back_populates="user", uselist=False)
+    preferences = relationship("Preference", back_populates="user") # Cambiado a uno a muchos
     permissions = relationship("UserPermission", back_populates="user")
 
     def has_permission(self, permission_name: str) -> bool:
@@ -76,12 +76,11 @@ class Preference(Base):
     __tablename__ = "preferences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    # Agrega campos de preferencia aquí
-    # Ejemplo: theme = Column(String(50), default="dark")
-    # Ejemplo: notification_settings = Column(Text, default="{}")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Clave foránea a User
+    key = Column(String(100), nullable=False) # Nombre de la preferencia (ej. "theme", "light_color")
+    value = Column(Text, nullable=False) # Valor de la preferencia (ej. "dark", "warm")
 
-    user = relationship("User", back_populates="preferences")
+    user = relationship("User", back_populates="preferences") # Relación con User
 
 class Permission(Base):
     __tablename__ = "permissions"

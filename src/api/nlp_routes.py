@@ -47,7 +47,11 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
         if response is None:
             raise HTTPException(status_code=500, detail="No se pudo generar la respuesta")
         
-        response_obj = NLPResponse(response=response)
+        response_obj = NLPResponse(
+            response=response["response"],
+            preference_key=response.get("preference_key"),
+            preference_value=response.get("preference_value")
+        )
         utils._save_api_log("/nlp/query", query.dict(), response_obj.dict(), db)
         return response_obj
         

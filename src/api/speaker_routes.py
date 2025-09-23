@@ -142,13 +142,13 @@ async def update_speaker_owner(request: SpeakerUpdateOwnerRequest, db: Session =
         if request.is_owner:
             utils._nlp_module._config["owner_name"] = user.nombre
             utils._nlp_module._save_config()
-            utils.initialize_nlp()
+            utils._nlp_module.reload()
         else:
             # If the owner is being removed, check if this was the current owner
             if utils._nlp_module._config.get("owner_name") == user.nombre:
                 utils._nlp_module._config["owner_name"] = None
                 utils._nlp_module._save_config()
-                utils.initialize_nlp()
+                utils._nlp_module.reload()
 
         response_data = utils.get_module_status()
         utils._save_api_log("/speaker/update_owner", request.dict(), response_data.dict(), db)

@@ -13,7 +13,8 @@ import ollama
 from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.memory_manager import MemoryManager
-from src.db.models import UserMemory, User, Permission
+from src.db.models import UserMemory, User, Permission, IoTCommand # Importar IoTCommand
+import src.db.models as models # Importar el módulo models
 from src.utils.datetime_utils import get_current_datetime, format_datetime
 import re
 
@@ -106,13 +107,22 @@ class NLPModule:
         if user_name:
             db_user = db.query(User).filter(User.nombre == user_name).first()
             if db_user:
+                db.expire(db_user) # Expire the object to ensure fresh data is loaded
+                db.refresh(db_user)
                 permissions = [up.permission.name for up in db_user.permissions]
                 user_permissions_str = ", ".join(permissions)
 
+        # Fetch IoTCommand names from the database
+        iot_commands = db.query(models.IoTCommand.name).all()
+        iot_command_names = [command.name for command in iot_commands]
+        
+        # Combine config capabilities with IoTCommand names
+        all_capabilities = self._config['capabilities'] + iot_command_names
+        
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             assistant_name=self._config['assistant_name'],
             language=self._config['language'],
-            capabilities='\n'.join(f'- {cap}' for cap in self._config['capabilities']),
+            capabilities='\n'.join(f'- {cap}' for cap in all_capabilities),
             last_interaction=memory_db.last_interaction.isoformat() if memory_db.last_interaction else "No hay registro de interacciones previas.",
             device_states=memory_db.device_states if memory_db.device_states else "No hay estados de dispositivos registrados.",
             user_preferences=memory_db.user_preferences if memory_db.user_preferences else "No hay preferencias de usuario registradas.",
@@ -152,25 +162,58 @@ class NLPModule:
                     if self.serial_manager and "serial_command:" in full_response_content:
                         iot_command_attempted = True
                         command_to_send = full_response_content.split("serial_command:")[1].strip()
-                        if not is_owner and not db_user.has_permission(command_to_send):
-                            full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'."
+                        
+                        # Obtener el objeto IoTCommand para verificar sus permisos
+                        iot_command_obj = db.query(IoTCommand).filter(IoTCommand.name == command_to_send).first()
+                        
+                        if iot_command_obj:
+                            required_permissions = [p.name for p in iot_command_obj.permissions]
+                            has_iot_permission = False
+                            if db_user:
+                                for req_perm in required_permissions:
+                                    if db_user.has_permission(req_perm):
+                                        has_iot_permission = True
+                                        break
+                            
+                            if not is_owner and not has_iot_permission:
+                                full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'."
+                            else:
+                                logging.info(f"Enviando comando serial: {command_to_send}")
+                                self.serial_manager.send_command(command_to_send)
+                                full_response_content = f"Comando serial enviado: {command_to_send}. " + full_response_content.split("serial_command:")[0].strip()
                         else:
-                            logging.info(f"Enviando comando serial: {command_to_send}")
-                            self.serial_manager.send_command(command_to_send)
-                            full_response_content = f"Comando serial enviado: {command_to_send}. " + full_response_content.split("serial_command:")[0].strip()
+                            logging.warning(f"Comando IoT '{command_to_send}' no encontrado en la base de datos.")
+                            full_response_content = f"Lo siento, el comando '{command_to_send}' no está registrado o no tiene permisos asociados."
+
                     elif self.mqtt_client and "mqtt_publish:" in full_response_content:
                         iot_command_attempted = True
                         parts = full_response_content.split("mqtt_publish:")[1].strip().split(",", 1)
                         if len(parts) == 2:
                             topic = parts[0].strip()
                             payload = parts[1].strip()
-                            mqtt_command_identifier = topic  # O alguna parte del payload
-                            if not is_owner and not db_user.has_permission(mqtt_command_identifier):
-                                full_response_content = f"Lo siento {user_name}, no tienes permiso para publicar en el tópico '{topic}'."
+                            mqtt_command_identifier = topic  # Usar el tópico como identificador para buscar el comando IoT
+                            
+                            # Obtener el objeto IoTCommand para verificar sus permisos
+                            iot_command_obj = db.query(IoTCommand).filter(IoTCommand.mqtt_topic == mqtt_command_identifier).first() # Asumiendo que el tópico es único para un comando IoT
+
+                            if iot_command_obj:
+                                required_permissions = [p.name for p in iot_command_obj.permissions]
+                                has_iot_permission = False
+                                if db_user:
+                                    for req_perm in required_permissions:
+                                        if db_user.has_permission(req_perm):
+                                            has_iot_permission = True
+                                            break
+                                
+                                if not is_owner and not has_iot_permission:
+                                    full_response_content = f"Lo siento {user_name}, no tienes permiso para publicar en el tópico '{topic}'."
+                                else:
+                                    logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
+                                    self.mqtt_client.publish(topic, payload)
+                                    full_response_content = f"Mensaje MQTT publicado en {topic}. " + full_response_content.split("mqtt_publish:")[0].strip()
                             else:
-                                logging.info(f"Publicando MQTT en tópico '{topic}': {payload}")
-                                self.mqtt_client.publish(topic, payload)
-                                full_response_content = f"Mensaje MQTT publicado en {topic}. " + full_response_content.split("mqtt_publish:")[0].strip()
+                                logging.warning(f"Comando MQTT para tópico '{topic}' no encontrado en la base de datos o sin permisos asociados.")
+                                full_response_content = f"Lo siento, el comando MQTT para el tópico '{topic}' no está registrado o no tiene permisos asociados."
                         else:
                             logging.warning(f"Formato de comando MQTT inválido: {full_response_content}")
                             full_response_content = "Lo siento, el formato del comando MQTT es inválido."

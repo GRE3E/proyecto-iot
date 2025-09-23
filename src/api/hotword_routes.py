@@ -66,11 +66,13 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 # Obtener el usuario de la sesión actual para asegurar que sea persistente
                 identified_user_from_speaker = db.query(User).filter(User.id == identified_user_from_speaker.id).first()
                 if identified_user_from_speaker:
+                    db.expire(identified_user_from_speaker) # Expire the object to ensure fresh data is loaded
                     db.refresh(identified_user_from_speaker)
                     identified_speaker_name = identified_user_from_speaker.nombre
                 identified_user_obj = identified_user_from_speaker
                 user_name_for_nlp = identified_user_obj.nombre
                 is_owner_for_nlp = identified_user_obj.is_owner
+                logging.info(f"Identified user {user_name_for_nlp} with is_owner: {is_owner_for_nlp}")
             else: # Si no se identificó pero se obtuvo un embedding
                 # Registrar al usuario como desconocido
                 next_unknown_id = db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1

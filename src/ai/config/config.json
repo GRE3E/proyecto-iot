@@ -10,8 +10,10 @@
     "control_luces",
     "control_temperatura",
     "control_dispositivos",
-    "consulta_estado"
+    "consulta_estado",
+    "administrar_comandos_iot"
   ],
   "memory_size": 100,
-  "timezone": "America/Lima"
+  "timezone": "America/Lima",
+  "owner_name": null
 }

@@ -1,7 +1,15 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime # Importar ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime, Table # Importar ForeignKey y Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
+
+# Tabla de asociación para la relación muchos a muchos entre IoTCommand y Permission
+iot_command_permission_association = Table(
+    'iot_command_permission_association',
+    Base.metadata,
+    Column('iot_command_id', Integer, ForeignKey('iot_commands.id'), primary_key=True),
+    Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
+)
 
 class UserMemory(Base):
     __tablename__ = "user_memory"
@@ -27,6 +35,18 @@ class APILog(Base):
     endpoint = Column(String(100))
     request_body = Column(Text)
     response_data = Column(Text)
+
+class IoTCommand(Base):
+    __tablename__ = "iot_commands"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    command_type = Column(String(50), nullable=False) # e.g., "serial", "mqtt"
+    command_payload = Column(Text, nullable=False)
+    mqtt_topic = Column(String(255), nullable=True) # Solo si command_type es "mqtt"
+
+    permissions = relationship("Permission", secondary=iot_command_permission_association, back_populates="iot_commands")
 
 class User(Base):
     __tablename__ = "users"
@@ -69,6 +89,7 @@ class Permission(Base):
     name = Column(String(50), unique=True, nullable=False) # e.g., "read", "write", "admin"
 
     users = relationship("UserPermission", back_populates="permission")
+    iot_commands = relationship("IoTCommand", secondary=iot_command_permission_association, back_populates="permissions")
 
     def __repr__(self):
         return f"<Permission(id={self.id}, name='{self.name}')>"

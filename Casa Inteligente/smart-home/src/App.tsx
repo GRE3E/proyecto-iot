@@ -8,10 +8,10 @@ import SimpleButton from "./components/UI/SimpleButton"
 
 // Sections
 import Inicio from "./components/sections/Inicio"
-import Dispositivos from "./components/sections/Dispositivos"
-import Seguridad from "./components/sections/Seguridad"
-import Monitoreo from "./components/sections/Monitoreo"
-import Energia from "./components/sections/Energia"
+import Casa3d from "./components/sections/Casa3d"
+import GestionDispositivos from "./components/sections/GestionDispositivos"
+import MonitoreoSeguridad from "./components/sections/MonitoreoSeguridad"
+// Energia section merged into GestionDispositivos
 import Configuracion from "./components/sections/Configuracion"
 
 // Widgets
@@ -22,7 +22,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [selectedMenu, setSelectedMenu] = useState("Inicio")
 
-  const { theme, colors } = useThemeByTime()
+  const { colors } = useThemeByTime()
 
   // Estados globales
   const [devices, setDevices] = useState([
@@ -37,7 +37,7 @@ export default function App() {
   const [filter, setFilter] = useState("Todos")
 
   // Estados para Configuración
-  const [ownerName, setOwnerName] = useState("Eddyn")
+  const [ownerName, setOwnerName] = useState("Usuario")
   const [language, setLanguage] = useState("es")
   const [notifications, setNotifications] = useState(true)
 
@@ -52,7 +52,7 @@ export default function App() {
         </h1>
 
         <nav className="flex flex-col gap-3 flex-grow">
-          {["Inicio", "Dispositivos", "Seguridad", "Monitoreo", "Energía", "Chat", "Configuración"].map((menu) => (
+          {["Inicio", "Casa 3D", "Gestión de Dispositivos", "Monitoreo y Seguridad", "Chat", "Configuración"].map((menu) => (
             <SimpleButton key={menu} onClick={() => setSelectedMenu(menu)} active={selectedMenu === menu}>
               {menu}
             </SimpleButton>
@@ -75,25 +75,24 @@ export default function App() {
             humidity={humidity}
             energyUsage={energyUsage}
             devices={devices}
-            lightOn={devices.some((d) => d.on)}
-            securityOn={true}
           />
         )}
+        
+        {selectedMenu === "Casa 3D" && <Casa3d />}
 
-        {selectedMenu === "Dispositivos" && (
-          <Dispositivos
+        {selectedMenu === "Gestión de Dispositivos" && (
+          <GestionDispositivos
             devices={devices}
             setDevices={setDevices}
             energyUsage={energyUsage}
+            setEnergyUsage={setEnergyUsage}
             filter={filter}
             setFilter={setFilter}
           />
         )}
 
-        {selectedMenu === "Seguridad" && <Seguridad />}
-
-        {selectedMenu === "Monitoreo" && (
-          <Monitoreo
+        {selectedMenu === "Monitoreo y Seguridad" && (
+          <MonitoreoSeguridad
             temperature={temperature}
             setTemperature={setTemperature}
             humidity={humidity}
@@ -103,9 +102,7 @@ export default function App() {
           />
         )}
 
-        {selectedMenu === "Energía" && (
-          <Energia devices={devices} energyUsage={energyUsage} setEnergyUsage={setEnergyUsage} />
-        )}
+        {/* 'Energía' merged into 'Gestión de Dispositivos' */}
 
         {selectedMenu === "Configuración" && (
           <Configuracion
@@ -115,7 +112,6 @@ export default function App() {
             setLanguage={setLanguage}
             notifications={notifications}
             setNotifications={setNotifications}
-            devices={devices}
           />
         )}
 

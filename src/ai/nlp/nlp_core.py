@@ -175,7 +175,7 @@ class NLPModule:
                     iot_command_attempted = False
                     
                     # Lógica para enviar comandos IoT si la respuesta de la IA lo indica
-                    serial_command_match = re.search(r"serial_command:\s*([^\s]+)", full_response_content)
+                    serial_command_match = re.search(r"serial_command:\s*(.+)", full_response_content)
                     mqtt_publish_match = re.search(r"mqtt_publish:\s*([^,]+),\s*(.+)", full_response_content)
 
                     # Lógica para detectar y guardar preferencias del usuario
@@ -211,29 +211,34 @@ class NLPModule:
                         iot_command_attempted = True
                         command_to_send = serial_command_match.group(1).strip()
                         identified_serial_command = command_to_send # Guardar el comando serial identificado
-                        
-                        # Obtener el objeto IoTCommand para verificar sus permisos
-                        iot_command_obj = db.query(IoTCommand).filter(IoTCommand.command_payload == command_to_send).first()
-                        
-                        if iot_command_obj:
-                            required_permissions = [p.name for p in iot_command_obj.permissions]
-                            has_iot_permission = False
-                            if db_user:
-                                for req_perm in required_permissions:
-                                    if db_user.has_permission(req_perm):
-                                        has_iot_permission = True
-                                        break
-                            
-                            if not is_owner and not has_iot_permission:
-                                full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'."
-                            else:
-                                logging.info(f"Enviando comando serial: {command_to_send}")
-                                self.serial_manager.send_command(command_to_send)
-                                # Eliminar el prefijo 'serial_command:COMMAND' de la respuesta conversacional
-                                full_response_content = full_response_content.split(serial_command_match.group(0))[0].strip()
+
+                        if is_owner:
+                            logging.info(f"Usuario propietario. Enviando comando serial directamente: {command_to_send}")
+                            self.serial_manager.send_command(command_to_send)
+                            full_response_content = full_response_content.split(serial_command_match.group(0))[0].strip()
                         else:
-                            logging.warning(f"Comando IoT '{command_to_send}' no encontrado en la base de datos.")
-                            full_response_content = f"Lo siento, el comando '{command_to_send}' no está registrado o no tiene permisos asociados."
+                            # Obtener el objeto IoTCommand para verificar sus permisos
+                            iot_command_obj = db.query(IoTCommand).filter(IoTCommand.command_payload == command_to_send).first()
+
+                            if iot_command_obj:
+                                required_permissions = [p.name for p in iot_command_obj.permissions]
+                                has_iot_permission = False
+                                if db_user:
+                                    for req_perm in required_permissions:
+                                        if db_user.has_permission(req_perm):
+                                            has_iot_permission = True
+                                            break
+
+                                if not has_iot_permission:
+                                    full_response_content = f"Lo siento {user_name}, no tienes permiso para ejecutar el comando '{command_to_send}'."
+                                else:
+                                    logging.info(f"Enviando comando serial: {command_to_send}")
+                                    self.serial_manager.send_command(command_to_send)
+                                    # Eliminar el prefijo 'serial_command:COMMAND' de la respuesta conversacional
+                                    full_response_content = full_response_content.split(serial_command_match.group(0))[0].strip()
+                            else:
+                                logging.warning(f"Comando IoT '{command_to_send}' no encontrado en la base de datos.")
+                                full_response_content = f"Lo siento, el comando '{command_to_send}' no está registrado o no tiene permisos asociados."
 
                     elif self.mqtt_client and mqtt_publish_match:
                         iot_command_attempted = True

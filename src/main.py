@@ -14,7 +14,8 @@ from src.api.nlp_routes import nlp_router
 from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
-from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task
+from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _hotword_task, _serial_manager, _mqtt_client
+from src.api import utils
 from .db.database import Base, engine
 from .db import models  # Importa los modelos para asegurar que estén registrados con Base
 from src.ai.hotword.hotword import HotwordDetector
@@ -91,8 +92,9 @@ async def startup_event():
         initialize_nlp()
 
         # Asignar las instancias de IoT a app.state desde los módulos globales de utils.py
-        app.state.serial_manager = _serial_manager
-        app.state.mqtt_client = _mqtt_client
+        app.state.serial_manager = utils._serial_manager
+        app.state.mqtt_client = utils._mqtt_client
+        logging.info(f"main.py: app.state.serial_manager asignado: {app.state.serial_manager is not None}, conectado: {app.state.serial_manager.is_connected if app.state.serial_manager else 'N/A'}")
 
 
         # HotwordDetector se inicializa dentro de initialize_nlp() en utils.py

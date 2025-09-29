@@ -1,48 +1,67 @@
 "use client"
 
+import { useState } from "react"
 import SimpleCard from "../UI/SimpleCard"
 import AnimatedClockWidget from "../widgets/AnimatedClockWidget"
 import Perfil from "./Perfil"
-import { IconHome, IconBell, IconSettings, IconThermostat, IconBolt, IconPlug, IconLight, IconPin } from "../UI/Icons"
-// Casa3d removed: this view is charts-only now
-// LiquidGauge was removed from this view (charts-only) to avoid duplicates
+import {
+  Home,
+  Bell,
+  Thermometer,
+  Zap,
+  Plug,
+  Lightbulb,
+  MapPin,
+  Activity,
+  X
+} from "lucide-react"
 
-// Inline charts (reusable)
+// --- Componentes mini visuales ---
 function Sparkline({ values = [10, 12, 8, 14, 18, 16] }: { values?: number[] }) {
-  const max = Math.max(...values);
-  const points = values.map((v, i) => `${(i / (values.length - 1)) * 100},${100 - (v / max) * 100}`).join(' ');
+  const max = Math.max(...values)
+  const points = values.map((v, i) => `${(i / (values.length - 1)) * 100},${100 - (v / max) * 100}`).join(" ")
   return (
-    <svg viewBox="0 0 100 100" className="w-32 h-8">
+    <svg viewBox="0 0 100 100" className="w-24 md:w-32 h-6 md:h-8">
       <polyline fill="none" stroke="#06b6d4" strokeWidth={2} points={points} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
-  );
+  )
 }
 
 function Donut({ percent = 65 }: { percent?: number }) {
-  const r = 18;
-  const c = 2 * Math.PI * r;
-  const dash = (percent / 100) * c;
+  const r = 18
+  const c = 2 * Math.PI * r
+  const dash = (percent / 100) * c
   return (
-    <svg viewBox="0 0 48 48" className="w-14 h-14">
+    <svg viewBox="0 0 48 48" className="w-12 md:w-14 h-12 md:h-14">
       <circle cx="24" cy="24" r={r} fill="transparent" stroke="#0f172a" strokeWidth={6} />
-      <circle cx="24" cy="24" r={r} fill="transparent" stroke="#a78bfa" strokeWidth={6} strokeDasharray={`${dash} ${c - dash}`} strokeLinecap="round" transform="rotate(-90 24 24)" />
+      <circle
+        cx="24"
+        cy="24"
+        r={r}
+        fill="transparent"
+        stroke="#a78bfa"
+        strokeWidth={6}
+        strokeDasharray={`${dash} ${c - dash}`}
+        strokeLinecap="round"
+        transform="rotate(-90 24 24)"
+      />
       <text x="24" y="28" textAnchor="middle" fontSize="10" fill="#e6edf3">{percent}%</text>
     </svg>
-  );
+  )
 }
 
 function MiniBars({ values = [20, 40, 60, 50, 80] }: { values?: number[] }) {
-  const max = Math.max(...values);
+  const max = Math.max(...values)
   return (
-    <div className="flex items-end gap-1 h-10">
+    <div className="flex items-end gap-1 h-8 md:h-10">
       {values.map((v, i) => (
-        <div key={i} style={{ height: `${(v / max) * 100}%` }} className="w-1.5 bg-gradient-to-b from-pink-400 to-rose-400 rounded" />
+        <div key={i} style={{ height: `${(v / max) * 100}%` }} className="w-1 md:w-1.5 bg-gradient-to-b from-pink-400 to-rose-400 rounded" />
       ))}
     </div>
-  );
+  )
 }
 
-// Tipos
+// --- Tipos ---
 interface Device {
   name: string
   location?: string
@@ -55,8 +74,11 @@ interface InicioProps {
   humidity?: number
   energyUsage?: number
   devices?: Device[]
-  lightOn?: boolean
-  securityOn?: boolean
+}
+
+interface Notification {
+  id: number
+  message: string
 }
 
 export default function Inicio({
@@ -69,63 +91,156 @@ export default function Inicio({
     { name: "Bombillo Cocina", location: "Cocina", power: "40W", on: true },
   ],
 }: InicioProps) {
+  // --- Estado notificaciones ---
+  const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([
+    { id: 1, message: "Nueva actualización de seguridad" },
+    { id: 2, message: "Sensor de movimiento activado" },
+    { id: 3, message: "Consumo de energía elevado detectado" },
+  ])
+
+  const removeNotification = (id: number) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }
+
+  const clearAll = () => {
+    setNotifications([])
+    setOpen(false)
+  }
+
+  const toggleNotifications = () => {
+    if (open) {
+      setClosing(true)
+      setTimeout(() => {
+        setOpen(false)
+        setClosing(false)
+      }, 350)
+    } else {
+      setOpen(true)
+    }
+  }
+
   return (
-    <div className="p-4 space-y-8">
-      <div className="flex items-center gap-4 mb-8 relative">
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
-          <IconHome className="w-10 h-10 text-white" />
+    <div className="p-2 md:p-4 space-y-6 md:space-y-8 font-inter">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 md:mb-8 relative">
+        <div className="flex items-center gap-4">
+          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
+            <Home className="w-8 md:w-10 h-8 md:h-10 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
+            Bienvenido
+          </h2>
         </div>
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-          Bienvenido
-        </h2>
-  {/* profile in header corner (compact) */}
-  <Perfil compact />
+
+        {/* --- Perfil + Notificaciones --- */}
+        <div className="flex items-center gap-4 relative">
+          {/* Perfil */}
+          <div className="w-full md:w-auto">
+            <Perfil compact />
+          </div>
+
+          {/* Notificaciones */}
+          <div className="relative">
+            <button
+              onClick={toggleNotifications}
+              className="relative p-2 md:p-3 rounded-xl bg-slate-800/30 hover:bg-slate-700/40 transition-colors border border-slate-600/20"
+            >
+              <Bell className="w-5 md:w-6 h-5 md:h-6 text-white" />
+              {notifications.length > 0 && (
+                <>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                  <span className="absolute -bottom-1 -right-1 text-xs font-bold text-red-400">
+                    {notifications.length}
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* --- Popover alineado --- */}
+            {open && (
+              <div
+                className={`absolute right-0 mt-3 w-80 bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/40 p-4 z-50 ${
+                  closing ? "animate-fadeOut" : "animate-fadeIn"
+                }`}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-semibold text-slate-200 tracking-wide">Notificaciones</h4>
+                  <button
+                    onClick={clearAll}
+                    className="p-1 hover:bg-slate-700/50 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                  </button>
+                </div>
+
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No tienes notificaciones</p>
+                ) : (
+                  <ul className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pr-2">
+                    {notifications.map((n) => (
+                      <li
+                        key={n.id}
+                        className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all"
+                      >
+                        <p className="text-sm text-slate-200">{n.message}</p>
+                        <button
+                          onClick={() => removeNotification(n.id)}
+                          className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* --- Top row: clock + notifications --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div>
-          <SimpleCard className="p-4">
-            <AnimatedClockWidget />
-          </SimpleCard>
-        </div>
-        <div>
-          <SimpleCard className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-slate-800/30">
-                <IconBell className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm text-slate-300">Notificaciones</h4>
-                <p className="text-sm text-slate-400">No tienes nuevas notificaciones</p>
-              </div>
+      {/* --- Reloj inteligente mejorado --- */}
+      <div className="mb-6 md:mb-10">
+        <div className="max-w-8xl mx-auto">
+          <SimpleCard className="p-6 md:p-10 bg-gradient-to-br from-slate-900/70 to-slate-800/50 backdrop-blur-lg border border-white/10 shadow-2xl rounded-3xl">
+            <div className="flex flex-col items-center text-center">
+              <AnimatedClockWidget />
+              <p className="mt-4 text-lg md:text-xl font-semibold text-slate-200 tracking-wide animate-fadeIn">
+                {new Date().toLocaleDateString("es-ES", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+              <span
+                className={`mt-2 px-3 py-1 text-xs rounded-full font-medium ${
+                  new Date().getHours() >= 6 && new Date().getHours() < 18
+                    ? "bg-gradient-to-r from-yellow-400/20 to-orange-500/20 text-yellow-300 border border-yellow-500/20"
+                    : "bg-gradient-to-r from-indigo-500/20 to-purple-600/20 text-indigo-300 border border-indigo-500/20"
+                }`}
+              >
+                {new Date().getHours() >= 6 && new Date().getHours() < 18
+                  ? "☀️ Día Activo"
+                  : "🌙 Noche Tranquila"}
+              </span>
             </div>
           </SimpleCard>
         </div>
-        <div>
-          <SimpleCard className="p-4">
-            <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-slate-800/30">
-                <IconSettings className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm text-slate-300">Quick actions</h4>
-                <p className="text-sm text-slate-400">Atajos y estados</p>
-              </div>
-            </div>
-          </SimpleCard>
-        </div>
       </div>
 
-      {/* --- Dashboard único: charts-only, futurista y elegante --- */}
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold text-slate-200 mb-4">Panel de métricas</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <SimpleCard className="p-6 bg-gradient-to-br from-slate-900/60 to-slate-800/50 backdrop-blur-lg border border-white/5 shadow-2xl">
+      {/* --- Panel de métricas --- */}
+      <div className="mb-6 md:mb-8">
+        <h3 className="text-xl md:text-2xl font-semibold text-slate-200 mb-4 font-inter tracking-tight">Panel de métricas</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Energía */}
+          <SimpleCard className="p-4 md:p-6 bg-gradient-to-br from-slate-900/60 to-slate-800/50 backdrop-blur-lg border border-white/5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Energía (24h)</p>
-                <p className="text-3xl font-extrabold text-white">{energyUsage} kWh</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Energía (24h)</p>
+                <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">{energyUsage} kWh</p>
                 <p className="text-xs text-slate-500 mt-2">Consumo total reciente</p>
               </div>
               <div className="ml-auto self-center">
@@ -134,14 +249,15 @@ export default function Inicio({
             </div>
           </SimpleCard>
 
-          <SimpleCard className="p-6 bg-gradient-to-br from-violet-900/50 to-indigo-800/40 backdrop-blur-lg border border-white/5 shadow-2xl">
+          {/* Temperatura */}
+          <SimpleCard className="p-4 md:p-6 bg-gradient-to-br from-violet-900/50 to-indigo-800/40 backdrop-blur-lg border border-white/5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Temperatura</p>
-                <p className="text-3xl font-extrabold text-white">{temperature}°C</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Temperatura</p>
+                <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">{temperature}°C</p>
                 <p className="text-xs text-slate-500 mt-2">Promedio interior</p>
               </div>
-                <div className="ml-auto self-center">
+              <div className="ml-auto self-center">
                 <Donut percent={Math.round((temperature / 35) * 100)} />
               </div>
             </div>
@@ -150,14 +266,15 @@ export default function Inicio({
             </div>
           </SimpleCard>
 
-          <SimpleCard className="p-6 bg-gradient-to-br from-cyan-900/40 to-sky-800/30 backdrop-blur-lg border border-white/5 shadow-2xl">
+          {/* Humedad */}
+          <SimpleCard className="p-4 md:p-6 bg-gradient-to-br from-cyan-900/40 to-sky-800/30 backdrop-blur-lg border border-white/5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Humedad</p>
-                <p className="text-3xl font-extrabold text-white">{humidity}%</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Humedad</p>
+                <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">{humidity}%</p>
                 <p className="text-xs text-slate-500 mt-2">Hogar</p>
               </div>
-                <div className="ml-auto self-center">
+              <div className="ml-auto self-center">
                 <Donut percent={Math.round(humidity)} />
               </div>
             </div>
@@ -166,11 +283,12 @@ export default function Inicio({
             </div>
           </SimpleCard>
 
-          <SimpleCard className="p-6 bg-gradient-to-br from-rose-900/30 to-pink-800/30 backdrop-blur-lg border border-white/5 shadow-2xl">
+          {/* Dispositivos */}
+          <SimpleCard className="p-4 md:p-6 bg-gradient-to-br from-rose-900/30 to-pink-800/30 backdrop-blur-lg border border-white/5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Dispositivos</p>
-                <p className="text-3xl font-extrabold text-white">{devices.filter((d) => d.on).length}/{devices.length}</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Dispositivos</p>
+                <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">{devices.filter((d) => d.on).length}/{devices.length}</p>
                 <p className="text-xs text-slate-500 mt-2">Estado activos</p>
               </div>
               <div className="ml-auto self-center">
@@ -179,24 +297,23 @@ export default function Inicio({
             </div>
           </SimpleCard>
         </div>
-
-        {/* Gauges row removed — metrics displayed above as charts to avoid duplication */}
       </div>
 
+      {/* --- Devices --- */}
       <div className="space-y-6 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-br from-slate-600/20 to-slate-700/20 backdrop-blur-sm">
-            <IconSettings className="w-6 h-6 text-white" />
+            <Activity className="w-5 md:w-6 h-5 md:h-6 text-white" />
           </div>
-          <h3 className="text-2xl font-semibold text-slate-200">Dispositivos</h3>
+          <h3 className="text-xl md:text-2xl font-semibold text-slate-200 font-inter tracking-tight">Dispositivos</h3>
           <div className="flex-1 h-px bg-gradient-to-r from-slate-600/50 to-transparent" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {devices.map((device, i) => (
             <SimpleCard
               key={i}
-              className="p-6 hover:scale-[1.02] transition-all duration-300 group relative overflow-hidden border-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+              className="p-4 md:p-6 hover:scale-[1.02] transition-all duration-300 group relative overflow-hidden border-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
             >
               <div
                 className={`absolute top-4 right-4 w-3 h-3 rounded-full transition-all duration-300 ${
@@ -215,24 +332,24 @@ export default function Inicio({
               />
 
               <div className="relative space-y-4">
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 md:gap-4">
                   <div
-                    className={`p-3 rounded-xl transition-all duration-300 backdrop-blur-sm ${
+                    className={`p-2 md:p-3 rounded-xl transition-all duration-300 backdrop-blur-sm ${
                       device.on
                         ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30"
                         : "bg-gradient-to-br from-slate-600/20 to-slate-700/20 group-hover:from-slate-600/30 group-hover:to-slate-700/30"
                     }`}
                   >
-                    <span className="text-2xl">
-                      {device.name.includes("Luz") || device.name.includes("Bombillo")
-                        ? <IconLight className="w-6 h-6 text-white" />
-                        : device.name.includes("Aire")
-                          ? <IconThermostat className="w-6 h-6 text-white" />
-                          : <IconPlug className="w-6 h-6 text-white" />}
-                    </span>
+                    {device.name.includes("Luz") || device.name.includes("Bombillo") ? (
+                      <Lightbulb className="w-5 md:w-6 h-5 md:h-6 text-white" />
+                    ) : device.name.includes("Aire") ? (
+                      <Thermometer className="w-5 md:w-6 h-5 md:h-6 text-white" />
+                    ) : (
+                      <Plug className="w-5 md:w-6 h-5 md:h-6 text-white" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-slate-200 group-hover:text-white transition-colors duration-300 truncate">
+                    <h3 className="text-base md:text-lg font-semibold text-slate-200 group-hover:text-white transition-colors duration-300 truncate font-inter">
                       {device.name}
                     </h3>
                     <p
@@ -246,36 +363,15 @@ export default function Inicio({
                 </div>
 
                 <div className="space-y-3 pl-4 border-l-2 border-slate-600/30 group-hover:border-slate-500/50 transition-colors duration-300">
-                  <div className="flex items-center gap-3 text-slate-400 group-hover:text-slate-300 transition-colors duration-300">
-                      <div className="p-1 rounded bg-slate-700/50">
-                      <IconPin className="w-4 h-4 text-slate-300" />
+                  {device.location && (
+                    <div className="flex items-center gap-2 text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {device.location}
                     </div>
-                    <span className="text-sm font-medium">{device.location}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-400 group-hover:text-slate-300 transition-colors duration-300">
-                      <div className="p-1 rounded bg-slate-700/50">
-                      <IconBolt className="w-4 h-4 text-slate-300" />
-                    </div>
-                    <span className="text-sm font-mono font-medium">{device.power}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-slate-400 group-hover:text-slate-300 transition-colors duration-300">
-                    <span className="font-medium">Consumo actual</span>
-                    <span className="font-mono">{device.on ? device.power : "0W"}</span>
-                  </div>
-                  <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-700 ease-out ${
-                        device.on
-                          ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-300 shadow-sm shadow-green-500/30"
-                          : "bg-slate-600/50"
-                      }`}
-                      style={{
-                        width: device.on ? `${Math.min((Number.parseInt(device.power) / 1500) * 100, 100)}%` : "0%",
-                      }}
-                    />
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+                    <Zap className="w-3.5 h-3.5" />
+                    {device.power}
                   </div>
                 </div>
               </div>

@@ -7,6 +7,7 @@ import * as THREE from "three";
 import SimpleCard from "../UI/SimpleCard";
 import SimpleButton from "../UI/SimpleButton";
 
+
 function Model({ src, wireframe }: { src: string; wireframe: boolean }) {
   const gltf = useGLTF(src, true) as any;
   const ref = useRef<THREE.Group | null>(null);

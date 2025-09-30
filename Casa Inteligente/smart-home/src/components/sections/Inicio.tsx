@@ -1,20 +1,43 @@
 "use client"
 
 import { useState } from "react"
-import SimpleCard from "../UI/SimpleCard"
-import AnimatedClockWidget from "../widgets/AnimatedClockWidget"
-import Perfil from "./Perfil"
-import {
-  Home,
-  Bell,
-  Thermometer,
-  Zap,
-  Plug,
-  Lightbulb,
-  MapPin,
-  Activity,
-  X
+import { 
+  Home, 
+  Bell, 
+  Thermometer, 
+  Zap, 
+  Plug, 
+  Lightbulb, 
+  MapPin, 
+  Activity, 
+  X,
+  Calendar,
+  Cloud,
+  Sun,
+  Snowflake,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
+
+// --- Tipos ---
+interface Device {
+  name: string
+  location?: string
+  power: string
+  on: boolean
+}
+
+interface InicioProps {
+  temperature?: number
+  humidity?: number
+  energyUsage?: number
+  devices?: Device[]
+}
+
+interface Notification {
+  id: number
+  message: string
+}
 
 // --- Componentes mini visuales ---
 function Sparkline({ values = [10, 12, 8, 14, 18, 16] }: { values?: number[] }) {
@@ -61,24 +84,173 @@ function MiniBars({ values = [20, 40, 60, 50, 80] }: { values?: number[] }) {
   )
 }
 
-// --- Tipos ---
-interface Device {
-  name: string
-  location?: string
-  power: string
-  on: boolean
+// Componente simple de reloj animado
+function AnimatedClockWidget() {
+  const [time, setTime] = useState(new Date())
+  
+  useState(() => {
+    const interval = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(interval)
+  })
+
+  return (
+    <div className="text-6xl md:text-8xl font-bold text-white tracking-tight">
+      {time.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+    </div>
+  )
 }
 
-interface InicioProps {
-  temperature?: number
-  humidity?: number
-  energyUsage?: number
-  devices?: Device[]
+// Componente para el estado del clima
+function WeatherStatus({ temperature }: { temperature: number }) {
+  const getWeatherStatus = (temp: number) => {
+    if (temp < 15) {
+      return {
+        icon: <Snowflake className="w-12 h-12 text-blue-300" />,
+        label: "Frío",
+        gradient: "from-blue-500/20 to-cyan-500/20",
+        textColor: "text-blue-300",
+        border: "border-blue-500/20"
+      }
+    } else if (temp >= 15 && temp < 25) {
+      return {
+        icon: <Cloud className="w-12 h-12 text-gray-300" />,
+        label: "Agradable",
+        gradient: "from-gray-400/20 to-blue-400/20",
+        textColor: "text-gray-300",
+        border: "border-gray-400/20"
+      }
+    } else {
+      return {
+        icon: <Sun className="w-12 h-12 text-orange-300" />,
+        label: "Cálido",
+        gradient: "from-orange-500/20 to-yellow-500/20",
+        textColor: "text-orange-300",
+        border: "border-orange-500/20"
+      }
+    }
+  }
+
+  const { icon, label, gradient, textColor, border } = getWeatherStatus(temperature)
+
+  return (
+    <div className={`flex items-center gap-4 px-4 py-3 rounded-xl bg-gradient-to-r ${gradient} border ${border}`}>
+      {icon}
+      <div>
+        <p className={`text-lg font-semibold ${textColor}`}>{label}</p>
+        <p className="text-sm text-slate-300">{temperature}°C</p>
+      </div>
+    </div>
+  )
 }
 
-interface Notification {
-  id: number
-  message: string
+// Componente simple de perfil
+function Perfil({ compact }: { compact?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+        U
+      </div>
+      {!compact && <span className="text-sm text-slate-200">Usuario</span>}
+    </div>
+  )
+}
+
+// Componente SimpleCard
+function SimpleCard({ children, className = "" }: { children: React.ReactNode, className?: string }) {
+  return (
+    <div className={`rounded-2xl ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+// Componente de Calendario
+function CalendarWidget() {
+  const today = new Date()
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth())
+  const [currentYear, setCurrentYear] = useState(today.getFullYear())
+  
+  // Obtener el primer día del mes y el número de días en el mes
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+  
+  // Generar array de días
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  
+  // Generar espacios vacíos para el inicio del mes
+  const emptyDays = Array(firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1).fill(null)
+  
+  // Navegación de meses
+  const prevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11)
+      setCurrentYear(currentYear - 1)
+    } else {
+      setCurrentMonth(currentMonth - 1)
+    }
+  }
+
+  const nextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0)
+      setCurrentYear(currentYear + 1)
+    } else {
+      setCurrentMonth(currentMonth + 1)
+    }
+  }
+
+  // Determinar si es el mes actual para resaltar el día actual
+  const isCurrentMonth = currentMonth === today.getMonth() && currentYear === today.getFullYear()
+  const currentDay = today.getDate()
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={prevMonth}
+          className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5 text-slate-200" />
+        </button>
+        <h4 className="text-lg font-semibold text-slate-200">
+          {new Date(currentYear, currentMonth).toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}
+        </h4>
+        <button
+          onClick={nextMonth}
+          className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors"
+        >
+          <ChevronRight className="w-5 h-5 text-slate-200" />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-2 text-center">
+        {/* Días de la semana */}
+        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+          <div key={day} className="text-xs font-medium text-slate-400">
+            {day}
+          </div>
+        ))}
+        
+        {/* Días vacíos al inicio */}
+        {emptyDays.map((_, i) => (
+          <div key={`empty-${i}`} className="h-10" />
+        ))}
+        
+        {/* Días del mes */}
+        {days.map((day) => (
+          <div
+            key={day}
+            className={`relative h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 ${
+              isCurrentMonth && day === currentDay
+                ? "bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-white shadow-lg"
+                : "text-slate-400 hover:bg-slate-700/30"
+            }`}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function Inicio({
@@ -100,6 +272,7 @@ export default function Inicio({
     { id: 3, message: "Consumo de energía elevado detectado" },
   ])
 
+  // Handlers de notificaciones
   const removeNotification = (id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
@@ -119,7 +292,7 @@ export default function Inicio({
     } else {
       setOpen(true)
     }
-  }
+  }  
 
   return (
     <div className="p-2 md:p-4 space-y-6 md:space-y-8 font-inter">
@@ -136,7 +309,6 @@ export default function Inicio({
 
         {/* --- Perfil + Notificaciones --- */}
         <div className="flex items-center gap-4 relative">
-          {/* Perfil */}
           <div className="w-full md:w-auto">
             <Perfil compact />
           </div>
@@ -158,12 +330,11 @@ export default function Inicio({
               )}
             </button>
 
-            {/* --- Popover alineado --- */}
             {open && (
               <div
                 className={`absolute right-0 mt-3 w-80 bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/40 p-4 z-50 ${
-                  closing ? "animate-fadeOut" : "animate-fadeIn"
-                }`}
+                  closing ? "opacity-0" : "opacity-100"
+                } transition-opacity duration-300`}
               >
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-semibold text-slate-200 tracking-wide">Notificaciones</h4>
@@ -178,7 +349,7 @@ export default function Inicio({
                 {notifications.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-4">No tienes notificaciones</p>
                 ) : (
-                  <ul className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pr-2">
+                  <ul className="space-y-3 max-h-64 overflow-y-auto pr-2">
                     {notifications.map((n) => (
                       <li
                         key={n.id}
@@ -201,32 +372,53 @@ export default function Inicio({
         </div>
       </div>
 
-      {/* --- Reloj inteligente mejorado --- */}
+      {/* --- Reloj inteligente --- */}
       <div className="mb-6 md:mb-10">
         <div className="max-w-8xl mx-auto">
           <SimpleCard className="p-6 md:p-10 bg-gradient-to-br from-slate-900/70 to-slate-800/50 backdrop-blur-lg border border-white/10 shadow-2xl rounded-3xl">
-            <div className="flex flex-col items-center text-center">
-              <AnimatedClockWidget />
-              <p className="mt-4 text-lg md:text-xl font-semibold text-slate-200 tracking-wide animate-fadeIn">
-                {new Date().toLocaleDateString("es-ES", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-              <span
-                className={`mt-2 px-3 py-1 text-xs rounded-full font-medium ${
-                  new Date().getHours() >= 6 && new Date().getHours() < 18
-                    ? "bg-gradient-to-r from-yellow-400/20 to-orange-500/20 text-yellow-300 border border-yellow-500/20"
-                    : "bg-gradient-to-r from-indigo-500/20 to-purple-600/20 text-indigo-300 border border-indigo-500/20"
-                }`}
-              >
-                {new Date().getHours() >= 6 && new Date().getHours() < 18
-                  ? "☀️ Día Activo"
-                  : "🌙 Noche Tranquila"}
-              </span>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              {/* Reloj y Fecha */}
+              <div className="flex flex-col items-start text-left">
+                <AnimatedClockWidget />
+                <p className="mt-4 text-lg md:text-xl font-semibold text-slate-200 tracking-wide">
+                  {new Date().toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                <span
+                  className={`mt-2 px-3 py-1 text-xs rounded-full font-medium ${
+                    new Date().getHours() >= 6 && new Date().getHours() < 18
+                      ? "bg-gradient-to-r from-yellow-400/20 to-orange-500/20 text-yellow-300 border border-yellow-500/20"
+                      : "bg-gradient-to-r from-indigo-500/20 to-purple-600/20 text-indigo-300 border border-indigo-500/20"
+                  }`}
+                >
+                  {new Date().getHours() >= 6 && new Date().getHours() < 18
+                    ? "☀️ Día Activo"
+                    : "🌙 Noche Tranquila"}
+                </span>
+              </div>
+
+              {/* Estado del Clima */}
+              <WeatherStatus temperature={temperature} />
             </div>
+
+            {/* Divisor */}
+            <div className="flex items-center gap-4 mt-8 mb-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600/50 to-transparent" />
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-purple-400" />
+                <h3 className="text-xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                  Calendario
+                </h3>
+              </div>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600/50 to-transparent" />
+            </div>
+
+            {/* Calendario */}
+            <CalendarWidget />
           </SimpleCard>
         </div>
       </div>
@@ -382,3 +574,5 @@ export default function Inicio({
     </div>
   )
 }
+
+

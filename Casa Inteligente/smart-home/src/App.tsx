@@ -16,7 +16,6 @@ import Configuracion from "./components/sections/Configuracion"
 
 // Widgets
 import Chat from "./components/widgets/Chat"
-import SimpleCard from "./components/UI/SimpleCard"
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -54,12 +53,17 @@ export default function App() {
     { name: "Configuración", icon: Settings },
   ]
 
+  const handleMenuSelect = (menu: string) => {
+    setSelectedMenu(menu)
+    setIsSidebarOpen(false)
+  }
+
   return (
     <div className={`flex min-h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700 font-inter`}>
-      {/* Hamburger menu button */}
+      
+      {/* Hamburger menu button (visible siempre) */}
       <button
-        className={`md:hidden fixed top-4 p-3 rounded-xl bg-gray-800/90 backdrop-blur-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-white shadow-lg transition-all duration-300
-          ${isSidebarOpen ? 'left-72' : 'left-4'} z-60`}
+        className={`fixed top-4 left-4 p-3 rounded-xl bg-gray-800/90 backdrop-blur-sm text-white shadow-lg transition-all duration-300 z-50`}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,19 +77,18 @@ export default function App() {
       </button>
 
       {/* Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-      )}
+      <div
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
 
-      {/* Sidebar */}
+      {/* Sidebar Drawer (funciona para mobile y desktop) */}
       <div
         className={`fixed inset-y-0 left-0 w-72 ${colors.cardBg} backdrop-blur-xl p-6 border-r border-current/20 flex flex-col shadow-2xl
-          transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0 z-50`}
+          transform transition-transform duration-500 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} z-50`}
       >
+        {/* Logo */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center">
             <Home className="w-6 h-6 text-white" />
@@ -95,18 +98,16 @@ export default function App() {
           </h1>
         </div>
 
+        {/* Menú */}
         <nav className="flex flex-col gap-2 flex-grow">
           {menuItems.map((menu) => {
             const IconComponent = menu.icon
             return (
               <SimpleButton
                 key={menu.name}
-                onClick={() => {
-                  setSelectedMenu(menu.name)
-                  setIsSidebarOpen(false)
-                }}
+                onClick={() => handleMenuSelect(menu.name)}
                 active={selectedMenu === menu.name}
-                className="flex items-center gap-3 text-sm font-medium px-3 py-2 rounded-lg"
+                className="flex items-center gap-3 text-sm font-medium px-3 py-2 rounded-lg transition-all duration-200"
               >
                 <IconComponent className="w-5 h-5 shrink-0" />
                 <span className="truncate">{menu.name}</span>
@@ -115,6 +116,7 @@ export default function App() {
           })}
         </nav>
 
+        {/* Cerrar sesión */}
         <SimpleButton
           onClick={() => setIsLoggedIn(false)}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-950/20 border border-red-500/20 text-red-400 hover:bg-red-900/30 hover:border-red-400/40 transition-all duration-200 font-medium"
@@ -124,9 +126,8 @@ export default function App() {
         </SimpleButton>
       </div>
 
-      {/* Main content */}
+      {/* Contenido principal */}
       <div className="flex-1 flex flex-col max-h-screen">
-        {/* Scroll solo aquí */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll">
           {selectedMenu === "Inicio" && (
             <Inicio
@@ -136,9 +137,7 @@ export default function App() {
               devices={devices}
             />
           )}
-
           {selectedMenu === "Casa 3D" && <Casa3d />}
-
           {selectedMenu === "Gestión de Dispositivos" && (
             <GestionDispositivos
               devices={devices}
@@ -149,7 +148,6 @@ export default function App() {
               setFilter={setFilter}
             />
           )}
-
           {selectedMenu === "Monitoreo y Seguridad" && (
             <MonitoreoSeguridad
               temperature={temperature}
@@ -160,7 +158,6 @@ export default function App() {
               setEnergyUsage={setEnergyUsage}
             />
           )}
-
           {selectedMenu === "Configuración" && (
             <Configuracion
               ownerName={ownerName}
@@ -171,30 +168,7 @@ export default function App() {
               setNotifications={setNotifications}
             />
           )}
-
           {selectedMenu === "Chat" && <Chat />}
-
-          {selectedMenu === "Inicio" && (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SimpleCard className="p-6">
-                <h3 className={`text-xl font-bold bg-gradient-to-r ${colors.accent} bg-clip-text text-transparent mb-2 font-inter`}>
-                  Consumo promedio diario
-                </h3>
-                <p className={`${colors.text} text-lg font-medium`}>~{energyUsage} kWh</p>
-              </SimpleCard>
-
-              <SimpleCard className="p-6">
-                <h3
-                  className={`text-xl font-bold bg-gradient-to-r ${colors.secondary} bg-clip-text text-transparent mb-2 font-inter`}
-                >
-                  Últimas alertas de seguridad
-                </h3>
-                <ul className={`${colors.text} list-disc ml-5`}>
-                  <li className="text-sm font-medium">Ninguna alerta reciente</li>
-                </ul>
-              </SimpleCard>
-            </div>
-          )}
         </div>
       </div>
     </div>

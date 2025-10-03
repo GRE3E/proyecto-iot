@@ -11,13 +11,9 @@ import {
   MapPin, 
   Activity, 
   X,
-  Calendar,
-  Cloud,
-  Sun,
-  Snowflake,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react"
+
+import AnimatedClockWidget from "../widgets/AnimatedClockWidget" 
 
 // --- Tipos ---
 interface Device {
@@ -84,65 +80,6 @@ function MiniBars({ values = [20, 40, 60, 50, 80] }: { values?: number[] }) {
   )
 }
 
-// Componente simple de reloj animado
-function AnimatedClockWidget() {
-  const [time, setTime] = useState(new Date())
-  
-  useState(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(interval)
-  })
-
-  return (
-    <div className="text-6xl md:text-8xl font-bold text-white tracking-tight">
-      {time.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-    </div>
-  )
-}
-
-// Componente para el estado del clima
-function WeatherStatus({ temperature }: { temperature: number }) {
-  const getWeatherStatus = (temp: number) => {
-    if (temp < 15) {
-      return {
-        icon: <Snowflake className="w-12 h-12 text-blue-300" />,
-        label: "Frío",
-        gradient: "from-blue-500/20 to-cyan-500/20",
-        textColor: "text-blue-300",
-        border: "border-blue-500/20"
-      }
-    } else if (temp >= 15 && temp < 25) {
-      return {
-        icon: <Cloud className="w-12 h-12 text-gray-300" />,
-        label: "Agradable",
-        gradient: "from-gray-400/20 to-blue-400/20",
-        textColor: "text-gray-300",
-        border: "border-gray-400/20"
-      }
-    } else {
-      return {
-        icon: <Sun className="w-12 h-12 text-orange-300" />,
-        label: "Cálido",
-        gradient: "from-orange-500/20 to-yellow-500/20",
-        textColor: "text-orange-300",
-        border: "border-orange-500/20"
-      }
-    }
-  }
-
-  const { icon, label, gradient, textColor, border } = getWeatherStatus(temperature)
-
-  return (
-    <div className={`flex items-center gap-4 px-4 py-3 rounded-xl bg-gradient-to-r ${gradient} border ${border}`}>
-      {icon}
-      <div>
-        <p className={`text-lg font-semibold ${textColor}`}>{label}</p>
-        <p className="text-sm text-slate-300">{temperature}°C</p>
-      </div>
-    </div>
-  )
-}
-
 // Componente simple de perfil
 function Perfil({ compact }: { compact?: boolean }) {
   return (
@@ -164,95 +101,7 @@ function SimpleCard({ children, className = "" }: { children: React.ReactNode, c
   )
 }
 
-// Componente de Calendario
-function CalendarWidget() {
-  const today = new Date()
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth())
-  const [currentYear, setCurrentYear] = useState(today.getFullYear())
-  
-  // Obtener el primer día del mes y el número de días en el mes
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  
-  // Generar array de días
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  
-  // Generar espacios vacíos para el inicio del mes
-  const emptyDays = Array(firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1).fill(null)
-  
-  // Navegación de meses
-  const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11)
-      setCurrentYear(currentYear - 1)
-    } else {
-      setCurrentMonth(currentMonth - 1)
-    }
-  }
-
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0)
-      setCurrentYear(currentYear + 1)
-    } else {
-      setCurrentMonth(currentMonth + 1)
-    }
-  }
-
-  // Determinar si es el mes actual para resaltar el día actual
-  const isCurrentMonth = currentMonth === today.getMonth() && currentYear === today.getFullYear()
-  const currentDay = today.getDate()
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={prevMonth}
-          className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5 text-slate-200" />
-        </button>
-        <h4 className="text-lg font-semibold text-slate-200">
-          {new Date(currentYear, currentMonth).toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}
-        </h4>
-        <button
-          onClick={nextMonth}
-          className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors"
-        >
-          <ChevronRight className="w-5 h-5 text-slate-200" />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-2 text-center">
-        {/* Días de la semana */}
-        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-          <div key={day} className="text-xs font-medium text-slate-400">
-            {day}
-          </div>
-        ))}
-        
-        {/* Días vacíos al inicio */}
-        {emptyDays.map((_, i) => (
-          <div key={`empty-${i}`} className="h-10" />
-        ))}
-        
-        {/* Días del mes */}
-        {days.map((day) => (
-          <div
-            key={day}
-            className={`relative h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 ${
-              isCurrentMonth && day === currentDay
-                ? "bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-white shadow-lg"
-                : "text-slate-400 hover:bg-slate-700/30"
-            }`}
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
+// --- Componente Principal ---
 export default function Inicio({
   temperature = 24,
   humidity = 45,
@@ -263,7 +112,6 @@ export default function Inicio({
     { name: "Bombillo Cocina", location: "Cocina", power: "40W", on: true },
   ],
 }: InicioProps) {
-  // --- Estado notificaciones ---
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -272,7 +120,6 @@ export default function Inicio({
     { id: 3, message: "Consumo de energía elevado detectado" },
   ])
 
-  // Handlers de notificaciones
   const removeNotification = (id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
@@ -307,7 +154,7 @@ export default function Inicio({
           </h2>
         </div>
 
-        {/* --- Perfil + Notificaciones --- */}
+        {/* Perfil + Notificaciones */}
         <div className="flex items-center gap-4 relative">
           <div className="w-full md:w-auto">
             <Perfil compact />
@@ -338,10 +185,7 @@ export default function Inicio({
               >
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-semibold text-slate-200 tracking-wide">Notificaciones</h4>
-                  <button
-                    onClick={clearAll}
-                    className="p-1 hover:bg-slate-700/50 rounded-lg transition-colors"
-                  >
+                  <button onClick={clearAll} className="p-1 hover:bg-slate-700/50 rounded-lg transition-colors">
                     <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
                   </button>
                 </div>
@@ -372,54 +216,10 @@ export default function Inicio({
         </div>
       </div>
 
-      {/* --- Reloj inteligente --- */}
+      {/* --- Reloj Inteligente Futurista --- */}
       <div className="mb-6 md:mb-10">
         <div className="max-w-8xl mx-auto">
-          <SimpleCard className="p-6 md:p-10 bg-gradient-to-br from-slate-900/70 to-slate-800/50 backdrop-blur-lg border border-white/10 shadow-2xl rounded-3xl">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-              {/* Reloj y Fecha */}
-              <div className="flex flex-col items-start text-left">
-                <AnimatedClockWidget />
-                <p className="mt-4 text-lg md:text-xl font-semibold text-slate-200 tracking-wide">
-                  {new Date().toLocaleDateString("es-ES", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-                <span
-                  className={`mt-2 px-3 py-1 text-xs rounded-full font-medium ${
-                    new Date().getHours() >= 6 && new Date().getHours() < 18
-                      ? "bg-gradient-to-r from-yellow-400/20 to-orange-500/20 text-yellow-300 border border-yellow-500/20"
-                      : "bg-gradient-to-r from-indigo-500/20 to-purple-600/20 text-indigo-300 border border-indigo-500/20"
-                  }`}
-                >
-                  {new Date().getHours() >= 6 && new Date().getHours() < 18
-                    ? "☀️ Día Activo"
-                    : "🌙 Noche Tranquila"}
-                </span>
-              </div>
-
-              {/* Estado del Clima */}
-              <WeatherStatus temperature={temperature} />
-            </div>
-
-            {/* Divisor */}
-            <div className="flex items-center gap-4 mt-8 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600/50 to-transparent" />
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-purple-400" />
-                <h3 className="text-xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-                  Calendario
-                </h3>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600/50 to-transparent" />
-            </div>
-
-            {/* Calendario */}
-            <CalendarWidget />
-          </SimpleCard>
+          <AnimatedClockWidget temperature={temperature} />
         </div>
       </div>
 
@@ -544,11 +344,7 @@ export default function Inicio({
                     <h3 className="text-base md:text-lg font-semibold text-slate-200 group-hover:text-white transition-colors duration-300 truncate font-inter">
                       {device.name}
                     </h3>
-                    <p
-                      className={`text-sm font-medium transition-colors duration-300 ${
-                        device.on ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
+                    <p className={`text-sm font-medium transition-colors duration-300 ${device.on ? "text-green-400" : "text-red-400"}`}>
                       {device.on ? "Encendido" : "Apagado"}
                     </p>
                   </div>
@@ -574,5 +370,3 @@ export default function Inicio({
     </div>
   )
 }
-
-

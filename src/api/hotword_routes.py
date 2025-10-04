@@ -53,7 +53,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             logging.info(f"Archivo de audio temporal guardado en: {file_location}")
 
             # 1. Transcripción de voz a texto
-            transcribed_text = utils._stt_module.transcribe_audio(str(file_location))
+            transcribed_text = utils._stt_module.transcribe_audio(str(file_location)).result()
             if transcribed_text is None:
                 logging.error("No se pudo transcribir el audio después de la hotword")
                 raise HTTPException(status_code=500, detail="No se pudo transcribir el audio después de la hotword")

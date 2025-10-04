@@ -32,7 +32,7 @@ async def transcribe_audio(audio_file: UploadFile = File(...), db: Session = Dep
                 content = await audio_file.read()
                 file_object.write(content)
             
-            transcribed_text = utils._stt_module.transcribe_audio(str(file_location))
+            transcribed_text = utils._stt_module.transcribe_audio(str(file_location)).result()
 
         if transcribed_text is None:
             raise HTTPException(status_code=500, detail="No se pudo transcribir el audio")

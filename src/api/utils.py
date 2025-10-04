@@ -1,6 +1,7 @@
 from src.ai.nlp.nlp_core import NLPModule
 from src.ai.stt.stt import STTModule
 from src.ai.speaker.speaker import SpeakerRecognitionModule
+from src.ai.tts.tts_module import TTSModule
 from src.ai.hotword.hotword import HotwordDetector, hotword_callback_async
 from src.iot.serial_manager import SerialManager
 from src.iot.mqtt_client import MQTTClient
@@ -21,6 +22,7 @@ _hotword_module: Optional[HotwordDetector] = None
 _serial_manager: Optional[SerialManager] = None
 _mqtt_client: Optional[MQTTClient] = None
 _hotword_task: Optional[asyncio.Task] = None
+_tts_module: Optional[TTSModule] = None
 
 def get_module_status() -> StatusResponse:
     """
@@ -35,6 +37,7 @@ def get_module_status() -> StatusResponse:
     hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
     serial_status = "ONLINE" if _serial_manager and _serial_manager.is_connected else "OFFLINE"
     mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
+    tts_status = "ONLINE" if _tts_module and _tts_module.is_online() else "OFFLINE"
     utils_status = "ONLINE" if _nlp_module else "OFFLINE"
     
     return StatusResponse(
@@ -44,6 +47,7 @@ def get_module_status() -> StatusResponse:
         hotword=hotword_status,
         serial=serial_status,
         mqtt=mqtt_status,
+        tts=tts_status,
         utils=utils_status
     )
 
@@ -82,7 +86,7 @@ async def initialize_nlp() -> None:
     Raises:
         Exception: Si ocurre un error durante la inicialización.
     """
-    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task
+    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task, _tts_module
     
     try:
         logging.info("Inicializando módulos...")
@@ -93,6 +97,8 @@ async def initialize_nlp() -> None:
         logging.info("STTModule inicializado.")
         _speaker_module = SpeakerRecognitionModule()
         logging.info("SpeakerRecognitionModule inicializado.")
+        _tts_module = TTSModule()
+        logging.info("TTSModule inicializado.")
         
         # Inicialización del módulo Hotword
         access_key = os.getenv("PICOVOICE_ACCESS_KEY")

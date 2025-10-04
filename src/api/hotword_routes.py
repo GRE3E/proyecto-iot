@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, FastAPI, Request
 from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
@@ -7,18 +8,20 @@ from pathlib import Path
 import tempfile
 from src.db.models import User # Importar el modelo User
 import asyncio
-import pyaudio
-import wave
+import uuid
+
 import httpx
-import os
 from datetime import datetime
 
 # Importar módulos globales desde utils
 from src.api import utils
+from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 hotword_router = APIRouter()
+
+
 
 def get_db():
     db = SessionLocal()
@@ -102,11 +105,34 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")
             logging.info(f"Respuesta NLP: {nlp_response_data['response']}")
 
+            tts_audio_file_path = None
+            if utils._tts_module is None or not utils._tts_module.is_online():
+                logging.warning("El módulo TTS está fuera de línea. No se generará audio para la respuesta NLP.")
+            else:
+                try:
+                    audio_filename = f"tts_audio_{uuid.uuid4()}.wav"
+                    file_location = AUDIO_OUTPUT_DIR / audio_filename
+                    future_audio_generated = utils._tts_module.generate_speech(nlp_response_data['response'], str(file_location))
+                    audio_generated = future_audio_generated.result()
+                    if audio_generated:
+                        tts_audio_file_path = str(file_location)
+                        logging.info(f"Audio de respuesta NLP generado en: {tts_audio_file_path}")
+                        # Reproducir el audio automáticamente
+                        play_audio(tts_audio_file_path)
+                        # Eliminar el archivo de audio después de la reproducción
+                        os.remove(tts_audio_file_path)
+                        logging.info(f"Audio temporal {tts_audio_file_path} eliminado.")
+                    else:
+                        logging.error("No se pudo generar el audio para la respuesta NLP.")
+                except Exception as tts_e:
+                    logging.error(f"Error al generar audio TTS para la respuesta NLP: {tts_e}")
+
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,
             identified_speaker=nlp_response_data["identified_speaker"],
             nlp_response=nlp_response_data["response"],
-            serial_command_identified=nlp_response_data.get("serial_command")
+            serial_command_identified=nlp_response_data.get("serial_command"),
+            tts_audio_file_path=tts_audio_file_path
         )
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)
         return response_data

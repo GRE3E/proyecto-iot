@@ -48,3 +48,4 @@ continuous_audio_*.wav
 # Project specific
 data/
 src/ai/hotword/models/
+src/ai/tts/generated_audio/

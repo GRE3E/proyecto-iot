@@ -13,11 +13,6 @@ if os.name == 'nt':  # Windows
 
 from fastapi import FastAPI
 from src.api.routes import router
-from src.api.hotword_routes import hotword_router
-from src.api.nlp_routes import nlp_router
-from src.api.stt_routes import stt_router
-from src.api.speaker_routes import speaker_router
-from src.api.iot_routes import iot_router
 from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _serial_manager, _mqtt_client
 from src.api import utils
 from .db.database import Base, engine

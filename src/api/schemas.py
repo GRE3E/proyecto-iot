@@ -8,4 +8,5 @@ class StatusResponse(BaseModel):
     hotword: str = "OFFLINE"
     serial: str = "OFFLINE"
     mqtt: str = "OFFLINE"
+    tts: str = "OFFLINE"
     utils: str = "OFFLINE"

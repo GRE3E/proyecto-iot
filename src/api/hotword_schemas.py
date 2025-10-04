@@ -11,3 +11,4 @@ class HotwordAudioProcessResponse(BaseModel):
     identified_speaker: str
     nlp_response: str
     serial_command_identified: Optional[str] = None
+    tts_audio_file_path: Optional[str] = None

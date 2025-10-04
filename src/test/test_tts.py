@@ -23,7 +23,10 @@ def test_tts_module():
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 output_path = tmpfile.name
 
-            if tts_module.generate_speech(test_text, output_path):
+            future_audio_generated = tts_module.generate_speech(test_text, output_path)
+            audio_generated = future_audio_generated.result()
+
+            if audio_generated:
                 print(f"Audio generado en: {output_path}")
                 print("Reproduciendo audio...")
                 audio = AudioSegment.from_wav(output_path)

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from src.db.database import SessionLocal
 from src.api.schemas import StatusResponse
 from src.api.hotword_routes import hotword_router
+from .tts_routes import tts_router
 from src.api.nlp_routes import nlp_router
 from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
@@ -17,6 +18,7 @@ from src.api import utils
 router = APIRouter()
 
 router.include_router(hotword_router, prefix="/hotword", tags=["hotword"])
+router.include_router(tts_router, prefix="/tts", tags=["tts"])
 router.include_router(nlp_router, prefix="/nlp", tags=["nlp"])
 router.include_router(stt_router, prefix="/stt", tags=["stt"])
 router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])

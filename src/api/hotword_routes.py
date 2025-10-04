@@ -60,7 +60,8 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             logging.info(f"Texto transcribido: {transcribed_text}")
 
             # 2. Identificación de hablante
-            identified_user_from_speaker, speaker_embedding = utils._speaker_module.identify_speaker(str(file_location))
+            future_identified_speaker = utils._speaker_module.identify_speaker(str(file_location))
+            identified_user_from_speaker, speaker_embedding = future_identified_speaker.result()
             
             if identified_user_from_speaker:
                 # Obtener el usuario de la sesión actual para asegurar que sea persistente
@@ -79,7 +80,8 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
                 new_unknown_name = f"Desconocido {next_unknown_id}"
                 
                 # Registrar el nuevo usuario con el embedding
-                utils._speaker_module.register_speaker(new_unknown_name, str(file_location), is_owner=False)
+                future_register_speaker = utils._speaker_module.register_speaker(new_unknown_name, str(file_location), is_owner=False)
+                future_register_speaker.result() # Esperar a que el registro se complete
                 
                 # Obtener el usuario recién registrado de la base de datos
                 identified_user_obj = db.query(User).filter(User.nombre == new_unknown_name).first()

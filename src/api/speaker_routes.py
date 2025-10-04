@@ -33,7 +33,8 @@ async def register_speaker(name: str = Form(...), audio_file: UploadFile = File(
                 content = await audio_file.read()
                 file_object.write(content)
             
-            success = utils._speaker_module.register_speaker(name, str(file_location), is_owner=is_owner)
+            future_register_speaker = utils._speaker_module.register_speaker(name, str(file_location), is_owner=is_owner)
+            success = future_register_speaker.result()
 
         if success and is_owner:
             utils._nlp_module._config["owner_name"] = name
@@ -64,7 +65,8 @@ async def register_owner_speaker(name: str = Form(...), audio_file: UploadFile =
                 content = await audio_file.read()
                 file_object.write(content)
             
-            success = utils._speaker_module.register_speaker(name, str(file_location), is_owner=True)
+            future_register_speaker = utils._speaker_module.register_speaker(name, str(file_location), is_owner=True)
+            success = future_register_speaker.result()
 
         if success:
             utils._nlp_module._config["owner_name"] = name
@@ -95,7 +97,8 @@ async def identify_speaker(audio_file: UploadFile = File(...), db: Session = Dep
                 content = await audio_file.read()
                 file_object.write(content)
             
-            identified_user = utils._speaker_module.identify_speaker(str(file_location))
+            future_identified_user = utils._speaker_module.identify_speaker(str(file_location))
+            identified_user, _ = future_identified_user.result()
 
         if identified_user is None:  # Check for None explicitly
             raise HTTPException(status_code=500, detail="No se pudo identificar al hablante")

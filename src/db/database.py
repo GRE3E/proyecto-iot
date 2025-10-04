@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 import os
 
 # Define el directorio base para el archivo de la base de datos
@@ -24,12 +24,19 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
+def get_db() -> Session:
+    """
+    Dependencia que proporciona una sesión de base de datos.
+    Cada solicitud obtendrá su propia sesión de base de datos que se cerrará después.
+    """
+    db: Session = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-def create_all_tables():
+def create_all_tables() -> None:
+    """
+    Crea todas las tablas definidas en los modelos de la base de datos.
+    """
     Base.metadata.create_all(bind=engine)

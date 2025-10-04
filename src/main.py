@@ -1,12 +1,16 @@
 import os
 import asyncio
 import logging
+from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+
+# Cargar variables de entorno del archivo .env al inicio
+load_dotenv()
 
 # IMPORTANTE: Configurar la política del bucle de eventos ANTES de cualquier otra importación
 if os.name == 'nt':  # Windows
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from src.api.routes import router
 from src.api.hotword_routes import hotword_router
@@ -14,12 +18,10 @@ from src.api.nlp_routes import nlp_router
 from src.api.stt_routes import stt_router
 from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
-from src.api.utils import initialize_nlp, _nlp_module, _hotword_module, _hotword_task, _serial_manager, _mqtt_client
+from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _serial_manager, _mqtt_client
 from src.api import utils
 from .db.database import Base, engine
 from .db import models  # Importa los modelos para asegurar que estén registrados con Base
-from src.ai.hotword.hotword import HotwordDetector
-from src.ai.nlp.nlp_core import NLPModule
 import httpx
 import json
 import pyaudio
@@ -32,24 +34,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 app = FastAPI(title="Casa Inteligente API")
 
-# Instancias globales
-hotword_detector: HotwordDetector = None
-nlp_module: NLPModule = None
-
-# Instancias globales (ahora se obtienen de utils)
-hotword_detector = _hotword_module
-nlp_module = _nlp_module
-
 # Configuración
 CONFIG_PATH = "src/ai/config/config.json"
 
-def load_config():
-    load_dotenv()  # Cargar variables de entorno del archivo .env
+def load_config() -> Dict[str, Any]:
+    """
+    Carga la configuración desde config.json o crea una por defecto si no existe.
+
+    Returns:
+        Dict[str, Any]: Diccionario con la configuración cargada o por defecto.
+    """
     try:
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except FileNotFoundError:
-        # Crear configuración por defecto
+        logging.warning(f"Archivo de configuración no encontrado en {CONFIG_PATH}. Creando configuración por defecto.")
         config = {
             "assistant_name": "Murph",
             "language": "es",
@@ -61,45 +60,48 @@ def load_config():
             },
             "memory_size": 10
         }
-        # Crear directorio si no existe
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+    except json.JSONDecodeError as e:
+        logging.error(f"Error al decodificar JSON en {CONFIG_PATH}: {e}. Usando configuración por defecto.")
+        config = {
+            "assistant_name": "Murph",
+            "language": "es",
+            "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
+            "model": {
+                "name": "mistral:7b-instruct",
+                "temperature": 0.7,
+                "max_tokens": 150
+            },
+            "memory_size": 10
+        }
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
     
     return config
 
-
-
 @app.on_event("startup")
-async def startup_event():
-    """Evento de inicio de la aplicación."""
-    global hotword_detector, nlp_module
-    
+async def startup_event() -> None:
+    """
+    Evento de inicio de la aplicación.
+    Inicializa la configuración, la base de datos y los módulos de IA/IoT.
+    """
     logging.info("Iniciando aplicación Casa Inteligente...")
     
     try:
-        # Cargar variables de entorno
-        load_dotenv()
-        
-        # Cargar configuración
         config = load_config()
         logging.info(f"Configuración cargada: {config}")
 
-        # Crear tablas de base de datos
         Base.metadata.create_all(bind=engine)
         
-        # Inicializar módulos NLP
-        initialize_nlp()
+        await initialize_nlp()
 
-        # Asignar las instancias de IoT a app.state desde los módulos globales de utils.py
-        app.state.serial_manager = utils._serial_manager
-        app.state.mqtt_client = utils._mqtt_client
+        app.state.serial_manager = _serial_manager
+        app.state.mqtt_client = _mqtt_client
         logging.info(f"main.py: app.state.serial_manager asignado: {app.state.serial_manager is not None}, conectado: {app.state.serial_manager.is_connected if app.state.serial_manager else 'N/A'}")
 
-
-        # HotwordDetector se inicializa dentro de initialize_nlp() en utils.py
-        # No es necesario inicializarlo aquí directamente.
-        # La variable global hotword_detector en main.py ya apunta a _hotword_module de utils.
         if _hotword_module and not _hotword_module.is_online():
             logging.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
 
@@ -110,14 +112,14 @@ async def startup_event():
         raise
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    """Evento de cierre de la aplicación."""
-    global hotword_detector
-    
+async def shutdown_event() -> None:
+    """
+    Evento de cierre de la aplicación.
+    Realiza la limpieza de recursos, como detener el HotwordDetector y desconectar los gestores IoT.
+    """
     logging.info("Cerrando aplicación...")
     
     try:
-        # Detener HotwordDetector
         if _hotword_task:
             logging.info("Cancelando tarea de HotwordDetector...")
             _hotword_task.cancel()
@@ -128,7 +130,6 @@ async def shutdown_event():
             except Exception as e:
                 logging.error(f"Error al esperar la tarea de HotwordDetector: {e}")
 
-        # Desconectar SerialManager
         if hasattr(app.state, 'serial_manager') and app.state.serial_manager:
             try:
                 app.state.serial_manager.close()
@@ -136,7 +137,6 @@ async def shutdown_event():
             except Exception as e:
                 logging.error(f"Error al desconectar SerialManager: {e}")
 
-        # Desconectar MQTTClient
         if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
             try:
                 app.state.mqtt_client.disconnect()
@@ -149,5 +149,4 @@ async def shutdown_event():
     except Exception as e:
         logging.error(f"Error durante el cierre de la aplicación: {e}")
 
-# Incluir las rutas de la API
 app.include_router(router, prefix="")

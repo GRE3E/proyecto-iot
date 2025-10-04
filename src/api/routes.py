@@ -25,7 +25,11 @@ router.include_router(addons_router, prefix="/addons", tags=["addons"])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"])
 
 def get_db():
-    db = SessionLocal()
+    """
+    Dependencia que proporciona una sesión de base de datos.
+    Cada solicitud obtendrá su propia sesión de base de datos que se cerrará después.
+    """
+    db: Session = SessionLocal()
     try:
         yield db
     finally:
@@ -35,7 +39,7 @@ def get_db():
 async def get_status(db: Session = Depends(get_db)):
     """Devuelve el estado actual de los módulos."""
     try:
-        status = utils.get_module_status()
+        status: StatusResponse = utils.get_module_status()
         logging.info(f"Status Response: {status.model_dump_json()}")
         return status
     except Exception as e:

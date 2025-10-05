@@ -1,154 +1,205 @@
 "use client"
+import { User, Trash2, Edit, Eye, Power, X } from "lucide-react"
+import { useState } from "react"
 
-import { useState, useEffect } from "react"
-
-interface FamilyMember {
+export interface FamilyMember {
   id: string
   name: string
   role: "Propietario" | "Familiar"
-  privileges: { controlDevices: boolean; viewCamera: boolean }
+  privileges: {
+    controlDevices: boolean
+    viewCamera: boolean
+  }
+}
+
+interface PerfilProps {
+  name: string
+  setName: (value: string) => void
+  role: "Propietario" | "Familiar"
+  members: FamilyMember[]
+  setMembers: (value: FamilyMember[]) => void
+  isOwnerFixed?: boolean
+  onEditProfile: () => void
 }
 
 export default function Perfil({
-  defaultName = "Usuario",
-  defaultRole = "Propietario",
-  family = [],
-  compact = false,
-  members: membersProp,
-  onMembersChange,
-  nameProp,
-  onNameChange,
-  roleProp,
-  onRoleChange,
-}: {
-  defaultName?: string
-  defaultRole?: string
-  family?: FamilyMember[]
-  compact?: boolean
-  members?: FamilyMember[]
-  onMembersChange?: (m: FamilyMember[]) => void
-  nameProp?: string
-  onNameChange?: (s: string) => void
-  roleProp?: "Propietario" | "Familiar"
-  onRoleChange?: (r: "Propietario" | "Familiar") => void
-  fullWidth?: boolean
-}) {
-  const [name, setName] = useState(nameProp ?? defaultName)
-  const [role, setRole] = useState<"Propietario" | "Familiar">(roleProp ?? (defaultRole as "Propietario" | "Familiar"))
-  const full = (arguments[0] as any)?.fullWidth ?? false
-  const [tz, setTz] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC")
-  // allow parent to control members via props (Configuracion will pass members + callback)
-  const [members, setMembers] = useState<FamilyMember[]>(
-    (family && family.length)
-      ? family
-      : [
-          { id: "1", name: "María", role: "Familiar", privileges: { controlDevices: true, viewCamera: true } },
-          { id: "2", name: "Carlos", role: "Familiar", privileges: { controlDevices: false, viewCamera: true } },
-        ]
-  )
+  name,
+  role,
+  members,
+  setMembers,
+  isOwnerFixed = false,
+  onEditProfile,
+}: PerfilProps) {
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
 
-  useEffect(() => {
-    // try to keep tz up-to-date if environment changes (minimal)
-    try {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
-      if (detected) setTz(detected)
-    } catch (e) {
-      // noop
+  const deleteMember = (id: string) => {
+    if (confirm("¿Seguro que deseas eliminar este miembro?")) {
+      setMembers(members.filter((m) => m.id !== id))
     }
-  }, [])
-
-  // sync name/role when parent provides controlled values
-  useEffect(() => {
-    if (typeof nameProp === "string" && nameProp !== name) setName(nameProp)
-  }, [nameProp])
-
-  useEffect(() => {
-    if (roleProp && roleProp !== role) setRole(roleProp)
-  }, [roleProp])
-
-  const togglePrivilege = (id: string, key: keyof FamilyMember["privileges"]) => {
-    setMembers((m) => {
-      const next = m.map((mem) => (mem.id === id ? { ...mem, privileges: { ...mem.privileges, [key]: !mem.privileges[key] } } : mem))
-      // notify parent if provided
-      if (typeof onMembersChange === "function") {
-        try { onMembersChange(next) } catch (e) {}
-      }
-      return next
-    })
   }
 
-  // if parent passes members prop, keep local in sync
-  useEffect(() => {
-    if (membersProp && Array.isArray(membersProp)) setMembers(membersProp)
-  }, [membersProp])
-
-
-  if (compact) {
-    // compact view: avatar + owner name (used in Inicio header)
-    return (
-      <div className="ml-auto flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 grid place-items-center text-white font-bold shadow-lg ring-1 ring-white/10">{name.split(" ")[0].slice(0,2).toUpperCase()}</div>
-        <div className="text-left ml-3 hidden sm:flex flex-col items-start">
-          <div className="text-sm text-white font-semibold tracking-tight">{name}</div>
-          <div className="text-xs text-slate-400">{role}</div>
-        </div>
-      </div>
+  const handleSaveEdit = () => {
+    if (!editingMember) return
+    const updatedMembers = members.map((m) =>
+      m.id === editingMember.id ? editingMember : m
     )
+    setMembers(updatedMembers)
+    setEditingMember(null)
   }
 
   return (
-    <div className={`${full ? 'w-full' : 'w-full max-w-md'} bg-gradient-to-br from-slate-900/60 to-slate-800/50 p-5 rounded-2xl border border-white/5 shadow-lg`}>
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 grid place-items-center text-white font-extrabold shadow-2xl ring-1 ring-white/10">{name.split(" ")[0].slice(0,2).toUpperCase()}</div>
-        <div className="flex-1">
-          <input
-            className="w-full bg-transparent text-white text-lg font-semibold outline-none placeholder:text-slate-400"
-            value={name}
-            onChange={(e) => {
-              const v = e.target.value
-              if (typeof onNameChange === "function") try { onNameChange(v) } catch (e) {}
-              setName(v)
-            }}
-          />
-          <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
-            <div>{role}</div>
-            <div className="text-sm text-white">Zona: {tz}</div>
-          </div>
-          <div className="mt-2">
-            <label className="text-xs text-slate-400 mr-2">Rol</label>
-            <select value={role} onChange={(e) => {
-              const r = e.target.value as "Propietario" | "Familiar"
-              setRole(r)
-              if (typeof onRoleChange === "function") try { onRoleChange(r) } catch (e) {}
-            }} className="bg-black/20 text-white text-sm rounded px-2 py-1">
-              <option value="Propietario">Propietario</option>
-              <option value="Familiar">Familiar</option>
-            </select>
+    <div className="space-y-5 text-white">
+      {/* Sección del propietario */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <User className="w-6 h-6 text-blue-400" />
+          <div>
+            <div className="font-semibold">{name}</div>
+            <div className="text-xs text-slate-400">
+              {isOwnerFixed ? "Propietario" : role}
+            </div>
           </div>
         </div>
+
+        <button
+          onClick={onEditProfile}
+          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition-all"
+        >
+          <Edit className="w-4 h-4" /> Editar perfil
+        </button>
       </div>
 
-      <div className="mt-4">
-        <h4 className="text-sm text-slate-300 font-bold mb-2">Miembros de la familia</h4>
-        <div className="space-y-2">
-          {members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between bg-slate-800/30 p-2 rounded">
+      {/* Lista de miembros familiares */}
+      <div className="space-y-3">
+        {members.length === 0 ? (
+          <p className="text-slate-400 text-sm">No hay familiares registrados.</p>
+        ) : (
+          members.map((m: FamilyMember) => (
+            <div
+              key={m.id}
+              className="flex items-center justify-between bg-slate-800/60 px-3 py-2 rounded-lg hover:bg-slate-800 transition"
+            >
               <div>
-                <div className="text-sm text-white">{m.name}</div>
+                <div className="font-medium">{m.name}</div>
                 <div className="text-xs text-slate-400">{m.role}</div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => togglePrivilege(m.id, "controlDevices")} className={`px-2 py-1 rounded text-xs ${m.privileges.controlDevices ? "bg-green-500 text-white" : "bg-slate-700 text-slate-300"}`}>
-                  Dispositivos
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setEditingMember(m)}
+                  className="text-blue-400 hover:text-blue-500 transition"
+                  title="Editar miembro"
+                >
+                  <Edit className="w-4 h-4" />
                 </button>
-                <button onClick={() => togglePrivilege(m.id, "viewCamera")} className={`px-2 py-1 rounded text-xs ${m.privileges.viewCamera ? "bg-green-500 text-white" : "bg-slate-700 text-slate-300"}`}>
-                  Cámaras
+
+                <button
+                  onClick={() => deleteMember(m.id)}
+                  className="text-red-400 hover:text-red-600 transition"
+                  title="Eliminar miembro"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+          ))
+        )}
       </div>
+
+      {/* Modal de edición de miembro */}
+      {editingMember && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-slate-900 rounded-2xl p-6 w-[90%] max-w-md shadow-xl text-white relative">
+            <button
+              onClick={() => setEditingMember(null)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-semibold mb-4">
+              Editar: {editingMember.name}
+            </h3>
+
+            <div className="space-y-4">
+              {/* Nombre */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={editingMember.name}
+                  onChange={(e) =>
+                    setEditingMember({
+                      ...editingMember,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Privilegios */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Privilegios</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editingMember.privileges.controlDevices}
+                      onChange={(e) =>
+                        setEditingMember({
+                          ...editingMember,
+                          privileges: {
+                            ...editingMember.privileges,
+                            controlDevices: e.target.checked,
+                          },
+                        })
+                      }
+                      className="accent-blue-500 w-4 h-4"
+                    />
+                    <Power className="w-4 h-4 text-blue-400" />
+                    Controlar dispositivos
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editingMember.privileges.viewCamera}
+                      onChange={(e) =>
+                        setEditingMember({
+                          ...editingMember,
+                          privileges: {
+                            ...editingMember.privileges,
+                            viewCamera: e.target.checked,
+                          },
+                        })
+                      }
+                      className="accent-blue-500 w-4 h-4"
+                    />
+                    <Eye className="w-4 h-4 text-blue-400" />
+                    Ver cámaras
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setEditingMember(null)}
+                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

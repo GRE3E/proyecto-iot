@@ -36,11 +36,6 @@ export default function App() {
   const [humidity, setHumidity] = useState(45)
   const [filter, setFilter] = useState("Todos")
 
-  // Estados para Configuración
-  const [ownerName, setOwnerName] = useState("Usuario")
-  const [language, setLanguage] = useState("es")
-  const [notifications, setNotifications] = useState(true)
-
   // Login
   if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />
 
@@ -59,21 +54,31 @@ export default function App() {
   }
 
   return (
-    <div className={`flex min-h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700 font-inter`}>
+    <div className={`flex min-h-screen bg-gradient-to-br pl-10 ${colors.background} ${colors.text} transition-all duration-700 font-inter`}>
       
       {/* Hamburger menu button (visible siempre) */}
       <button
-        className={`fixed top-4 left-4 p-3 rounded-xl bg-gray-800/90 backdrop-blur-sm text-white shadow-lg transition-all duration-300 z-50`}
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className={`fixed top-5 left-5 z-50 flex flex-col justify-center items-center
+          w-12 h-12 rounded-2xl
+          bg-gradient-to-br from-cyan-400/30 via-blue-500/20 to-purple-600/30
+          backdrop-blur-xl border border-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.25)]
+          hover:scale-110 hover:shadow-[0_0_25px_rgba(0,255,255,0.6)]
+          hover:from-cyan-400/50 hover:to-purple-600/50
+          transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
       >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d={isSidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
-          />
-        </svg>
+        <span
+          className={`block h-0.5 w-6 rounded-sm bg-white transition-all duration-300
+                      ${isSidebarOpen ? "rotate-45 translate-y-2" : ""}`}
+        />
+        <span
+          className={`block h-0.5 w-6 rounded-sm bg-white transition-all duration-300 my-1
+                      ${isSidebarOpen ? "opacity-0" : ""}`}
+        />
+        <span
+          className={`block h-0.5 w-6 rounded-sm bg-white transition-all duration-300
+                      ${isSidebarOpen ? "-rotate-45 -translate-y-2" : ""}`}
+        />
       </button>
 
       {/* Overlay */}
@@ -158,16 +163,7 @@ export default function App() {
               setEnergyUsage={setEnergyUsage}
             />
           )}
-          {selectedMenu === "Configuración" && (
-            <Configuracion
-              ownerName={ownerName}
-              setOwnerName={setOwnerName}
-              language={language}
-              setLanguage={setLanguage}
-              notifications={notifications}
-              setNotifications={setNotifications}
-            />
-          )}
+          {selectedMenu === "Configuración" && <Configuracion/>}
           {selectedMenu === "Chat" && <Chat />}
         </div>
       </div>

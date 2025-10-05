@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
-from src.api.iot_schemas import SerialCommand, SerialCommandResponse, IoTCommandCreate, IoTCommand
+from src.api.iot_schemas import SerialCommand, SerialCommandResponse, IoTCommandCreate, IoTCommand, IoTDashboardData
 from src.db.database import get_db
 from src.db import models
 import logging
@@ -23,6 +23,16 @@ async def send_serial_command(request: Request, command: SerialCommand):
         return SerialCommandResponse(status="success", message=f"Comando '{command.command}' enviado al Arduino.")
     else:
         raise HTTPException(status_code=500, detail=f"Fallo al enviar el comando '{command.command}' al Arduino.")
+
+@iot_router.get("/dashboard_data", response_model=IoTDashboardData)
+async def get_iot_dashboard_data(request: Request):
+    """
+    Obtiene los datos actuales del dashboard IoT, incluyendo estados de dispositivos y lecturas de sensores.
+    """
+    app = request.app
+    if not hasattr(app.state, "iot_data"):
+        raise HTTPException(status_code=500, detail="Los datos IoT no están inicializados.")
+    return IoTDashboardData(data=app.state.iot_data)
 
 @iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
 def create_iot_commands(commands: List[IoTCommandCreate], db: Session = Depends(get_db)):

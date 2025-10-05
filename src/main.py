@@ -1,6 +1,10 @@
 import os
 import asyncio
 import logging
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -17,6 +21,7 @@ from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _seria
 from src.api import utils
 from .db.database import Base, engine
 from .db import models  # Importa los modelos para asegurar que estén registrados con Base
+from src.iot.serial_reader import start_serial_reading_task # Importar la nueva tarea de lectura serial
 import httpx
 import json
 import pyaudio
@@ -95,7 +100,18 @@ async def startup_event() -> None:
 
         app.state.serial_manager = _serial_manager
         app.state.mqtt_client = _mqtt_client
+        app.state.iot_data = {} # Diccionario para almacenar el estado de los dispositivos IoT y datos de sensores
         logging.info(f"main.py: app.state.serial_manager asignado: {app.state.serial_manager is not None}, conectado: {app.state.serial_manager.is_connected if app.state.serial_manager else 'N/A'}")
+
+        # Iniciar la tarea de lectura serial en segundo plano si el serial_manager está conectado
+        if app.state.serial_manager and app.state.serial_manager.is_connected:
+            app.state.serial_reading_task = asyncio.create_task(
+                start_serial_reading_task(app.state.serial_manager, app.state.iot_data)
+            )
+            logging.info("Tarea de lectura serial en segundo plano iniciada.")
+        else:
+            app.state.serial_reading_task = None
+            logging.warning("SerialManager no está conectado, la tarea de lectura serial no se iniciará.")
 
         if _hotword_module and not _hotword_module.is_online():
             logging.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
@@ -124,6 +140,16 @@ async def shutdown_event() -> None:
                 logging.info("Tarea de HotwordDetector cancelada correctamente")
             except Exception as e:
                 logging.error(f"Error al esperar la tarea de HotwordDetector: {e}")
+
+        if hasattr(app.state, 'serial_reading_task') and app.state.serial_reading_task:
+            logging.info("Cancelando tarea de lectura serial...")
+            app.state.serial_reading_task.cancel()
+            try:
+                await app.state.serial_reading_task
+            except asyncio.CancelledError:
+                logging.info("Tarea de lectura serial cancelada correctamente")
+            except Exception as e:
+                logging.error(f"Error al esperar la tarea de lectura serial: {e}")
 
         if hasattr(app.state, 'serial_manager') and app.state.serial_manager:
             try:

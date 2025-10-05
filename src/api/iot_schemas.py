@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class SerialCommand(BaseModel):
@@ -28,3 +28,10 @@ class IoTCommand(IoTCommandBase):
 
     class Config:
         from_attributes = True
+
+
+class IoTDashboardData(BaseModel):
+    data: Dict[str, Any] = Field(..., example={
+        "LIGHT_8": {"status": "ON", "timestamp": 1678886400.0},
+        "TEMP_SENSOR_1": {"value": "25.5", "timestamp": 1678886405.0}
+    })

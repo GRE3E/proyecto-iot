@@ -17,21 +17,27 @@ import {
   Plug,
   Power,
   BarChart2,
-  PieChart,
   Calendar,
 } from "lucide-react"
 
+interface EnergyGaugeProps {
+  value: number
+  maxValue: number
+  label: string
+  color: string
+  icon: React.ReactElement<React.SVGProps<SVGSVGElement>>
+}
+
 // Nuevo componente de Medidor de Energía con efecto líquido
-function EnergyGauge({ value, maxValue, label, color, icon }) {
+function EnergyGauge({ value, maxValue, label, color, icon }: EnergyGaugeProps) {
   const percentage = (value / maxValue) * 100
-  const fluidHeight = Math.min(Math.max(percentage, 5), 100) // 5% minimum height for visibility
+  const fluidHeight = Math.min(Math.max(percentage, 5), 100)
   const gradientColor = `from-${color}-400 to-${color}-600`
-  const boxShadow = `0 0 10px ${color}`
 
   return (
     <div className="flex flex-col items-center justify-center p-4">
       <div className="w-32 h-32 md:w-40 md:h-40 relative flex items-center justify-center">
-        <div className={`w-full h-full rounded-full border-4 border-slate-700/50 relative overflow-hidden shadow-inner shadow-slate-900/40`}>
+        <div className="w-full h-full rounded-full border-4 border-slate-700/50 relative overflow-hidden shadow-inner shadow-slate-900/40">
           <motion.div
             className={`w-full absolute bottom-0 bg-gradient-to-t ${gradientColor}`}
             initial={{ height: "0%" }}
@@ -136,12 +142,6 @@ export default function GestionDispositivos({
   const estimatedDailyCost = ((energyUsage / 1000) * 24) * costPerKWH 
   const estimatedMonthlyCost = estimatedDailyCost * 30 
   const estimatedAnnualCost = estimatedMonthlyCost * 12
-
-  const powerData = devices.filter(d => d.on).map(d => ({
-    name: d.name,
-    power: Number(d.power.replace('W', ''))
-  }));
-  const totalPower = powerData.reduce((sum, d) => sum + d.power, 0);
 
   return (
     <div className="font-inter min-h-screen pb-8">

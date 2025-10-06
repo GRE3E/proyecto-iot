@@ -290,7 +290,7 @@ export default function GestionDispositivos({
                 <AnimatePresence>
                   {filteredDevices.map((device, i) => (
                     <motion.div
-                      key={i}
+                      key={device.name} // Usar un key más estable como el nombre del dispositivo
                       initial={{ opacity: 0, y: 50, scale: 0.8 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
@@ -334,7 +334,7 @@ export default function GestionDispositivos({
 
                         <div className="flex-shrink-0">
                           <button
-                            onClick={() => toggleDevice(i)}
+                            onClick={() => toggleDevice(devices.indexOf(device))}
                             className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center text-white transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95
                               ${device.on ? "bg-red-500/40 hover:bg-red-500 border-2 border-red-400/50" : "bg-green-500/40 hover:bg-green-500 border-2 border-green-400/50"}
                             `}

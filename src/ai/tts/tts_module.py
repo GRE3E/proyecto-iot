@@ -8,6 +8,8 @@ from pathlib import Path
 import uuid
 import re
 
+BUFFER_SIZE = 2 # Generate at least 2 audio files before starting playback
+
 from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
 from src.ai.tts.text_splitter import _split_text_into_sentences
 
@@ -121,35 +123,71 @@ async def handle_tts_generation_and_playback(
     tts_audio_output_path: Path
 ):
     """
-    Maneja la generación y reproducción de audio TTS en segundo plano.
+    Maneja la generación y reproducción de audio TTS en segundo plano,
+    implementando un sistema de streaming para mayor velocidad.
     """
-    if tts_module_instance.is_online():
-        try:
-            os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
-            
-            sentences = _split_text_into_sentences(nlp_response_text)
-            
+    if not tts_module_instance.is_online():
+        logger.warning("El módulo TTS está fuera de línea. No se generará audio.")
+        return
+
+    try:
+        os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+        sentences = _split_text_into_sentences(nlp_response_text)
+        
+        # Cola para almacenar las rutas de los archivos de audio generados
+        audio_queue = asyncio.Queue()
+        
+        async def generate_audio_task():
+            """Tarea para generar audio para cada frase y ponerlo en la cola."""
             for i, sentence in enumerate(sentences):
                 if not sentence:
                     continue
-
-                # Generar un nombre de archivo temporal único para cada frase
+                
                 current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}_{i}.wav"
-
+                
                 tts_future = tts_module_instance.generate_speech(
                     sentence, str(current_tts_audio_output_path)
                 )
                 audio_generated = await asyncio.to_thread(tts_future.result)
-
+                
                 if audio_generated:
-                    logger.info(f"Audio TTS generado para frase: {current_tts_audio_output_path}")
-                    await asyncio.to_thread(play_audio, str(current_tts_audio_output_path))
-                    os.remove(current_tts_audio_output_path)
-                    logger.info(f"Audio temporal {current_tts_audio_output_path} eliminado.")
+                    logger.info(f"Audio TTS generado para frase: {current_tts_audio_output_path}. Cola actual: {audio_queue.qsize()}")
+                    await audio_queue.put(current_tts_audio_output_path)
                 else:
                     logger.error(f"No se pudo generar el audio TTS para la frase: {sentence}")
+            await audio_queue.put(None) # Señal para indicar que no hay más audios
+            logger.info("Tarea de generación de audio finalizada.")
+            
+        async def playback_audio_task():
+            """Tarea para reproducir audio de la cola y limpiar archivos."""
+            logger.info("Tarea de reproducción de audio iniciada.")
+            while True:
+                audio_path = await audio_queue.get()
+                if audio_path is None: # Señal de fin
+                    logger.info("Señal de fin de reproducción recibida. Finalizando tarea de reproducción.")
+                    break
+                
+                logger.info(f"Reproduciendo audio: {audio_path}. Cola actual: {audio_queue.qsize()}")
+                await asyncio.to_thread(play_audio, str(audio_path))
+                os.remove(audio_path)
+                logger.info(f"Audio temporal {audio_path} eliminado.")
+                
+        # Start generation task
+        generation_task = asyncio.create_task(generate_audio_task())
+        logger.info("Tarea de generación de audio iniciada.")
 
-        except Exception as tts_e:
-            logger.error(f"Error al generar audio TTS: {tts_e}", exc_info=True)
-    else:
-        logger.warning("El módulo TTS está fuera de línea. No se generará audio.")
+        # Wait until a buffer is filled or generation is complete
+        logger.info(f"Esperando a llenar el búfer ({BUFFER_SIZE} audios). Cola actual: {audio_queue.qsize()}")
+        while audio_queue.qsize() < BUFFER_SIZE and not generation_task.done():
+            await asyncio.sleep(0.1) # Small delay to allow generation to proceed
+        
+        if audio_queue.qsize() >= BUFFER_SIZE:
+            logger.info(f"Búfer lleno ({audio_queue.qsize()} audios). Iniciando reproducción.")
+        elif generation_task.done():
+            logger.info("Generación de audio finalizada antes de llenar el búfer. Iniciando reproducción.")
+
+        # Now start playback task concurrently with the ongoing generation task
+        await asyncio.gather(generation_task, playback_audio_task())
+
+    except Exception as tts_e:
+        logger.error(f"Error al generar o reproducir audio TTS: {tts_e}", exc_info=True)

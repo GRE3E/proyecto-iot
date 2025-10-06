@@ -22,6 +22,7 @@ class ColoredFormatter(logging.Formatter):
         'STTModule': '\033[38;5;34m',              # Verde bosque
         'NLPModule': '\033[38;5;129m',             # Magenta elegante
         'TTSModule': '\033[38;5;178m',             # Amarillo ocre
+        'TextSplitter': '\033[38;5;208m',          # Naranja vibrante para el separador de texto
         'SpeakerRecognitionModule': '\033[38;5;45m', # Cian brillante
         'APIRoutes': '\033[38;5;105m',             # Violeta claro para rutas API
         'APIUtils': '\033[38;5;105m',              # Violeta claro para utilidades API

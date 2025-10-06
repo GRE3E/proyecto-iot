@@ -15,6 +15,8 @@ import asyncio
 from src.api.schemas import StatusResponse
 from typing import Optional, Dict, Any
 
+logger = logging.getLogger("APIUtils")
+
 _nlp_module: Optional[NLPModule] = None
 _stt_module: Optional[STTModule] = None
 _speaker_module: Optional[SpeakerRecognitionModule] = None
@@ -74,8 +76,9 @@ def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_data: Di
         db.add(log_entry)
         db.commit()
         db.refresh(log_entry)
+        logger.info(f"API log guardado exitosamente para el endpoint: {endpoint}")
     except Exception as e:
-        logging.error(f"Error al guardar log de API: {e}")
+        logger.error(f"Error al guardar log de API para el endpoint {endpoint}: {e}")
         db.rollback()
         raise
 
@@ -89,31 +92,31 @@ async def initialize_nlp() -> None:
     global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task, _tts_module
     
     try:
-        logging.info("Inicializando módulos...")
+        logger.info("Inicializando módulos...")
         _nlp_module = NLPModule()
         await _nlp_module._memory_manager.async_init()
-        logging.info(f"NLPModule inicializado. Online: {_nlp_module.is_online()}")
+        logger.info(f"NLPModule inicializado. Online: {_nlp_module.is_online()}")
         _stt_module = STTModule()
-        logging.info("STTModule inicializado.")
+        logger.info(f"STTModule inicializado. Online: {_stt_module.is_online()}")
         _speaker_module = SpeakerRecognitionModule()
-        logging.info("SpeakerRecognitionModule inicializado.")
+        logger.info(f"SpeakerRecognitionModule inicializado. Online: {_speaker_module.is_online()}")
         _tts_module = TTSModule()
-        logging.info("TTSModule inicializado.")
+        logger.info(f"TTSModule inicializado. Online: {_tts_module.is_online()}")
         
         # Inicialización del módulo Hotword
         access_key = os.getenv("PICOVOICE_ACCESS_KEY")
         hotword_path = os.getenv("HOTWORD_PATH")
         
         if not access_key or not hotword_path:
-            logging.warning("PICOVOICE_ACCESS_KEY o HOTWORD_PATH no configurados. El módulo Hotword no se inicializará.")
+            logger.warning("PICOVOICE_ACCESS_KEY o HOTWORD_PATH no configurados. El módulo Hotword no se inicializará.")
             _hotword_module = None
         else:
             try:
                 _hotword_module = HotwordDetector(access_key=access_key, hotword_path=hotword_path)
-                logging.info("Módulo Hotword inicializado correctamente")
+                logger.info(f"Módulo Hotword inicializado correctamente. Online: {_hotword_module.is_online()}")
                 _hotword_task = asyncio.create_task(_hotword_module.start(hotword_callback_async))
             except Exception as e:
-                logging.error(f"Error al inicializar HotwordDetector: {e}")
+                logger.error(f"Error al inicializar HotwordDetector: {e}")
                 _hotword_module = None
 
         # Inicialización de SerialManager
@@ -123,12 +126,12 @@ async def initialize_nlp() -> None:
             try:
                 _serial_manager = SerialManager(port=serial_port, baudrate=int(serial_baudrate))
                 _serial_manager.connect()
-                logging.info(f"SerialManager inicializado y conectado en {serial_port}:{serial_baudrate}. Online: {_serial_manager.is_connected}")
+                logger.info(f"SerialManager inicializado y conectado en {serial_port}:{serial_baudrate}. Online: {_serial_manager.is_connected}")
             except Exception as e:
-                logging.error(f"Error al inicializar SerialManager: {e}")
+                logger.error(f"Error al inicializar SerialManager: {e}")
                 _serial_manager = None
         else:
-            logging.info("Variables de entorno SERIAL_PORT o SERIAL_BAUDRATE no configuradas. SerialManager no se inicializará.")
+            logger.info("Variables de entorno SERIAL_PORT o SERIAL_BAUDRATE no configuradas. SerialManager no se inicializará.")
 
         # Inicialización de MQTTClient
         mqtt_broker = os.getenv("MQTT_BROKER")
@@ -137,19 +140,19 @@ async def initialize_nlp() -> None:
             try:
                 _mqtt_client = MQTTClient(broker=mqtt_broker, port=int(mqtt_port))
                 _mqtt_client.connect()
-                logging.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
+                logger.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
             except Exception as e:
-                logging.error(f"Error al inicializar MQTTClient: {e}")
+                logger.error(f"Error al inicializar MQTTClient: {e}")
                 _mqtt_client = None
         else:
-            logging.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")
+            logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")
 
         # Pasar instancias de IoT al módulo NLP
         if _nlp_module:
             _nlp_module.set_iot_managers(serial_manager=_serial_manager, mqtt_client=_mqtt_client)
-            logging.info("Instancias de SerialManager y MQTTClient pasadas al módulo NLP.")
+            logger.info("Instancias de SerialManager y MQTTClient pasadas al módulo NLP.")
             
-        logging.info("Módulos inicializados correctamente")
+        logger.info("Todos los módulos inicializados correctamente.")
     except Exception as e:
-        logging.error(f"Error al inicializar módulos: {e}")
+        logger.error(f"Error general al inicializar módulos: {e}")
         raise

@@ -10,7 +10,7 @@ from src.db.database import SessionLocal
 from src.db.models import User
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("SpeakerRecognitionModule")
 
 class SpeakerRecognitionModule:
     """
@@ -30,7 +30,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
         with SessionLocal() as db:
             self._registered_users = db.query(User).all()
-            logging.info(f"Cargados {len(self._registered_users)} usuarios registrados.")
+            logger.info(f"Cargados {len(self._registered_users)} usuarios registrados.")
 
     def is_online(self) -> bool:
         """
@@ -44,7 +44,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
         if self._executor:
             self._executor.shutdown(wait=True)
-            logging.info("ThreadPoolExecutor cerrado.")
+            logger.info("ThreadPoolExecutor cerrado.")
 
     def _register_speaker_sync(self, name: str, audio_path: str, is_owner: bool = False) -> bool:
         """
@@ -57,7 +57,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             with SessionLocal() as db:
                 existing_user = db.query(User).filter(User.nombre == name).first()
                 if existing_user:
-                    logging.info(f"El usuario {name} ya existe. Actualizando embedding.")
+                    logger.info(f"El usuario {name} ya existe. Actualizando embedding.")
                     existing_user.embedding = json.dumps(embedding.tolist())
                     existing_user.is_owner = is_owner
                 else:
@@ -67,7 +67,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             self._load_registered_users()
             return True
         except Exception as e:
-            logging.error(f"Error al registrar hablante: {e}")
+            logger.error(f"Error al registrar hablante: {e}")
             if 'db' in locals() and db.is_active:
                 db.rollback()
             return False
@@ -92,18 +92,18 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
         self._load_registered_users()
         if not self.is_online():
-            logging.warning("El módulo de reconocimiento de hablante está fuera de línea.")
+            logger.warning("El módulo de reconocimiento de hablante está fuera de línea.")
             return None, None
         
         try:
             wav = preprocess_wav(audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
         except Exception as e:
-            logging.error(f"Error al generar embedding para el audio: {e}")
+            logger.error(f"Error al generar embedding para el audio: {e}")
             return None, None
 
         if not self._registered_users:
-            logging.info("No se encontraron usuarios registrados. Devolviendo solo el embedding generado.")
+            logger.info("No se encontraron usuarios registrados. Devolviendo solo el embedding generado.")
             return None, new_embedding
 
         min_dist = float('inf')
@@ -114,16 +114,16 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             similarity = np.dot(new_embedding, registered_embedding) / \
                          (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
             distance = 1 - similarity
-            logging.debug(f"Comparando con {user.nombre}: distancia = {distance:.4f}")
+            logger.debug(f"Comparando con {user.nombre}: distancia = {distance:.4f}")
             if distance < min_dist:
                 min_dist = distance
                 identified_user = user
         
         if identified_user and min_dist < 0.5:
-            logging.info(f"Hablante identificado: {identified_user.nombre}")
+            logger.info(f"Hablante identificado: {identified_user.nombre}")
             return identified_user, new_embedding
         else:
-            logging.info("Hablante Desconocido")
+            logger.info("Hablante Desconocido")
             return None, new_embedding
 
     def identify_speaker(self, audio_path: str):

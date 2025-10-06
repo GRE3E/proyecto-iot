@@ -1,28 +1,25 @@
 import os
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, FastAPI, Request
-from sqlalchemy.orm import Session
-from src.db.database import SessionLocal
-from src.api.hotword_schemas import HotwordAudioProcessResponse
 import logging
-from pathlib import Path
-import tempfile
-from src.db.models import User # Importar el modelo User
 import asyncio
+import tempfile
 import uuid
-
-import httpx
 from datetime import datetime
+from pathlib import Path
 
-# Importar módulos globales desde utils
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from sqlalchemy.orm import Session
+
+from src.db.database import SessionLocal
+from src.db.models import User
+from src.api.hotword_schemas import HotwordAudioProcessResponse
 from src.api import utils
 from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logger = logging.getLogger("APIRoutes")
 
 hotword_router = APIRouter()
 
-
-
+# ====================== Dependencia de BD ======================
 def get_db():
     db = SessionLocal()
     try:
@@ -30,113 +27,149 @@ def get_db():
     finally:
         db.close()
 
+
+# ====================== Endpoint principal ======================
 @hotword_router.post("/hotword/process_audio", response_model=HotwordAudioProcessResponse)
 async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Procesa el audio después de la detección de hotword: STT, identificación de hablante y NLP."""
+    """
+    Procesa el audio tras la detección de hotword:
+    - STT (voz a texto)
+    - Identificación de hablante
+    - Procesamiento NLP y comando serial
+    - Generación TTS (si está disponible)
+    """
+    # === Verificar disponibilidad de módulos ===
     if utils._stt_module is None or not utils._stt_module.is_online():
-        logging.error("El módulo STT está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")
     if utils._speaker_module is None or not utils._speaker_module.is_online():
-        logging.error("El módulo de hablante está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
     if utils._nlp_module is None or not utils._nlp_module.is_online():
-        logging.error("El módulo NLP está fuera de línea")
         raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
 
     transcribed_text = ""
-    identified_speaker = "Unknown"
-    nlp_response = ""
+    identified_speaker_name = "Desconocido"
+    nlp_response = {}
+    file_location = None
+    tts_audio_file_path = None
 
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_location = Path(tmpdir) / audio_file.filename
-            with open(file_location, "wb+") as file_object:
-                content = await audio_file.read()
-                file_object.write(content)
-            logging.info(f"Archivo de audio temporal guardado en: {file_location}")
+        # === 1. Guardar el archivo temporalmente ===
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+            file_location = Path(temp_audio_file.name)
+            content = await audio_file.read()
+            temp_audio_file.write(content)
+        logger.info(f"Archivo de audio temporal guardado en: {file_location}")
 
-            # 1. Transcripción de voz a texto
-            transcribed_text = utils._stt_module.transcribe_audio(str(file_location)).result()
-            if transcribed_text is None:
-                logging.error("No se pudo transcribir el audio después de la hotword")
-                raise HTTPException(status_code=500, detail="No se pudo transcribir el audio después de la hotword")
-            logging.info(f"Texto transcribido: {transcribed_text}")
+        # === 2. Ejecutar STT y Speaker ID en paralelo ===
+        # Corregido: evitar futuros anidados (Future[Future])
+        stt_task = asyncio.to_thread(
+            lambda: utils._stt_module.transcribe_audio(str(file_location)).result()
+        )
+        speaker_task = asyncio.to_thread(
+            lambda: utils._speaker_module.identify_speaker(str(file_location)).result()
+        )
 
-            # 2. Identificación de hablante
-            future_identified_speaker = utils._speaker_module.identify_speaker(str(file_location))
-            identified_user_from_speaker, speaker_embedding = future_identified_speaker.result()
-            
-            if identified_user_from_speaker:
-                # Obtener el usuario de la sesión actual para asegurar que sea persistente
-                identified_user_from_speaker = db.query(User).filter(User.id == identified_user_from_speaker.id).first()
-                if identified_user_from_speaker:
-                    db.expire(identified_user_from_speaker) # Expire the object to ensure fresh data is loaded
-                    db.refresh(identified_user_from_speaker)
-                    identified_speaker_name = identified_user_from_speaker.nombre
-                identified_user_obj = identified_user_from_speaker
-                user_name_for_nlp = identified_user_obj.nombre
-                is_owner_for_nlp = identified_user_obj.is_owner
-                logging.info(f"Identified user {user_name_for_nlp} with is_owner: {is_owner_for_nlp}")
-            else: # Si no se identificó pero se obtuvo un embedding
-                # Registrar al usuario como desconocido
-                next_unknown_id = db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1
-                new_unknown_name = f"Desconocido {next_unknown_id}"
-                
-                # Registrar el nuevo usuario con el embedding
-                future_register_speaker = utils._speaker_module.register_speaker(new_unknown_name, str(file_location), is_owner=False)
-                future_register_speaker.result() # Esperar a que el registro se complete
-                
-                # Obtener el usuario recién registrado de la base de datos
-                identified_user_obj = db.query(User).filter(User.nombre == new_unknown_name).first()
-                if identified_user_obj:
-                    identified_speaker_name = new_unknown_name
-                    user_name_for_nlp = new_unknown_name
-                    is_owner_for_nlp = False
-                logging.info(f"Nuevo hablante desconocido registrado como: {new_unknown_name}")
-            
-            # 3. Procesamiento NLP
-            nlp_response_data = await utils._nlp_module.generate_response(
-                transcribed_text,
-                user_name=user_name_for_nlp,
-                is_owner=is_owner_for_nlp
+        transcribed_text, (identified_user_from_speaker, speaker_embedding) = await asyncio.gather(
+            stt_task, speaker_task
+        )
+
+        if not transcribed_text:
+            raise HTTPException(status_code=500, detail="Error en transcripción STT")
+
+        logger.info(f"Texto transcrito: {transcribed_text}")
+
+        # === 3. Identificación o registro del hablante ===
+        if identified_user_from_speaker:
+            identified_user_from_speaker = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.id == identified_user_from_speaker.id).first()
             )
-            if nlp_response_data is None:
-                logging.error("No se pudo generar la respuesta NLP después de la hotword")
-                raise HTTPException(status_code=500, detail="No se pudo generar la respuesta NLP después de la hotword")
-            logging.info(f"Respuesta NLP: {nlp_response_data['response']}")
-
-            tts_audio_file_path = None
-            if utils._tts_module is None or not utils._tts_module.is_online():
-                logging.warning("El módulo TTS está fuera de línea. No se generará audio para la respuesta NLP.")
+            if identified_user_from_speaker:
+                db.expire(identified_user_from_speaker)
+                db.refresh(identified_user_from_speaker)
+                identified_speaker_name = identified_user_from_speaker.nombre
+                is_owner_for_nlp = identified_user_from_speaker.is_owner
+                logger.info(f"Hablante identificado: {identified_speaker_name}")
             else:
-                try:
-                    audio_filename = f"tts_audio_{uuid.uuid4()}.wav"
-                    file_location = AUDIO_OUTPUT_DIR / audio_filename
-                    future_audio_generated = utils._tts_module.generate_speech(nlp_response_data['response'], str(file_location))
-                    audio_generated = future_audio_generated.result()
-                    if audio_generated:
-                        tts_audio_file_path = str(file_location)
-                        logging.info(f"Audio de respuesta NLP generado en: {tts_audio_file_path}")
-                        # Reproducir el audio automáticamente
-                        play_audio(tts_audio_file_path)
-                        # Eliminar el archivo de audio después de la reproducción
-                        os.remove(tts_audio_file_path)
-                        logging.info(f"Audio temporal {tts_audio_file_path} eliminado.")
-                    else:
-                        logging.error("No se pudo generar el audio para la respuesta NLP.")
-                except Exception as tts_e:
-                    logging.error(f"Error al generar audio TTS para la respuesta NLP: {tts_e}")
+                is_owner_for_nlp = False
+        else:
+            next_unknown_id = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1
+            )
+            new_unknown_name = f"Desconocido {next_unknown_id}"
 
+            register_future = utils._speaker_module.register_speaker(
+                new_unknown_name, str(file_location), is_owner=False
+            )
+            await asyncio.to_thread(register_future.result)
+
+            identified_user_obj = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.nombre == new_unknown_name).first()
+            )
+            if identified_user_obj:
+                identified_speaker_name = new_unknown_name
+                is_owner_for_nlp = False
+                logger.info(f"Nuevo hablante desconocido registrado: {new_unknown_name}")
+            else:
+                raise HTTPException(status_code=500, detail="No se pudo registrar hablante desconocido")
+
+        # === 4. Procesamiento NLP ===
+        nlp_response = await utils._nlp_module.generate_response(
+            transcribed_text,
+            user_name=identified_speaker_name,
+            is_owner=is_owner_for_nlp
+        )
+
+        if nlp_response is None or "response" not in nlp_response:
+            raise HTTPException(status_code=500, detail="Error al generar la respuesta NLP")
+
+        logger.info(f"Respuesta NLP: {nlp_response['response']}")
+
+        # === 5. Generación TTS (opcional) ===
+        if utils._tts_module and utils._tts_module.is_online():
+            try:
+                os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+                tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}.wav"
+
+                tts_future = utils._tts_module.generate_speech(
+                    nlp_response['response'], str(tts_audio_output_path)
+                )
+                audio_generated = await asyncio.to_thread(tts_future.result)
+
+                if audio_generated:
+                    tts_audio_file_path = str(tts_audio_output_path)
+                    logger.info(f"Audio TTS generado: {tts_audio_file_path}")
+
+                    await asyncio.to_thread(play_audio, tts_audio_file_path)
+                    os.remove(tts_audio_output_path)
+                    logger.info(f"Audio temporal {tts_audio_output_path} eliminado.")
+                else:
+                      logger.error("No se pudo generar el audio TTS.")
+            except Exception as tts_e:
+                  logger.error(f"Error al generar audio TTS: {tts_e}", exc_info=True)
+        else:
+              logger.warning("El módulo TTS está fuera de línea. No se generará audio.")
+
+        # === 6. Preparar respuesta final ===
         response_data = HotwordAudioProcessResponse(
             transcribed_text=transcribed_text,
-            identified_speaker=nlp_response_data["identified_speaker"],
-            nlp_response=nlp_response_data["response"],
-            serial_command_identified=nlp_response_data.get("serial_command"),
+            identified_speaker=identified_speaker_name,
+            nlp_response=nlp_response["response"],
+            serial_command_identified=nlp_response.get("serial_command"),
             tts_audio_file_path=tts_audio_file_path
         )
+
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)
         return response_data
-        
+
     except Exception as e:
-        logging.error(f"Error en procesamiento de hotword: {e}")
+        logger.error(f"Error en procesamiento de hotword: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error al procesar el audio después de hotword")
+
+    finally:
+        # Limpieza del archivo temporal
+        if file_location and file_location.exists():
+            try:
+                os.remove(file_location)
+                logger.info(f"Archivo temporal {file_location} eliminado.")
+            except Exception as cleanup_e:
+                logger.warning(f"No se pudo eliminar el archivo temporal {file_location}: {cleanup_e}")

@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("ConfigManager")
 
 class ConfigManager:
     """
@@ -20,9 +20,9 @@ class ConfigManager:
         try:
             with open(self._config_path, "r", encoding="utf-8") as f:
                 self._config = json.load(f)
-            logging.info(f"Configuración cargada desde {self._config_path}")
+            logger.info(f"Configuración cargada desde {self._config_path}")
         except FileNotFoundError:
-            logging.warning(f"Archivo de configuración no encontrado en {self._config_path}. Creando configuración por defecto.")
+            logger.warning(f"Archivo de configuración no encontrado en {self._config_path}. Creando configuración por defecto.")
             self._config = {
                 "assistant_name": "Murph",
                 "language": "es",
@@ -42,7 +42,7 @@ class ConfigManager:
             }
             self.save_config()
         except json.JSONDecodeError:
-            logging.error(f"Error al decodificar JSON en {self._config_path}. Usando configuración por defecto.")
+            logger.error(f"Error al decodificar JSON en {self._config_path}. Usando configuración por defecto.")
             self._config = {
                 "assistant_name": "Murph",
                 "language": "es",
@@ -67,7 +67,7 @@ class ConfigManager:
         os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
         with open(self._config_path, "w", encoding="utf-8") as f:
             json.dump(self._config, f, indent=4, ensure_ascii=False)
-        logging.info(f"Configuración guardada en {self._config_path}")
+        logger.info(f"Configuración guardada en {self._config_path}")
 
     def get_config(self) -> Dict[str, Any]:
         """Devuelve la configuración actual."""

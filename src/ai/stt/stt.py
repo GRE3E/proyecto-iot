@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 warnings.filterwarnings("ignore", message=".*flash attention.*")
 
 # Configuración básica de logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("STTModule")
 
 class STTModule:
     """
@@ -48,7 +48,7 @@ class STTModule:
             subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
-            logging.error("FFmpeg no está instalado o no se encuentra en el PATH. Por favor, instala FFmpeg para habilitar la transcripción de audio.")
+            logger.error("FFmpeg no está instalado o no se encuentra en el PATH. Por favor, instala FFmpeg para habilitar la transcripción de audio.")
             return False
 
     def _load_model(self) -> None:
@@ -64,9 +64,9 @@ class STTModule:
             # Cargar el modelo Whisper en español
             self._model = whisper.load_model(self.model_name)
             self._online = True
-            logging.info("Modelo Whisper cargado exitosamente.")
+            logger.info("Modelo Whisper cargado exitosamente.")
         except Exception as e:
-            logging.error(f"Error al cargar el modelo Whisper: {e}")
+            logger.error(f"Error al cargar el modelo Whisper: {e}")
             self._online = False
 
     def is_online(self) -> bool:
@@ -84,7 +84,7 @@ class STTModule:
         """
         if self._executor:
             self._executor.shutdown(wait=True)
-            logging.info("ThreadPoolExecutor del módulo STT cerrado.")
+            logger.info("ThreadPoolExecutor del módulo STT cerrado.")
 
     def _transcribe_audio_sync(self, audio_path: str) -> Optional[str]:
         """
@@ -100,7 +100,7 @@ class STTModule:
             # Cargar el audio usando soundfile y resamplear si es necesario
             audio, sr = sf.read(audio_path)
             if sr != whisper.audio.SAMPLE_RATE:
-                logging.warning(f"La frecuencia de muestreo del audio es {sr} Hz, se esperaba {whisper.audio.SAMPLE_RATE} Hz. Remuestreando audio.")
+                logger.warning(f"La frecuencia de muestreo del audio es {sr} Hz, se esperaba {whisper.audio.SAMPLE_RATE} Hz. Remuestreando audio.")
                 audio = resampy.resample(audio, sr, whisper.audio.SAMPLE_RATE)
                 sr = whisper.audio.SAMPLE_RATE # Actualizar la frecuencia de muestreo después del remuestreo
             if audio.ndim > 1:
@@ -115,7 +115,7 @@ class STTModule:
             
             return result.text
         except Exception as e:
-            logging.error(f"Error durante la transcripción del audio '{audio_path}': {e}")
+            logger.error(f"Error durante la transcripción del audio '{audio_path}': {e}")
             return None
 
     def transcribe_audio(self, audio_path: str):
@@ -129,7 +129,7 @@ class STTModule:
             concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
         """
         if not self.is_online():
-            logging.warning("El módulo STT está fuera de línea. No se puede transcribir el audio.")
+            logger.warning("El módulo STT está fuera de línea. No se puede transcribir el audio.")
             # Devolver un Future que ya está 'done' con un resultado None
             future = self._executor.submit(lambda: None)
             future.set_result(None)

@@ -5,7 +5,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 # Configuración básica de logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("TTSModule")
 
 MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 SPEAKER = "Sofia Hellen"
@@ -38,13 +38,13 @@ class TTSModule:
         Carga el modelo TTS especificado.
         """
         try:
-            logging.info(f"Cargando modelo TTS: {self.model_name} en {self.device}")
+            logger.info(f"Cargando modelo TTS: {self.model_name} en {self.device}")
             self.tts = TTS(model_name=self.model_name, gpu=self.device == "cuda")
             self.is_online_status = True
-            logging.info("Modelo TTS cargado exitosamente.")
+            logger.info("Modelo TTS cargado exitosamente.")
         except Exception as e:
-            logging.error(f"Type of error: {type(e)}")
-            logging.error(f"Error loading TTS model: {e}")
+            logger.error(f"Type of error: {type(e)}")
+            logger.error(f"Error loading TTS model: {e}")
             self.is_online_status = False
 
     def is_online(self) -> bool:
@@ -62,7 +62,7 @@ class TTSModule:
         """
         if self._executor:
             self._executor.shutdown(wait=True)
-            logging.info("ThreadPoolExecutor del módulo TTS cerrado.")
+            logger.info("ThreadPoolExecutor del módulo TTS cerrado.")
 
     def _generate_speech_sync(self, text: str, file_path: str) -> bool:
         """
@@ -84,7 +84,7 @@ class TTSModule:
             )
             return True
         except Exception as e:
-            logging.error(f"Error al generar voz: {e}")
+            logger.error(f"Error al generar voz: {e}")
             return False
 
     def generate_speech(self, text: str, file_path: str):
@@ -99,7 +99,7 @@ class TTSModule:
             concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
         """
         if not self.is_online():
-            logging.warning("El módulo TTS está fuera de línea. No se puede generar voz.")
+            logger.warning("El módulo TTS está fuera de línea. No se puede generar voz.")
             future = self._executor.submit(lambda: False)
             future.set_result(False)
             return future

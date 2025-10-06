@@ -15,6 +15,8 @@ from src.api.permissions_routes import router as permissions_router
 # Importar módulos globales desde utils
 from src.api import utils
 
+logger = logging.getLogger("APIRoutes")
+
 router = APIRouter()
 
 router.include_router(hotword_router, prefix="/hotword", tags=["hotword"])
@@ -42,8 +44,8 @@ async def get_status(db: Session = Depends(get_db)):
     """Devuelve el estado actual de los módulos."""
     try:
         status: StatusResponse = utils.get_module_status()
-        logging.info(f"Status Response: {status.model_dump_json()}")
+        logger.info(f"Status Response para /status: {status.model_dump_json()}")
         return status
     except Exception as e:
-        logging.error(f"Error al obtener estado: {e}")
+        logger.error(f"Error al obtener estado para /status: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")

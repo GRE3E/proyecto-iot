@@ -28,9 +28,11 @@ import pyaudio
 import wave
 from datetime import datetime
 import numpy as np
+from src.utils.logger_config import setup_logging
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+setup_logging()
+logger = logging.getLogger("MainApp")
 
 app = FastAPI(title="Casa Inteligente API")
 
@@ -48,7 +50,7 @@ def load_config() -> Dict[str, Any]:
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except FileNotFoundError:
-        logging.warning(f"Archivo de configuración no encontrado en {CONFIG_PATH}. Creando configuración por defecto.")
+        logger.warning(f"Archivo de configuración no encontrado en {CONFIG_PATH}. Creando configuración por defecto.")
         config = {
             "assistant_name": "Murph",
             "language": "es",
@@ -64,7 +66,7 @@ def load_config() -> Dict[str, Any]:
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
     except json.JSONDecodeError as e:
-        logging.error(f"Error al decodificar JSON en {CONFIG_PATH}: {e}. Usando configuración por defecto.")
+        logger.error(f"Error al decodificar JSON en {CONFIG_PATH}: {e}. Usando configuración por defecto.")
         config = {
             "assistant_name": "Murph",
             "language": "es",
@@ -88,11 +90,11 @@ async def startup_event() -> None:
     Evento de inicio de la aplicación.
     Inicializa la configuración, la base de datos y los módulos de IA/IoT.
     """
-    logging.info("Iniciando aplicación Casa Inteligente...")
+    logger.info("Iniciando aplicación Casa Inteligente...")
     
     try:
         config = load_config()
-        logging.info(f"Configuración cargada: {config}")
+        logger.info(f"Configuración cargada: {config}")
 
         Base.metadata.create_all(bind=engine)
         
@@ -101,25 +103,25 @@ async def startup_event() -> None:
         app.state.serial_manager = _serial_manager
         app.state.mqtt_client = _mqtt_client
         app.state.iot_data = {} # Diccionario para almacenar el estado de los dispositivos IoT y datos de sensores
-        logging.info(f"main.py: app.state.serial_manager asignado: {app.state.serial_manager is not None}, conectado: {app.state.serial_manager.is_connected if app.state.serial_manager else 'N/A'}")
+        logger.info(f"main.py: app.state.serial_manager asignado: {app.state.serial_manager is not None}, conectado: {app.state.serial_manager.is_connected if app.state.serial_manager else 'N/A'}")
 
         # Iniciar la tarea de lectura serial en segundo plano si el serial_manager está conectado
         if app.state.serial_manager and app.state.serial_manager.is_connected:
             app.state.serial_reading_task = asyncio.create_task(
                 start_serial_reading_task(app.state.serial_manager, app.state.iot_data)
             )
-            logging.info("Tarea de lectura serial en segundo plano iniciada.")
+            logger.info("Tarea de lectura serial en segundo plano iniciada.")
         else:
             app.state.serial_reading_task = None
-            logging.warning("SerialManager no está conectado, la tarea de lectura serial no se iniciará.")
+            logger.warning("SerialManager no está conectado, la tarea de lectura serial no se iniciará.")
 
         if _hotword_module and not _hotword_module.is_online():
-            logging.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
+            logger.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
 
-        logging.info("Aplicación iniciada correctamente")
+        logger.info("Aplicación iniciada correctamente")
         
     except Exception as e:
-        logging.error(f"Error durante el inicio de la aplicación: {e}")
+        logger.error(f"Error durante el inicio de la aplicación: {e}")
         raise
 
 @app.on_event("shutdown")
@@ -128,46 +130,46 @@ async def shutdown_event() -> None:
     Evento de cierre de la aplicación.
     Realiza la limpieza de recursos, como detener el HotwordDetector y desconectar los gestores IoT.
     """
-    logging.info("Cerrando aplicación...")
+    logger.info("Cerrando aplicación...")
     
     try:
         if _hotword_task:
-            logging.info("Cancelando tarea de HotwordDetector...")
+            logger.info("Cancelando tarea de HotwordDetector...")
             _hotword_task.cancel()
             try:
                 await _hotword_task
             except asyncio.CancelledError:
-                logging.info("Tarea de HotwordDetector cancelada correctamente")
+                logger.info("Tarea de HotwordDetector cancelada correctamente")
             except Exception as e:
-                logging.error(f"Error al esperar la tarea de HotwordDetector: {e}")
+                logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
 
         if hasattr(app.state, 'serial_reading_task') and app.state.serial_reading_task:
-            logging.info("Cancelando tarea de lectura serial...")
+            logger.info("Cancelando tarea de lectura serial...")
             app.state.serial_reading_task.cancel()
             try:
                 await app.state.serial_reading_task
             except asyncio.CancelledError:
-                logging.info("Tarea de lectura serial cancelada correctamente")
+                logger.info("Tarea de lectura serial cancelada correctamente")
             except Exception as e:
-                logging.error(f"Error al esperar la tarea de lectura serial: {e}")
+                logger.error(f"Error al esperar la tarea de lectura serial: {e}")
 
         if hasattr(app.state, 'serial_manager') and app.state.serial_manager:
             try:
                 app.state.serial_manager.close()
-                logging.info("SerialManager desconectado")
+                logger.info("SerialManager desconectado")
             except Exception as e:
-                logging.error(f"Error al desconectar SerialManager: {e}")
+                logger.error(f"Error al desconectar SerialManager: {e}")
 
         if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
             try:
                 app.state.mqtt_client.disconnect()
-                logging.info("MQTTClient desconectado")
+                logger.info("Desconectando cliente MQTT...")
             except Exception as e:
-                logging.error(f"Error al desconectar MQTTClient: {e}")
+                logger.error(f"Error al desconectar MQTTClient: {e}")
         
-        logging.info("Aplicación cerrada correctamente")
+        logger.info("Aplicación cerrada correctamente")
         
     except Exception as e:
-        logging.error(f"Error durante el cierre de la aplicación: {e}")
+        logger.error(f"Error durante el cierre de la aplicación: {e}")
 
 app.include_router(router, prefix="")

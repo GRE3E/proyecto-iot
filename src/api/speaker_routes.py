@@ -11,6 +11,8 @@ from src.db.models import User
 # Importar módulos globales desde utils
 from src.api import utils
 
+logger = logging.getLogger("APIRoutes")
+
 speaker_router = APIRouter()
 
 def get_db():
@@ -49,7 +51,7 @@ async def register_speaker(name: str = Form(...), audio_file: UploadFile = File(
         return response_data
         
     except Exception as e:
-        logging.error(f"Error al registrar hablante: {e}")
+        logger.error(f"Error al registrar hablante para /speaker/register: {e}")
         raise HTTPException(status_code=500, detail="Error al registrar el hablante")
 
 @speaker_router.post("/speaker/register_owner", response_model=StatusResponse)
@@ -81,7 +83,7 @@ async def register_owner_speaker(name: str = Form(...), audio_file: UploadFile =
         return response_data
         
     except Exception as e:
-        logging.error(f"Error al registrar propietario: {e}")
+        logger.error(f"Error al registrar propietario para /speaker/register_owner: {e}")
         raise HTTPException(status_code=500, detail="Error al registrar el propietario")
 
 @speaker_router.post("/speaker/identify", response_model=SpeakerIdentifyResponse)
@@ -108,7 +110,7 @@ async def identify_speaker(audio_file: UploadFile = File(...), db: Session = Dep
         return response_obj
         
     except Exception as e:
-        logging.error(f"Error al identificar hablante: {e}")
+        logger.error(f"Error al identificar hablante para /speaker/identify: {e}")
         raise HTTPException(status_code=500, detail="Error al identificar el hablante")
 
 @speaker_router.get("/speaker/users", response_model=UserListResponse)
@@ -124,7 +126,7 @@ async def get_all_users(db: Session = Depends(get_db)):
         utils._save_api_log("/speaker/users", {}, response_data.dict(), db)
         return response_data
     except Exception as e:
-        logging.error(f"Error al obtener la lista de usuarios: {e}")
+        logger.error(f"Error al obtener la lista de usuarios para /speaker/users: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener la lista de usuarios")
 
 @speaker_router.put("/speaker/update_owner", response_model=StatusResponse)
@@ -160,5 +162,5 @@ async def update_speaker_owner(request: SpeakerUpdateOwnerRequest, db: Session =
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logging.error(f"Error al actualizar el estado de propietario del hablante: {e}")
+        logger.error(f"Error al actualizar el estado de propietario del hablante para /speaker/update_owner: {e}")
         raise HTTPException(status_code=500, detail="Error al actualizar el estado de propietario del hablante")

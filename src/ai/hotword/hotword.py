@@ -10,7 +10,7 @@ import threading
 import webrtcvad
 import logging
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logger = logging.getLogger("HotwordDetector")
 
 class HotwordDetector:
     def __init__(self, access_key, hotword_path, input_device_index=None):
@@ -44,7 +44,7 @@ class HotwordDetector:
                 input_device_index=self.input_device_index
             )
             self._is_listening = True
-            logging.info("[HotwordDetector] Escuchando palabras clave...")
+            logger.info("Escuchando palabras clave...")
 
             while self._is_listening:
                 # Ejecutar operaciones de audio y procesamiento en un hilo separado
@@ -53,14 +53,14 @@ class HotwordDetector:
 
                 result = await asyncio.to_thread(self.porcupine.process, pcm)
                 if result >= 0:
-                    logging.info("[HotwordDetector] Palabra activa detectada, activando asistente...")
+                    logger.info("Palabra activa detectada, activando asistente...")
                     await self._callback()
                 await asyncio.sleep(0.01) # Pequeña pausa para no bloquear el bucle de eventos
 
         except asyncio.CancelledError:
-            logging.info("[HotwordDetector] Tarea de escucha cancelada.")
+            logger.info("Tarea de escucha cancelada.")
         except Exception as e:
-            logging.error(f"[HotwordDetector] Error: {e}")
+            logger.error(f"Error: {e}")
         finally:
             self.stop()
 
@@ -75,7 +75,7 @@ class HotwordDetector:
         if self.porcupine is not None:
             self.porcupine.delete()
             self.porcupine = None
-        logging.info("[HotwordDetector] Detenido.")
+        logger.info("Detenido.")
 
 def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silence_timeout=1.0, vad_aggressiveness=3):
     """
@@ -104,7 +104,7 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
         silent_frames = 0
         max_silent_frames = int(silence_timeout * sample_rate / chunk_size)
         
-        logging.info("[HotwordDetector] Grabando... Habla ahora.")
+        logger.info("Grabando... Habla ahora.")
         
         while True:
             data = stream.read(chunk_size)
@@ -119,7 +119,7 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
                 silent_frames += 1
                 
             if silent_frames > max_silent_frames:
-                logging.info("[HotwordDetector] Silencio detectado, finalizando grabación.")
+                logger.info("Silencio detectado, finalizando grabación.")
                 break
         
         wf = wave.open(filename, 'wb')
@@ -129,7 +129,7 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
         wf.writeframes(b''.join(frames))
         wf.close()
     except Exception as e:
-        logging.error(f"[HotwordDetector] Error durante la grabación de audio: {e}")
+        logger.error(f"Error durante la grabación de audio: {e}")
         # Podrías querer relanzar la excepción o manejarla de otra manera
         raise
     finally:
@@ -140,7 +140,7 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
             p.terminate()
 
 async def hotword_callback_async():
-    logging.info("¡Palabra clave detectada! Activando IA...")
+    logger.info("¡Palabra clave detectada! Activando IA...")
     audio_filename = f"hotword_audio_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
     await asyncio.to_thread(record_audio, audio_filename)
 
@@ -151,11 +151,11 @@ async def hotword_callback_async():
                 response = await client.post("http://localhost:8000/hotword/hotword/process_audio", files=files)
                 response.raise_for_status()
                 result = response.json()
-                logging.info(f"[HotwordDetector] Respuesta de la API: {result}")
+                logger.info(f"Respuesta de la API: {result}")
         except httpx.RequestError as e:
-            logging.error(f"[HotwordDetector] Falló la solicitud HTTP: {e}", exc_info=True)
+            logger.error(f"Falló la solicitud HTTP: {e}", exc_info=True)
         except httpx.HTTPStatusError as e:
-            logging.error(f"[HotwordDetector] Error de estado HTTP: {e.response.status_code} - {e.response.text}", exc_info=True)
+            logger.error(f"Error de estado HTTP: {e.response.status_code} - {e.response.text}", exc_info=True)
         finally:
             os.remove(audio_filename) # Limpiar el archivo de audio
 
@@ -166,10 +166,10 @@ if __name__ == '__main__':
     HOTWORD_PATH = os.getenv("HOTWORD_PATH")
 
     if not ACCESS_KEY:
-        logging.error("Error: PICOVOICE_ACCESS_KEY no encontrada en las variables de entorno.")
+        logger.error("Error: PICOVOICE_ACCESS_KEY no encontrada en las variables de entorno.")
         exit()
     if not HOTWORD_PATH:
-        logging.error("Error: HOTWORD_PATH no encontrada en las variables de entorno.")
+        logger.error("Error: HOTWORD_PATH no encontrada en las variables de entorno.")
         exit()
 
     async def main_hotword_test():

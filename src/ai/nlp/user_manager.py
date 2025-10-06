@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from src.db.models import User, Preference
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("UserManager")
 
 class UserManager:
     """

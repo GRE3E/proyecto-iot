@@ -1,7 +1,7 @@
 import paho.mqtt.client as mqtt
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("MQTTClient")
 
 class MQTTClient:
     def __init__(self, broker: str = "localhost", port: int = 1883, client_id: str = "IoTClient"):
@@ -16,31 +16,31 @@ class MQTTClient:
 
     def connect(self):
         if self.is_connected:
-            logging.info(f"MQTTClient: Ya conectado al broker MQTT en {self.broker}:{self.port}")
+            logger.info(f"Ya conectado al broker MQTT en {self.broker}:{self.port}")
             return
         try:
             self.client.connect(self.broker, self.port, 60)
             self.client.loop_start() # Iniciar el bucle en un hilo separado
             self.is_connected = True
         except Exception as e:
-            logging.warning(f"MQTTClient: No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
+            logger.warning(f"No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
             self.is_connected = False
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            logging.info(f"MQTTClient: Conectado al broker MQTT en {self.broker}:{self.port}")
+            logger.info(f"Conectado al broker MQTT en {self.broker}:{self.port}")
             self.is_connected = True
             for topic, callback in self.subscriptions.items():
                 client.subscribe(topic)
-                logging.info(f"MQTTClient: Resuscrito a {topic}")
+                logger.info(f"MQTTClient: Resuscrito a {topic}")
         else:
-            logging.error(f"MQTTClient: Fallo en la conexión, código: {rc}")
+            logger.error(f"Fallo en la conexión, código: {rc}")
             self.is_connected = False
 
     def _on_message(self, client, userdata, msg):
         topic = msg.topic
         payload = msg.payload.decode()
-        logging.info(f"MQTTClient: Mensaje recibido - Tema: {topic}, Payload: {payload}")
+        logger.info(f"Mensaje recibido - Tema: {topic}, Payload: {payload}")
         if topic in self.subscriptions:
             self.subscriptions[topic](payload) # Ejecutar el callback registrado
 
@@ -49,19 +49,19 @@ class MQTTClient:
             self.client.connect(self.broker, self.port, 60)
             self.client.loop_start() # Iniciar el bucle en un hilo separado
         except Exception as e:
-            logging.warning(f"MQTTClient: No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
+            logger.warning(f"No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
             self.is_connected = False
 
     def publish(self, topic: str, payload: str) -> bool:
         if self.is_connected:
             try:
                 self.client.publish(topic, payload)
-                logging.info(f"MQTTClient: Publicado en {topic}: {payload}")
+                logger.info(f"Publicado en {topic}: {payload}")
                 return True
             except Exception as e:
-                logging.error(f"MQTTClient: Error al publicar: {e}")
+                logger.error(f"Error al publicar: {e}")
         else:
-            logging.warning("MQTTClient: No conectado, no se pudo publicar.")
+            logger.warning("No conectado, no se pudo publicar.")
         return False
 
     def subscribe(self, topic: str, callback) -> bool:
@@ -69,12 +69,12 @@ class MQTTClient:
             try:
                 self.client.subscribe(topic)
                 self.subscriptions[topic] = callback
-                logging.info(f"MQTTClient: Suscrito a {topic}")
+                logger.info(f"Suscrito a {topic}")
                 return True
             except Exception as e:
-                logging.error(f"MQTTClient: Error al suscribirse: {e}")
+                logger.error(f"Error al suscribirse: {e}")
         else:
-            logging.warning("MQTTClient: No conectado, no se pudo suscribir.")
+            logger.warning("No conectado, no se pudo suscribir.")
         return False
 
     def unsubscribe(self, topic: str) -> bool:
@@ -82,10 +82,10 @@ class MQTTClient:
             try:
                 self.client.unsubscribe(topic)
                 del self.subscriptions[topic]
-                logging.info(f"MQTTClient: Desuscrito de {topic}")
+                logger.info(f"Desuscrito de {topic}")
                 return True
             except Exception as e:
-                logging.error(f"MQTTClient: Error al desuscribirse: {e}")
+                logger.error(f"Error al desuscribirse: {e}")
         return False
 
     def disconnect(self):
@@ -93,4 +93,4 @@ class MQTTClient:
             self.client.loop_stop()
             self.client.disconnect()
             self.is_connected = False
-            logging.info("MQTTClient: Desconectado del broker MQTT.")
+            logger.info("Desconectado del broker MQTT.")

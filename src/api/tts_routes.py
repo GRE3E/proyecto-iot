@@ -7,10 +7,13 @@ import logging
 from pathlib import Path
 import uuid
 import pyaudio
+import logging
 import wave
 
 # Importar módulos globales desde utils
 from src.api import utils
+
+logger = logging.getLogger("APIRoutes")
 
 tts_router = APIRouter()
 
@@ -36,9 +39,9 @@ def play_audio(file_path: str):
         stream.stop_stream()
         stream.close()
         p.terminate()
-        logging.info(f"Audio reproducido: {file_path}")
+        logger.info(f"Audio reproducido exitosamente: {file_path}")
     except Exception as e:
-        logging.error(f"Error al reproducir audio {file_path}: {e}")
+        logger.error(f"Error al reproducir audio {file_path} en /tts/generate_audio: {e}")
 
 def get_db():
     db = SessionLocal()
@@ -77,9 +80,10 @@ async def generate_audio(request: TTSTextRequest, db: Session = Depends(get_db))
             raise HTTPException(status_code=500, detail="No se pudo generar el audio")
         
         response_obj = TTSAudioResponse(audio_file_path=str(file_location))
+        logger.info(f"Audio TTS generado exitosamente para /tts/generate_audio: {file_location}")
         utils._save_api_log("/tts/generate_audio", request.dict(), response_obj.dict(), db)
         return response_obj
         
     except Exception as e:
-        logging.error(f"Error en generación de audio TTS: {e}")
+        logger.error(f"Error en generación de audio TTS para /tts/generate_audio: {e}")
         raise HTTPException(status_code=500, detail="Error al generar el audio")

@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 import ollama
 import logging
+
+logger = logging.getLogger("NLPModule")
 import re
 
 from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
@@ -16,8 +18,7 @@ from src.db.models import UserMemory, User, Permission, IoTCommand, Preference
 import src.db.models as models
 from src.utils.datetime_utils import get_current_datetime, format_datetime
 
-# Configuración de logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 
 class NLPModule:
@@ -45,7 +46,7 @@ class NLPModule:
         self.serial_manager = serial_manager
         self.mqtt_client = mqtt_client
         self._iot_command_processor = IoTCommandProcessor(serial_manager, mqtt_client)
-        logging.info("IoT managers configurados en NLPModule.")
+        logger.info("IoT managers configurados en NLPModule.")
 
     def is_online(self) -> bool:
         """Devuelve True si el módulo NLP está online."""
@@ -63,11 +64,11 @@ class NLPModule:
     ) -> Optional[dict]:
         """Genera una respuesta usando Ollama y gestiona memoria, permisos, preferencias y comandos IoT."""
         if not prompt or not prompt.strip():
-            logging.warning("El prompt no puede estar vacío.")
+            logger.warning("El prompt no puede estar vacío.")
             return None
 
         if not self.is_online():
-            logging.error("El módulo NLP no está en línea.")
+            logger.error("El módulo NLP no está en línea.")
             return None
 
         db = next(self._memory_manager.get_db())
@@ -131,7 +132,7 @@ class NLPModule:
                             full_response_content += chunk["message"]["content"]
 
                     if not full_response_content:
-                        logging.warning("Ollama devolvió una respuesta vacía")
+                        logger.warning("Ollama devolvió una respuesta vacía")
                         continue
 
                     # --- Manejo de preferencias ---
@@ -169,15 +170,15 @@ class NLPModule:
                     }
 
                 except ollama.ResponseError as e:
-                    logging.error(f"Error de Ollama (intento {attempt+1}/{retries}): {e}")
+                    logger.error(f"Error de Ollama (intento {attempt+1}/{retries}): {e}")
                 except Exception as e:
-                    logging.exception(
+                    logger.exception(
                         f"Excepción en generate_response (intento {attempt+1}/{retries}): {e}"
                     )
                 if attempt < retries - 1:
                     await asyncio.sleep(2)
 
-            logging.error("Se agotaron todos los intentos para generar respuesta")
+            logger.error("Se agotaron todos los intentos para generar respuesta")
             self._online = False
             return None
 

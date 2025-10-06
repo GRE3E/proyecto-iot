@@ -9,6 +9,8 @@ import logging
 # Importar módulos globales desde utils
 from src.api import utils
 
+logger = logging.getLogger("APIRoutes")
+
 iot_router = APIRouter()
 
 @iot_router.post("/serial_command", response_model=SerialCommandResponse)
@@ -16,12 +18,15 @@ async def send_serial_command(request: Request, command: SerialCommand):
     """Envía un comando al puerto serial conectado (Arduino)."""
     app = request.app
     if not hasattr(app.state, "serial_manager") or not app.state.serial_manager or not app.state.serial_manager.is_connected:
+        logger.error("SerialManager no está inicializado o conectado para /iot/serial_command.")
         raise HTTPException(status_code=503, detail="SerialManager no está inicializado o conectado.")
     
     success = app.state.serial_manager.send_command(command.command)
     if success:
+        logger.info(f"Comando '{command.command}' enviado exitosamente al Arduino para /iot/serial_command.")
         return SerialCommandResponse(status="success", message=f"Comando '{command.command}' enviado al Arduino.")
     else:
+        logger.error(f"Fallo al enviar el comando '{command.command}' al Arduino para /iot/serial_command.")
         raise HTTPException(status_code=500, detail=f"Fallo al enviar el comando '{command.command}' al Arduino.")
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
@@ -31,57 +36,93 @@ async def get_iot_dashboard_data(request: Request):
     """
     app = request.app
     if not hasattr(app.state, "iot_data"):
+        logger.error("Los datos IoT no están inicializados para /iot/dashboard_data.")
         raise HTTPException(status_code=500, detail="Los datos IoT no están inicializados.")
+    logger.info("Datos del dashboard IoT obtenidos exitosamente para /iot/dashboard_data.")
     return IoTDashboardData(data=app.state.iot_data)
 
 @iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
 def create_iot_commands(commands: List[IoTCommandCreate], db: Session = Depends(get_db)):
-    created_commands = []
-    for command in commands:
-        db_command = models.IoTCommand(name=command.name, description=command.description, 
-                                       command_type=command.command_type, command_payload=command.command_payload,
-                                       mqtt_topic=command.mqtt_topic)
-        db.add(db_command)
-        created_commands.append(db_command)
-    db.commit()
-    for cmd in created_commands:
-        db.refresh(cmd)
-    return created_commands
+    try:
+        created_commands = []
+        for command in commands:
+            db_command = models.IoTCommand(name=command.name, description=command.description, 
+                                           command_type=command.command_type, command_payload=command.command_payload,
+                                           mqtt_topic=command.mqtt_topic)
+            db.add(db_command)
+            created_commands.append(db_command)
+        db.commit()
+        for cmd in created_commands:
+            db.refresh(cmd)
+        logger.info(f"Comandos IoT creados exitosamente para /iot/commands. Cantidad: {len(created_commands)}")
+        return created_commands
+    except Exception as e:
+        logger.error(f"Error al crear comandos IoT para /iot/commands: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al crear comandos IoT: {e}")
 
 @iot_router.get("/commands", response_model=List[IoTCommand])
 def read_iot_commands(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    commands = db.query(models.IoTCommand).offset(skip).limit(limit).all()
-    return commands
+    try:
+        commands = db.query(models.IoTCommand).offset(skip).limit(limit).all()
+        logger.info(f"Comandos IoT leídos exitosamente para /iot/commands. Cantidad: {len(commands)}")
+        return commands
+    except Exception as e:
+        logger.error(f"Error al leer comandos IoT para /iot/commands: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al leer comandos IoT: {e}")
 
 @iot_router.get("/commands/{command_id}", response_model=IoTCommand)
 def read_iot_command(command_id: int, db: Session = Depends(get_db)):
-    command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-    if command is None:
-        raise HTTPException(status_code=404, detail="Command not found")
-    return command
+    try:
+        command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
+        if command is None:
+            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
+            raise HTTPException(status_code=404, detail="Command not found")
+        logger.info(f"Comando IoT con ID {command_id} leído exitosamente para /iot/commands/{{command_id}}.")
+        return command
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error al leer comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al leer comando IoT: {e}")
 
 @iot_router.put("/commands/{command_id}", response_model=IoTCommand)
 def update_iot_command(command_id: int, command: IoTCommandCreate, db: Session = Depends(get_db)):
-    db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-    if db_command is None:
-        raise HTTPException(status_code=404, detail="Command not found")
-    
-    db_command.name = command.name
-    db_command.description = command.description
-    db_command.command_type = command.command_type
-    db_command.command_payload = command.command_payload
-    db_command.mqtt_topic = command.mqtt_topic
-    
-    db.commit()
-    db.refresh(db_command)
-    return db_command
+    try:
+        db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
+        if db_command is None:
+            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
+            raise HTTPException(status_code=404, detail="Command not found")
+        
+        db_command.name = command.name
+        db_command.description = command.description
+        db_command.command_type = command.command_type
+        db_command.command_payload = command.command_payload
+        db_command.mqtt_topic = command.mqtt_topic
+        
+        db.commit()
+        db.refresh(db_command)
+        logger.info(f"Comando IoT con ID {command_id} actualizado exitosamente para /iot/commands/{{command_id}}.")
+        return db_command
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error al actualizar comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar comando IoT: {e}")
 
 @iot_router.delete("/commands/{command_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_iot_command(command_id: int, db: Session = Depends(get_db)):
-    db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-    if db_command is None:
-        raise HTTPException(status_code=404, detail="Command not found")
-    
-    db.delete(db_command)
-    db.commit()
-    return {"ok": True}
+    try:
+        db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
+        if db_command is None:
+            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
+            raise HTTPException(status_code=404, detail="Command not found")
+        
+        db.delete(db_command)
+        db.commit()
+        logger.info(f"Comando IoT con ID {command_id} eliminado exitosamente para /iot/commands/{{command_id}}.")
+        return {"ok": True}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error al eliminar comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al eliminar comando IoT: {e}")

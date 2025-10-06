@@ -9,6 +9,8 @@ import logging
 from src.api import utils
 from src.db.models import User # Importar el modelo User
 
+logger = logging.getLogger("APIRoutes")
+
 nlp_router = APIRouter()
 
 def get_db():
@@ -31,7 +33,7 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
             if not utils._nlp_module.is_online():
                 raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
         except Exception as e:
-            logging.error(f"Error al recargar módulo NLP: {e}")
+            logger.error(f"Error al recargar módulo NLP para /nlp/query: {e}")
             raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
     
     try:
@@ -41,7 +43,7 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
             if identified_user:
                 db.refresh(identified_user)
             if identified_user is None:
-                logging.warning(f"Usuario con ID {query.user_id} no encontrado en la base de datos.")
+                logger.warning(f"Usuario con ID {query.user_id} no encontrado en la base de datos para /nlp/query.")
 
         response = await utils._nlp_module.generate_response(query.prompt, identified_user)
         if response is None:
@@ -52,11 +54,12 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
             preference_key=response.get("preference_key"),
             preference_value=response.get("preference_value")
         )
+        logger.info(f"Consulta NLP procesada exitosamente para /nlp/query. Respuesta: {response_obj.response}")
         utils._save_api_log("/nlp/query", query.dict(), response_obj.dict(), db)
         return response_obj
         
     except Exception as e:
-        logging.error(f"Error en consulta NLP: {e}")
+        logger.error(f"Error en consulta NLP para /nlp/query: {e}")
         raise HTTPException(status_code=500, detail="Error al procesar la consulta NLP")
 
 @nlp_router.put("/config/assistant-name", response_model=StatusResponse)
@@ -68,6 +71,7 @@ async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depen
     try:
         utils._nlp_module._config["assistant_name"] = update.name
         utils._nlp_module._save_config()
+        logger.info(f"Nombre del asistente actualizado exitosamente a '{update.name}' para /config/assistant-name.")
 
         
         response_data = utils.get_module_status()
@@ -75,7 +79,7 @@ async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depen
         return response_data
         
     except Exception as e:
-        logging.error(f"Error al actualizar nombre del asistente: {e}")
+        logger.error(f"Error al actualizar nombre del asistente para /config/assistant-name: {e}")
         raise HTTPException(status_code=500, detail=f"No se pudo actualizar el nombre del asistente: {str(e)}")
 
 @nlp_router.put("/config/capabilities", response_model=StatusResponse)
@@ -87,6 +91,7 @@ async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(
     try:
         utils._nlp_module._config["capabilities"] = update.capabilities
         utils._nlp_module._save_config()
+        logger.info(f"Capacidades del asistente actualizadas exitosamente para /config/capabilities.")
 
         
         response_data = utils.get_module_status()
@@ -94,5 +99,5 @@ async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(
         return response_data
         
     except Exception as e:
-        logging.error(f"Error al actualizar capacidades: {e}")
+        logger.error(f"Error al actualizar capacidades para /config/capabilities: {e}")
         raise HTTPException(status_code=500, detail=f"No se pudieron actualizar las capacidades: {str(e)}")

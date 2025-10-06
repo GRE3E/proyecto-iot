@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("Device")
 
 class Device:
     def __init__(self, device_id: str, name: str):
@@ -49,14 +49,14 @@ class Door(Device):
     def execute(self, command: str, **kwargs) -> str:
         if command == "open":
             self.state = "open"
-            logging.info(f"Puerta {self.name} en {self.location} abierta.")
+            logger.info(f"Puerta {self.name} en {self.location} abierta.")
             return f"Puerta {self.name} en {self.location} abierta."
         elif command == "close":
             self.state = "closed"
-            logging.info(f"Puerta {self.name} en {self.location} cerrada.")
+            logger.info(f"Puerta {self.name} en {self.location} cerrada.")
             return f"Puerta {self.name} en {self.location} cerrada."
         else:
-            logging.warning(f"Comando desconocido para la puerta {self.name}: {command}")
+            logger.warning(f"Comando desconocido para la puerta {self.name}: {command}")
             return f"Comando desconocido para la puerta {self.name}: {command}"
 
 class Sensor(Device):
@@ -70,8 +70,8 @@ class Sensor(Device):
         if command == "read_value":
             # Simular lectura de un sensor
             self.value = kwargs.get("value", "N/A")
-            logging.info(f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}")
+            logger.info(f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}")
             return f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}"
         else:
-            logging.warning(f"Comando desconocido para el sensor {self.name}: {command}")
+            logger.warning(f"Comando desconocido para el sensor {self.name}: {command}")
             return f"Comando desconocido para el sensor {self.name}: {command}"

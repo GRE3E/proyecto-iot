@@ -3,28 +3,28 @@ import logging
 from src.iot.serial_manager import SerialManager
 from typing import Dict, Any
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("SerialReader")
 
 async def start_serial_reading_task(serial_manager: SerialManager, shared_iot_data: Dict[str, Any]):
     """
     Tarea en segundo plano para leer continuamente datos del puerto serial
     y actualizar un diccionario de estado compartido.
     """
-    logging.info("Iniciando tarea de lectura serial en segundo plano...")
+    logger.info("Iniciando tarea de lectura serial en segundo plano...")
     while True:
         try:
             if serial_manager.is_connected:
                 data = serial_manager.read_data()
                 if data:
-                    logging.info(f"SerialReader: Datos seriales recibidos: {data}")
+                    logger.info(f"SerialReader: Datos seriales recibidos: {data}")
                     # Aquí es donde procesarías los datos
                     process_serial_data(data, shared_iot_data)
             await asyncio.sleep(0.1)  # Pequeña pausa para no saturar la CPU
         except asyncio.CancelledError:
-            logging.info("Tarea de lectura serial cancelada.")
+            logger.info("Tarea de lectura serial cancelada.")
             break
         except Exception as e:
-            logging.error(f"Error en la tarea de lectura serial: {e}")
+            logger.error(f"Error en la tarea de lectura serial: {e}")
             await asyncio.sleep(1) # Esperar un poco antes de reintentar
 
 def process_serial_data(data: str, shared_iot_data: Dict[str, Any]):
@@ -46,11 +46,11 @@ def process_serial_data(data: str, shared_iot_data: Dict[str, Any]):
 
         if msg_type == "CONFIRM":
             shared_iot_data[key] = {"status": value, "timestamp": asyncio.get_event_loop().time()}
-            logging.info(f"Estado actualizado para {key}: {shared_iot_data[key]}")
+            logger.info(f"Estado actualizado para {key}: {shared_iot_data[key]}")
         elif msg_type == "DATA":
             shared_iot_data[key] = {"value": value, "timestamp": asyncio.get_event_loop().time()}
-            logging.info(f"Datos actualizados para {key}: {shared_iot_data[key]}")
+            logger.info(f"Datos actualizados para {key}: {shared_iot_data[key]}")
         else:
-            logging.warning(f"Tipo de mensaje serial no reconocido: {msg_type} en {data}")
+            logger.warning(f"Tipo de mensaje serial no reconocido: {msg_type} en {data}")
     else:
-        logging.warning(f"Formato de datos seriales incompleto o incorrecto: {data}")
+        logger.warning(f"Formato de datos seriales incompleto o incorrecto: {data}")

@@ -9,6 +9,8 @@ import tempfile
 # Importar módulos globales desde utils
 from src.api import utils
 
+logger = logging.getLogger("APIRoutes")
+
 stt_router = APIRouter()
 
 def get_db():
@@ -42,5 +44,5 @@ async def transcribe_audio(audio_file: UploadFile = File(...), db: Session = Dep
         return response_obj
         
     except Exception as e:
-        logging.error(f"Error en transcripción STT: {e}")
+        logger.error(f"Error en transcripción STT para /stt/transcribe: {e}")
         raise HTTPException(status_code=500, detail="Error al transcribir el audio")

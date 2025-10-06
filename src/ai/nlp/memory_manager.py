@@ -1,6 +1,7 @@
 import logging
-import logging
 import asyncio
+
+logger = logging.getLogger("MemoryManager")
 from typing import Generator, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -36,10 +37,10 @@ class MemoryManager:
                     new_memory = UserMemory()
                     db.add(new_memory)
                     db.commit()
-                    logging.info("UserMemory initialized successfully.")
+                    logger.info("UserMemory initialized successfully.")
             except Exception as e:
                 db.rollback()
-                logging.error(f"Failed to initialize UserMemory: {e}", exc_info=True)
+                logger.error(f"Failed to initialize UserMemory: {e}", exc_info=True)
             finally:
                 db.close()
         await asyncio.to_thread(_sync_initialize)
@@ -96,5 +97,5 @@ class MemoryManager:
             db.commit()
             db.refresh(conversation)
 
-            logging.info("Memoria de usuario y log de conversación actualizados.")
+            logger.info("Memoria de usuario y log de conversación actualizados.")
         await asyncio.to_thread(_sync_update_memory)

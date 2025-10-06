@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+
+logger = logging.getLogger("IoTCommandProcessor")
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -22,7 +24,7 @@ class IoTCommandProcessor:
         iot_command_match = re.search(r"iot_command:(.+)", full_response_content)
         if iot_command_match:
             command_str = iot_command_match.group(1).strip()
-            logging.info(f"Comando IoT detectado: {command_str}")
+            logger.info(f"Comando IoT detectado: {command_str}")
 
             # Buscar el comando en la base de datos
             db_command = await asyncio.to_thread(
@@ -33,26 +35,24 @@ class IoTCommandProcessor:
 
             if db_command:
                 if db_command.command_type == "serial":
-                    logging.info(
-                        f"Enviando comando serial: {db_command.command_value}"
-                    )
+                    logger.info(f"Enviando comando serial: {db_command.command_value}")
                     await self._serial_manager.send_command(
                         db_command.command_value
                     )
                     return f"Comando serial '{command_str}' ejecutado."
                 elif db_command.command_type == "mqtt":
                     topic, payload = db_command.command_value.split(":", 1)
-                    logging.info(
+                    logger.info(
                         f"Publicando mensaje MQTT en tópico '{topic}' con payload '{payload}'"
                     )
                     await self._mqtt_client.publish(topic, payload)
                     return f"Comando MQTT '{command_str}' ejecutado."
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"Tipo de comando IoT desconocido: {db_command.command_type}"
                     )
                     return f"Tipo de comando '{db_command.command_type}' no soportado."
             else:
-                logging.warning(f"Comando IoT '{command_str}' no encontrado en la DB.")
+                logger.warning(f"Comando '{command_str}' no encontrado en la DB.")
                 return f"Comando IoT '{command_str}' no reconocido."
         return None

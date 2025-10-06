@@ -1,82 +1,72 @@
-# Proyecto IoT
+# Proyecto IoT - Asistente de Hogar Inteligente
 
 ## Descripción
 
-Este proyecto implementa un servidor FastAPI que integra procesamiento de lenguaje natural (NLP) utilizando el modelo a través de Ollama, Speech-to-Text (STT) con Whisper para transcribir audio a texto, un módulo de identificación de hablantes con resemblyzer, detección de hotword para activar el asistente por voz, un **módulo de integración IoT para control de dispositivos seriales y MQTT**, y la capacidad de **gestionar la zona horaria del asistente**. El objetivo es interpretar comandos en lenguaje natural y reconocer a los usuarios por su voz para una casa inteligente, permitiendo la interacción con dispositivos IoT y la adaptación a diferentes regiones horarias.
+Este proyecto es un asistente de hogar inteligente avanzado, diseñado para interactuar de manera eficiente y segura con el usuario para controlar dispositivos IoT, ejecutar comandos específicos y proporcionar información relevante sobre el entorno del hogar. Utiliza procesamiento de lenguaje natural (NLP), reconocimiento de voz (STT y Speaker Recognition), síntesis de voz (TTS), detección de hotword y comunicación con dispositivos IoT a través de serial y MQTT.
 
-## Requisitos
+## Requisitos (actualizar)
 
 - Python 3.10 o superior
 - Ollama instalado con el modelo (para NLP)
-- Dependencias listadas en requirements.txt
+- Dependencias listadas en `requirements.txt`
 - Modelos de Whisper (se descargarán automáticamente al usar el módulo STT)
 - Picovoice Console para obtener una clave de acceso y entrenar una palabra clave personalizada.
 
 ## Instalación
 
-1. Crear y activar entorno virtual:
+1.  **Crear y activar entorno virtual:**
 
-```powershell
-python -m venv .venv
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1
-```
+    ```powershell
+    python -m venv .venv
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1
+    ```
 
-2. Instalar dependencias:
+2.  **Instalar dependencias:**
 
-```powershell
-pip install -r requirements.txt
-```
+    ```powershell
+    pip install -r requirements.txt
+    ```
 
-3. **Instalar PyTorch con soporte para CUDA (si se dispone de GPU NVIDIA):**
-   Asegúrate de tener el CUDA Toolkit de NVIDIA instalado en tu sistema. Luego, instala PyTorch con el siguiente comando (ajusta `cu121` a la versión de CUDA que tengas instalada, por ejemplo, `cu118` para CUDA 11.8):
+3.  **Instalar PyTorch con soporte para CUDA (si se dispone de GPU NVIDIA):**
+    Asegúrate de tener el CUDA Toolkit de NVIDIA instalado en tu sistema. Luego, instala PyTorch con el siguiente comando (ajusta `cu121` a la versión de CUDA que tengas instalada, por ejemplo, `cu118` para CUDA 11.8):
 
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1; pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
+    ```powershell
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process; ./.venv/Scripts/Activate.ps1; pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    ```
 
-4. Asegurarse de tener Ollama instalado y el modelo descargado (para NLP):
+4.  **Asegurarse de tener Ollama instalado y el modelo descargado (para NLP):**
 
-```powershell
-ollama list  # Verificar que el modelo está instalado
-```
+    ```powershell
+    ollama list  # Verificar que el modelo está instalado
+    ```
 
-4. El sistema utiliza la variable de entorno OLLAMA_OPTIONS para configurar los parámetros del modelo de NLP:
+5.  **El sistema utiliza la variable de entorno OLLAMA_OPTIONS para configurar los parámetros del modelo de NLP:**
 
-```json
-{
-    "temperature": 0.7,     # Control de creatividad (0.0 - 1.0)
-    "num_predict": 500      # Máximo de tokens a generar
-}
-```
+    ```json
+    {
+        "temperature": 0.7,     # Control de creatividad (0.0 - 1.0)
+        "num_predict": 500      # Máximo de tokens a generar
+    }
+    ```
 
 ## Uso
 
-Para testear el módulo de hotword, STT y NLP, ejecuta:
+1.  **Iniciar el servidor:**
 
-```powershell
-python src\test\test_ai_nlp_stt_hotword.py
-```
+    ```powershell
+    uvicorn src.main:app --reload
+    ```
 
-Para testear el módulo IoT, ejecuta:
+    **Nota:** El servidor de Ollama se iniciará automáticamente en segundo plano cuando la aplicación se inicie. No es necesario ejecutar `ollama serve` manualmente.
 
-```powershell
-python src\test\test_iot.py
-```
+2.  **El servidor estará disponible en:**
 
-1. Iniciar el servidor:
-
-```powershell
-uvicorn src.main:app --reload
-```
-
-**Nota:** El servidor de Ollama se iniciará automáticamente en segundo plano cuando la aplicación se inicie. No es necesario ejecutar `ollama serve` manualmente.
-
-2. El servidor estará disponible en:
-
-- API: http://127.0.0.1:8000
-- Documentación: http://127.0.0.1:8000/docs
+    -   API: `http://127.0.0.1:8000`
+    -   Documentación: `http://127.0.0.1:8000/docs`
 
 ## Endpoints
+
+Los endpoints de la API están definidos en el directorio `src/api/` y se agrupan por funcionalidad. Puedes explorar la documentación interactiva en `http://127.0.0.1:8000/docs` para ver todos los endpoints disponibles y sus esquemas.
 
 ### GET /status
 
@@ -92,19 +82,42 @@ Respuesta:
   "hotword": "ONLINE",
   "serial": "ONLINE",
   "mqtt": "ONLINE",
+  "tts": "ONLINE",
   "utils": "ONLINE"
 }
 ```
 
-### POST /nlp/query
+### POST /hotword/process_audio
 
-Procesa una consulta en lenguaje natural.
+Procesa el audio tras la detección de hotword: STT (voz a texto), Identificación de hablante, Procesamiento NLP y comando serial, Generación TTS.
+
+Cuerpo de la solicitud:
+
+```
+audio_file: UploadFile
+```
+
+Respuesta:
+
+```json
+{
+  "transcribed_text": "string",
+  "identified_speaker": "string",
+  "nlp_response": "string",
+  "serial_command_identified": "string",
+  "tts_audio_file_path": "string"
+}
+```
+
+### POST /tts/generate_audio
+
+Genera un archivo de audio a partir de texto usando el módulo TTS.
 
 Cuerpo de la solicitud:
 
 ```json
 {
-  "prompt": "Enciende la luz de la sala"
+  "text": "string"
 }
 ```
 
@@ -112,99 +125,20 @@ Respuesta:
 
 ```json
 {
-  "response": "[Respuesta del modelo]"
-}
-```
-
-### POST /stt/transcribe
-
-Convierte audio a texto utilizando el módulo Whisper.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-file: [archivo de audio .wav]
-```
-
-Respuesta:
-
-```json
-{
-  "text": "Texto transcrito del audio"
-}
-```
-
-### POST /speaker/register
-
-Registra un nuevo usuario con su voz, guardando el embedding en la base de datos. Ahora incluye la opción de registrar al usuario como propietario.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-name: [nombre del usuario]
-file: [archivo de audio .wav]
-is_owner: [true/false, opcional, por defecto false]
-```
-
-Respuesta:
-
-```json
-{
-  "message": "Usuario registrado exitosamente",
-  "user_id": 1
-}
-```
-
-### POST /speaker/register_owner
-
-Registra un nuevo usuario como propietario con su voz, guardando el embedding en la base de datos.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-name: [nombre del usuario]
-file: [archivo de audio .wav]
-```
-
-Respuesta:
-
-```json
-{
-  "message": "Usuario propietario registrado exitosamente",
-  "user_id": 1
-}
-```
-
-### POST /speaker/identify
-
-Identifica al hablante a partir de un archivo de audio, devolviendo también el ID del usuario y si es propietario.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-file: [archivo de audio .wav]
-```
-
-Respuesta:
-
-```json
-{
-  "speaker_name": "Nombre del usuario identificado",
-  "user_id": 1,
-  "is_owner": true
+  "audio_file_path": "string"
 }
 ```
 
 ### POST /nlp/query
 
-Procesa una consulta en lenguaje natural. Ahora puede incluir un `user_id` para personalizar la interacción y aplicar permisos.
+Procesa una consulta NLP y devuelve la respuesta generada.
 
 Cuerpo de la solicitud:
 
 ```json
 {
-  "prompt": "Enciende la luz de la sala",
-  "user_id": 1 // Opcional: ID del usuario identificado
+  "prompt": "string",
+  "user_id": 0
 }
 ```
 
@@ -212,43 +146,9 @@ Respuesta:
 
 ```json
 {
-  "response": "[Respuesta del modelo]"
-}
-```
-
-### POST /stt/transcribe
-
-Convierte audio a texto utilizando el módulo Whisper.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-file: [archivo de audio .wav]
-```
-
-Respuesta:
-
-```json
-{
-  "text": "Texto transcrito del audio"
-}
-```
-
-### POST /speaker/identify
-
-Identifica al hablante a partir de un archivo de audio.
-
-Cuerpo de la solicitud (multipart/form-data):
-
-```
-file: [archivo de audio .wav]
-```
-
-Respuesta:
-
-```json
-{
-  "identified_speaker": "Nombre del usuario identificado"
+  "response": "string",
+  "preference_key": "string",
+  "preference_value": "string"
 }
 ```
 
@@ -260,7 +160,7 @@ Cuerpo de la solicitud:
 
 ```json
 {
-  "name": "Nuevo Nombre"
+  "name": "string"
 }
 ```
 
@@ -268,19 +168,28 @@ Respuesta:
 
 ```json
 {
-  "nlp": "ONLINE"
+  "nlp": "ONLINE",
+  "stt": "ONLINE",
+  "speaker": "ONLINE",
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "tts": "ONLINE",
+  "utils": "ONLINE"
 }
 ```
 
-### PUT /config/owner-name
+### PUT /config/capabilities
 
-Actualiza el nombre del propietario en la configuración.
+Actualiza las capacidades del asistente en la configuración.
 
 Cuerpo de la solicitud:
 
 ```json
 {
-  "name": "Nuevo Nombre del Propietario"
+  "capabilities": [
+    "string"
+  ]
 }
 ```
 
@@ -288,19 +197,137 @@ Respuesta:
 
 ```json
 {
-  "nlp": "ONLINE"
+  "nlp": "ONLINE",
+  "stt": "ONLINE",
+  "speaker": "ONLINE",
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "tts": "ONLINE",
+  "utils": "ONLINE"
 }
 ```
 
-### PUT /addons/timezone
+### POST /stt/transcribe
 
-Actualiza la configuración de la zona horaria del asistente.
+Convierte voz a texto usando el módulo STT.
+
+Cuerpo de la solicitud:
+
+```
+audio_file: UploadFile
+```
+
+Respuesta:
+
+```json
+{
+  "text": "string"
+}
+```
+
+### POST /speaker/register
+
+Registra un nuevo usuario con su voz.
+
+Cuerpo de la solicitud:
+
+```
+name: str (Form)
+audio_file: UploadFile (File)
+is_owner: bool (Form)
+```
+
+Respuesta:
+
+```json
+{
+  "nlp": "ONLINE",
+  "stt": "ONLINE",
+  "speaker": "ONLINE",
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "tts": "ONLINE",
+  "utils": "ONLINE"
+}
+```
+
+### POST /speaker/register_owner
+
+Registra un nuevo usuario como propietario con su voz.
+
+Cuerpo de la solicitud:
+
+```
+name: str (Form)
+audio_file: UploadFile (File)
+```
+
+Respuesta:
+
+```json
+{
+  "nlp": "ONLINE",
+  "stt": "ONLINE",
+  "speaker": "ONLINE",
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "tts": "ONLINE",
+  "utils": "ONLINE"
+}
+```
+
+### POST /speaker/identify
+
+Identifica quién habla.
+
+Cuerpo de la solicitud:
+
+```
+audio_file: UploadFile (File)
+```
+
+Respuesta:
+
+```json
+{
+  "speaker_name": "string",
+  "user_id": 0,
+  "is_owner": true
+}
+```
+
+### GET /speaker/users
+
+Obtiene la lista de todos los usuarios registrados y sus características.
+
+Respuesta:
+
+```json
+{
+  "user_count": 0,
+  "users": [
+    {
+      "id": 0,
+      "name": "string",
+      "is_owner": true
+    }
+  ]
+}
+```
+
+### PUT /speaker/update_owner
+
+Actualiza el estado de propietario de un usuario registrado.
 
 Cuerpo de la solicitud:
 
 ```json
 {
-  "timezone": "America/Lima"
+  "user_id": 0,
+  "is_owner": true
 }
 ```
 
@@ -308,49 +335,26 @@ Respuesta:
 
 ```json
 {
-  "message": "Timezone updated successfully to America/Lima"
-}
-```
-
-### POST /continuous_listening
-
-Controla el inicio y la parada del modo de escucha continua.
-
-Cuerpo de la solicitud:
-
-```json
-{
-  "action": "start" // o "stop"
-}
-```
-
-Respuesta (ejemplo para "start"):
-
-```json
-{
-  "status": "success",
-  "message": "Continuous listening started."
-}
-```
-
-Respuesta (ejemplo para "stop"):
-
-```json
-{
-  "status": "success",
-  "message": "Continuous listening stopped."
+  "nlp": "ONLINE",
+  "stt": "ONLINE",
+  "speaker": "ONLINE",
+  "hotword": "ONLINE",
+  "serial": "ONLINE",
+  "mqtt": "ONLINE",
+  "tts": "ONLINE",
+  "utils": "ONLINE"
 }
 ```
 
 ### POST /iot/serial_command
 
-Envía un comando serial al Arduino.
+Envía un comando al puerto serial conectado (Arduino).
 
 Cuerpo de la solicitud:
 
 ```json
 {
-  "command": "{"device": "LED", "action": "ON"}"
+  "command": "string"
 }
 ```
 
@@ -358,70 +362,374 @@ Respuesta:
 
 ```json
 {
-  "status": "success",
-  "message": "Comando serial enviado exitosamente",
-  "response": "OK"
+  "status": "string",
+  "message": "string"
 }
 ```
 
-### POST /hotword/process_audio
+### GET /iot/dashboard_data
 
-Procesa el audio después de la detección de hotword, realizando STT, identificación de hablante y NLP.
+Obtiene los datos actuales del dashboard IoT, incluyendo estados de dispositivos y lecturas de sensores.
 
-Cuerpo de la solicitud (multipart/form-data):
+Respuesta:
+
+```json
+{
+  "data": {}
+}
+```
+
+### POST /iot/commands
+
+Crea nuevos comandos IoT.
+
+Cuerpo de la solicitud:
+
+```json
+[
+  {
+    "name": "string",
+    "description": "string",
+    "command_type": "string",
+    "command_payload": "string",
+    "mqtt_topic": "string"
+  }
+]
+```
+
+Respuesta:
+
+```json
+[
+  {
+    "id": 0,
+    "name": "string",
+    "description": "string",
+    "command_type": "string",
+    "command_payload": "string",
+    "mqtt_topic": "string"
+  }
+]
+```
+
+### GET /iot/commands
+
+Lee comandos IoT.
+
+Parámetros de consulta:
 
 ```
-file: [archivo de audio .wav]
+skip: int = 0
+limit: int = 100
+```
+
+Respuesta:
+
+```json
+[
+  {
+    "id": 0,
+    "name": "string",
+    "description": "string",
+    "command_type": "string",
+    "command_payload": "string",
+    "mqtt_topic": "string"
+  }
+]
+```
+
+### GET /iot/commands/{command_id}
+
+Lee un comando IoT específico por ID.
+
+Parámetro de ruta:
+
+```
+command_id: int
 ```
 
 Respuesta:
 
 ```json
 {
-  "transcribed_text": "Texto transcrito del audio",
-  "identified_speaker": "Nombre del usuario identificado",
-  "nlp_response": "[Respuesta del modelo NLP]"
+  "id": 0,
+  "name": "string",
+  "description": "string",
+  "command_type": "string",
+  "command_payload": "string",
+  "mqtt_topic": "string"
 }
 ```
 
-## Configuración del Asistente
+### PUT /iot/commands/{command_id}
 
-El asistente utiliza un archivo de configuración ubicado en `src/ai/config/config.json` que permite personalizar su comportamiento:
+Actualiza un comando IoT específico por ID.
+
+Parámetro de ruta:
+
+```
+command_id: int
+```
+
+Cuerpo de la solicitud:
 
 ```json
 {
-    "assistant_name": "Murph",          # Nombre del asistente (por defecto: Murph)
-    "owner_name": "Propietario",        # Nombre del propietario (por defecto: Propietario)
-    "language": "es",                   # Idioma de respuesta
-    "model": {                          # Configuración del modelo de IA
-        "name": "mistral:7b-instruct",  # Nombre del modelo a utilizar
-        "temperature": 0.7,             # Temperatura para la generación (0.0 - 1.0)
-        "max_tokens": 500               # Máximo de tokens en la respuesta (num_predict)
-    },
-    "capabilities": [                   # Lista de capacidades del asistente
-        "control_luces",
-        "control_temperatura",
-        "control_dispositivos",
-        "consulta_estado"
-    ],
+  "name": "string",
+  "description": "string",
+  "command_type": "string",
+  "command_payload": "string",
+  "mqtt_topic": "string"
 }
+```
+
+Respuesta:
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "description": "string",
+  "command_type": "string",
+  "command_payload": "string",
+  "mqtt_topic": "string"
+}
+```
+
+### DELETE /iot/commands/{command_id}
+
+Elimina un comando IoT específico por ID.
+
+Parámetro de ruta:
+
+```
+command_id: int
+```
+
+Respuesta:
+
+```
+204 No Content
+```
+
+### PUT /addons/timezone
+
+Actualiza la zona horaria de la configuración del asistente.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "timezone": "string"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Zona horaria actualizada a {timezone}"
+}
+```
+
+### POST /permissions/
+
+Crea un nuevo permiso.
+
+Cuerpo de la solicitud:
+
+```json
+{
+  "name": "string"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "id": 0,
+  "name": "string"
+}
+```
+
+### GET /permissions/
+
+Obtiene la lista de todos los permisos.
+
+Parámetros de consulta:
+
+```
+skip: int = 0
+limit: int = 100
+```
+
+Respuesta:
+
+```json
+[
+  {
+    "id": 0,
+    "name": "string"
+  }
+]
+```
+
+### POST /users/{user_id}/permissions/
+
+Asigna un permiso a un usuario.
+
+Parámetro de ruta:
+
+```
+user_id: int
+```
+
+Cuerpo de la solicitud:
+
+```
+permission_id: int
+```
+
+Respuesta:
+
+```json
+{
+  "user_id": 0,
+  "permission_id": 0
+}
+```
+
+### GET /users/{user_id}/permissions/check/{permission_name}
+
+Verifica si un usuario tiene un permiso específico.
+
+Parámetros de ruta:
+
+```
+user_id: int
+permission_name: str
+```
+
+Respuesta:
+
+```json
+true
+```
+
+### DELETE /users/{user_id}/permissions/
+
+Elimina un permiso de un usuario.
+
+Parámetros de ruta:
+
+```
+user_id: int
+permission_id: int
+```
+
+Respuesta:
+
+```
+204 No Content
+```
+
+## Estructura del Proyecto
+
+```
+.
+├── .gitignore
+├── example.env
+├── requirements.txt
+├── README.md
+└── src/
+    ├── __init__.py
+    ├── ai/
+    │   ├── __init__.py
+    │   ├── config/
+    │   │   └── config.json
+    │   ├── hotword/
+    │   │   ├── __init__.py
+    │   │   ├── hotword.py
+    │   │   └── models/
+    │   ├── nlp/
+    │   │   ├── __init__.py
+    │   │   ├── config_manager.py
+    │   │   ├── iot_command_processor.py
+    │   │   ├── memory_manager.py
+    │   │   ├── nlp_core.py
+    │   │   ├── ollama_manager.py
+    │   │   ├── system_prompt.py
+    │   │   └── user_manager.py
+    │   ├── speaker/
+    │   │   ├── __init__.py
+    │   │   └── speaker.py
+    │   ├── stt/
+    │   │   ├── __init__.py
+    │   │   └── stt.py
+    │   ├── tts/
+    │   │   ├── __init__.py
+    │   │   ├── tts_module.py
+    │   │   └── generated_audio/
+    │   └── utils/
+    ├── api/
+    │   ├── __init__.py
+    │   ├── addons_routes.py
+    │   ├── addons_schemas.py
+    │   ├── hotword_routes.py
+    │   ├── hotword_schemas.py
+    │   ├── iot_routes.py
+    │   ├── iot_schemas.py
+    │   ├── nlp_routes.py
+    │   ├── nlp_schemas.py
+    │   ├── permissions_routes.py
+    │   ├── permissions_schemas.py
+    │   ├── routes.py
+    │   ├── schemas.py
+    │   ├── speaker_routes.py
+    │   ├── speaker_schemas.py
+    │   ├── stt_routes.py
+    │   ├── stt_schemas.py
+    │   ├── tts_routes.py
+    │   ├── tts_schemas.py
+    │   └── utils.py
+    ├── db/
+    │   ├── database.py
+    │   └── models.py
+    ├── iot/
+    │   ├── __init__.py
+    │   ├── devices.py
+    │   ├── mqtt_client.py
+    │   ├── serial_manager.py
+    │   └── serial_reader.py
+    ├── main.py
+    ├── test/
+    │   ├── test_ai_nlp_stt_hotword.py
+    │   ├── test_ai_nlp_stt_hotword_response.py
+    │   ├── test_cuda.py
+    │   ├── test_iot.py
+    │   └── test_tts.py
+    └── utils/
+        ├── __init__.py
+        ├── datetime_utils.py
+        └── logger_config.py
 ```
 
 ## Configuración de Hotword
 
 La detección de hotword se configura a través de variables de entorno:
 
-- `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
-- `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
+-   `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
+-   `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
 
 ## Configuración del Módulo IoT
 
 El módulo IoT se configura a través de variables de entorno en el archivo `.env`:
 
-- `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
-- `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
-- `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
-- `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
+-   `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
+-   `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
+-   `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
+-   `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
 
 Ejemplo de `.env`:
 
@@ -434,63 +742,4 @@ SERIAL_PORT=COM3
 SERIAL_BAUDRATE=9600
 MQTT_BROKER=localhost
 MQTT_PORT=1883
-```
-
-## Estructura del Proyecto
-
-```
-├── .venv/                        # Entorno virtual de Python
-├── data/                         # Base de datos
-│   └── casa_inteligente.db       # Base de datos SQLite
-├── requirements.txt              # Dependencias del proyecto
-└── src/
-    ├── __init__.py
-    ├── ai/
-    │   ├── __init__.py
-    │   ├── config/               # Archivos de configuración
-    │   │   └── config.json       # Configuración del asistente
-    │   ├── hotword/              # Detección de hotword
-    │   │   ├── hotword.py        # Integración con Picovoice Porcupine
-    │   │   └── models/           # Modelos de hotword
-    │   ├── nlp/                  # Módulo de procesamiento de lenguaje natural
-    │   ├── stt/                  # Speech-to-Text
-    │   │   └── stt.py            # Integración con Whisper local
-    │   └── speaker/              # Identificación de hablantes
-    │       └── speaker.py        # Embeddings con resemblyzer
-    │
-    ├── api/                      # Rutas y esquemas de la API
-    │   ├── __init__.py
-    │   ├── addons_routes.py      # Rutas para funcionalidades adicionales
-    │   ├── addons_schemas.py     # Esquemas para funcionalidades adicionales
-    │   ├── hotword_routes.py     # Rutas para el módulo Hotword
-    │   ├── hotword_schemas.py    # Esquemas para el módulo Hotword
-    │   ├── iot_routes.py         # Rutas para el módulo IoT
-    │   ├── iot_schemas.py        # Esquemas para el módulo IoT
-    │   ├── nlp_routes.py         # Rutas para el módulo NLP
-    │   ├── nlp_schemas.py        # Esquemas para el módulo NLP
-    │   ├── routes.py             # Endpoints principales
-    │   ├── schemas.py            # Pydantic schemas generales
-    │   ├── speaker_routes.py     # Rutas para el módulo Speaker
-    │   ├── speaker_schemas.py    # Esquemas para el módulo Speaker
-    │   ├── stt_routes.py         # Rutas para el módulo STT
-    │   ├── stt_schemas.py        # Esquemas para el módulo STT
-    │   └── utils.py              # Utilidades para la API
-    ├── db/                       # Rutas de db
-    │   ├── database.py
-    │   └── models.py
-    │
-    ├── iot/                      # Módulo de integración IoT
-    │   ├── __init__.py           # Inicialización del módulo IoT
-    │   ├── serial_manager.py     # Gestión de comunicación serial
-    │   ├── mqtt_client.py        # Gestión de comunicación MQTT
-    │   └── devices.py            # Definición de dispositivos IoT
-    │
-    ├── main.py                   # Punto de entrada de la aplicación
-    ├── test/
-    │   ├── test_ai_nlp_stt_hotword_response.py # Archivo de prueba para hotword, STT, NLP Response
-    │   ├── test_ai_nlp_stt_hotword.py # Archivo de prueba para hotword, STT y NLP
-    │   └── test_iot.py               # Archivo de prueba para el módulo IoT
-    └── utils/                    # Utilidades generales
-        ├── __init__.py
-        └── datetime_utils.py     # Utilidades para manejo de fecha y hora
 ```

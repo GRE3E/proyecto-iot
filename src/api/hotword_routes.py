@@ -61,7 +61,6 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
         logger.info(f"Archivo de audio temporal guardado en: {file_location}")
 
         # === 2. Ejecutar STT y Speaker ID en paralelo ===
-        # Corregido: evitar futuros anidados (Future[Future])
         stt_task = asyncio.to_thread(
             lambda: utils._stt_module.transcribe_audio(str(file_location)).result()
         )

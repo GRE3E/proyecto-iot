@@ -144,7 +144,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             identified_speaker=identified_speaker_name,
             nlp_response=nlp_response["response"],
             serial_command_identified=nlp_response.get("serial_command"),
-            tts_audio_file_path=None # El audio TTS se genera de forma asíncrona
+
         )
 
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)

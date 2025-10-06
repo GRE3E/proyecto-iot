@@ -2,6 +2,7 @@
 
 import React from "react"
 import SimpleCard from "../UI/SimpleCard"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   Zap,
   MapPin,
@@ -16,6 +17,7 @@ import {
   Plug,
   Power,
   BarChart2,
+  PieChart,
   Calendar,
 } from "lucide-react"
 

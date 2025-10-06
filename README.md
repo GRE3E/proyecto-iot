@@ -61,8 +61,8 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
 
 2.  **El servidor estará disponible en:**
 
-    -   API: `http://127.0.0.1:8000`
-    -   Documentación: `http://127.0.0.1:8000/docs`
+    - API: `http://127.0.0.1:8000`
+    - Documentación: `http://127.0.0.1:8000/docs`
 
 ## Endpoints
 
@@ -187,9 +187,7 @@ Cuerpo de la solicitud:
 
 ```json
 {
-  "capabilities": [
-    "string"
-  ]
+  "capabilities": ["string"]
 }
 ```
 
@@ -669,7 +667,8 @@ Respuesta:
     │   │   └── stt.py
     │   ├── tts/
     │   │   ├── __init__.py
-    │   │   ├── tts_module.py
+    │   │   ├── text_splitter.py
+    │   │   └── tts_module.py
     │   │   └── generated_audio/
     │   └── utils/
     ├── api/
@@ -719,17 +718,17 @@ Respuesta:
 
 La detección de hotword se configura a través de variables de entorno:
 
--   `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
--   `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
+- `PICOVOICE_ACCESS_KEY`: Clave de acceso de Picovoice para la detección de hotword.
+- `HOTWORD_PATH`: Ruta al archivo de modelo de hotword (`.ppn`).
 
 ## Configuración del Módulo IoT
 
 El módulo IoT se configura a través de variables de entorno en el archivo `.env`:
 
--   `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
--   `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
--   `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
--   `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
+- `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
+- `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
+- `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
+- `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
 
 Ejemplo de `.env`:
 

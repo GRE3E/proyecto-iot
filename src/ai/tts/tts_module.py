@@ -3,6 +3,13 @@ from TTS.api import TTS
 import os
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import asyncio
+from pathlib import Path
+import uuid
+import re
+
+from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
+from src.ai.tts.text_splitter import _split_text_into_sentences
 
 # Configuración básica de logging
 logger = logging.getLogger("TTSModule")
@@ -105,3 +112,44 @@ class TTSModule:
             return future
         
         return self._executor.submit(self._generate_speech_sync, text, file_path)
+
+
+
+async def handle_tts_generation_and_playback(
+    tts_module_instance: 'TTSModule',
+    nlp_response_text: str,
+    tts_audio_output_path: Path
+):
+    """
+    Maneja la generación y reproducción de audio TTS en segundo plano.
+    """
+    if tts_module_instance.is_online():
+        try:
+            os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+            
+            sentences = _split_text_into_sentences(nlp_response_text)
+            
+            for i, sentence in enumerate(sentences):
+                if not sentence:
+                    continue
+
+                # Generar un nombre de archivo temporal único para cada frase
+                current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}_{i}.wav"
+
+                tts_future = tts_module_instance.generate_speech(
+                    sentence, str(current_tts_audio_output_path)
+                )
+                audio_generated = await asyncio.to_thread(tts_future.result)
+
+                if audio_generated:
+                    logger.info(f"Audio TTS generado para frase: {current_tts_audio_output_path}")
+                    await asyncio.to_thread(play_audio, str(current_tts_audio_output_path))
+                    os.remove(current_tts_audio_output_path)
+                    logger.info(f"Audio temporal {current_tts_audio_output_path} eliminado.")
+                else:
+                    logger.error(f"No se pudo generar el audio TTS para la frase: {sentence}")
+
+        except Exception as tts_e:
+            logger.error(f"Error al generar audio TTS: {tts_e}", exc_info=True)
+    else:
+        logger.warning("El módulo TTS está fuera de línea. No se generará audio.")

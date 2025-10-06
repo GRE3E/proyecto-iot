@@ -14,6 +14,7 @@ from src.db.models import User
 from src.api.hotword_schemas import HotwordAudioProcessResponse
 from src.api import utils
 from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
+from src.ai.tts.tts_module import handle_tts_generation_and_playback
 
 logger = logging.getLogger("APIRoutes")
 
@@ -125,28 +126,17 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
 
         # === 5. Generación TTS (opcional) ===
         if utils._tts_module and utils._tts_module.is_online():
-            try:
-                os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
-                tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}.wav"
-
-                tts_future = utils._tts_module.generate_speech(
-                    nlp_response['response'], str(tts_audio_output_path)
+            tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}.wav"
+            # Ejecutar la generación y reproducción de TTS en segundo plano
+            asyncio.create_task(
+                handle_tts_generation_and_playback(
+                    utils._tts_module, # Pasar la instancia de TTSModule
+                    nlp_response['response'], tts_audio_output_path
                 )
-                audio_generated = await asyncio.to_thread(tts_future.result)
-
-                if audio_generated:
-                    tts_audio_file_path = str(tts_audio_output_path)
-                    logger.info(f"Audio TTS generado: {tts_audio_file_path}")
-
-                    await asyncio.to_thread(play_audio, tts_audio_file_path)
-                    os.remove(tts_audio_output_path)
-                    logger.info(f"Audio temporal {tts_audio_output_path} eliminado.")
-                else:
-                      logger.error("No se pudo generar el audio TTS.")
-            except Exception as tts_e:
-                  logger.error(f"Error al generar audio TTS: {tts_e}", exc_info=True)
+            )
+            # tts_audio_file_path = str(tts_audio_output_path) # Ya no es necesario asignar aquí
         else:
-              logger.warning("El módulo TTS está fuera de línea. No se generará audio.")
+            logger.warning("El módulo TTS está fuera de línea. No se generará audio.")
 
         # === 6. Preparar respuesta final ===
         response_data = HotwordAudioProcessResponse(
@@ -154,7 +144,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             identified_speaker=identified_speaker_name,
             nlp_response=nlp_response["response"],
             serial_command_identified=nlp_response.get("serial_command"),
-            tts_audio_file_path=tts_audio_file_path
+            tts_audio_file_path=None # El audio TTS se genera de forma asíncrona
         )
 
         utils._save_api_log("/hotword/process_audio", {"filename": audio_file.filename}, response_data.dict(), db)

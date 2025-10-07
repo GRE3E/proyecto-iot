@@ -16,7 +16,7 @@ from src.ai.nlp.iot_command_processor import IoTCommandProcessor
 from src.ai.nlp.user_manager import UserManager
 from src.db.models import UserMemory, User, Permission, IoTCommand, Preference
 import src.db.models as models
-from src.utils.datetime_utils import get_current_datetime, format_datetime
+from src.utils.datetime_utils import get_current_datetime, format_datetime, format_date_human_readable, format_time_only, get_country_from_timezone
 
 
 class NLPModule:
@@ -96,7 +96,7 @@ class NLPModule:
         try:
             # --- Inicializar usuario y permisos ---
             logger.debug(f"Obteniendo datos de usuario para '{user_name}'")
-            db_user, user_permissions_str, user_preferences_str = await self._user_manager.get_user_data(db, user_name)
+            db_user, user_permissions_str, user_preferences_dict = await self._user_manager.get_user_data(db, user_name)
 
             user_id = db_user.id if db_user else None
             if user_id is None:
@@ -108,7 +108,11 @@ class NLPModule:
 
             # --- Cargar comandos IoT ---
             logger.debug("Cargando comandos IoT de la base de datos.")
-            iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
+            try:
+                iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
+            except Exception as e:
+                logger.error(f"Error al cargar comandos IoT de la base de datos: {e}")
+                return None
             formatted_iot_commands = (
                 "\n".join([f"- {cmd.command_payload}: {cmd.description}" for cmd in iot_commands_db])
                 if iot_commands_db
@@ -143,6 +147,12 @@ class NLPModule:
                     else "No hay estados de dispositivos registrados."
                 )
                 
+                timezone_str = self._config.get("timezone", "UTC")
+                current_full_datetime = get_current_datetime(timezone_str)
+                current_date_formatted = format_date_human_readable(current_full_datetime)
+                current_time_formatted = format_time_only(current_full_datetime)
+                current_country = get_country_from_timezone(timezone_str)
+
                 system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
                     assistant_name=self._config["assistant_name"],
                     language=self._config["language"],
@@ -150,14 +160,15 @@ class NLPModule:
                     iot_commands=formatted_iot_commands,
                     last_interaction=last_interaction_value,
                     device_states=self._safe_format_value(device_states_value),
-                    user_preferences=self._safe_format_value(user_preferences_str),
+                    user_preferences=self._safe_format_value(user_preferences_dict),
                     identified_speaker=user_name if user_name else "Desconocido",
                     is_owner=is_owner,
                     user_permissions=self._safe_format_value(user_permissions_str),
-                    current_datetime=format_datetime(
-                        get_current_datetime(self._config.get("timezone", "UTC"))
-                    ),
+                    current_date=current_date_formatted,
+                    current_time=current_time_formatted,
+                    current_timezone=timezone_str,
                     search_results=self._safe_format_value(search_results_str),
+                    current_country=current_country,
                 )
                 logger.debug("System_prompt construido correctamente.")
 
@@ -179,17 +190,17 @@ class NLPModule:
                         full_response_content += chunk["message"]["content"]
 
                 if not full_response_content:
-                    logger.warning("Ollama devolvió una respuesta vacía")
+                    logger.warning("Ollama devolvió una respuesta vacía. Reintentando...")
                     continue
 
                 logger.debug(f"Respuesta completa de Ollama: '{full_response_content[:200]}...'\n")
 
-                # Check for memory_search tag
+                # memory_search tag
                 memory_search_match = re.search(r"memory_search:\s*(.+)", full_response_content)
                 if memory_search_match and user_id and not reprompt_with_search:
                     query = memory_search_match.group(1).strip()
                     logger.info(f"Detectada solicitud de búsqueda en memoria con query: '{query}'")
-                    search_results = await self._memory_manager.search_conversation_logs(db, user_id, query)
+                    search_results = await self._memory_manager.search_conversation_logs(db, user_id, query, limit=5)
                     if search_results:
                         formatted_results = []
                         for log in search_results:
@@ -204,17 +215,55 @@ class NLPModule:
                     attempt = -1
                     continue
 
-                # --- Manejo de preferencias ---
+                # --- Manejo de preferencias --- 
                 logger.debug("Procesando preferencias de usuario.")
                 full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
                 logger.debug("Preferencias de usuario procesadas.")
 
                 # --- Manejo de comandos IoT ---
                 logger.debug("Procesando comandos IoT.")
-                iot_response = await self._iot_command_processor.process_iot_command(db, full_response_content, user_preferences_str)
-                if iot_response:
-                    full_response_content = iot_response
-                    logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
+                # Search for an IoT command pattern in the full_response_content
+                # Ejm: iot_command:turn_on_light(room=living_room) or mqtt_publish:topic,payload
+                iot_command_match = re.search(r"(iot_command:\w+\(.*?\)|mqtt_publish:[^,]+,.*)", full_response_content)
+
+                if iot_command_match:
+                    full_command_with_args = iot_command_match.group(0)
+                    command_name_for_db_validation = None
+
+                    if full_command_with_args.startswith("iot_command:"):
+                        # Extract command name for iot_command type for database validation
+                        name_match = re.match(r"iot_command:(\w+)\(.*?\)", full_command_with_args)
+                        if name_match:
+                            command_name_for_db_validation = name_match.group(1)
+
+                    # Perform database validation only for iot_command type
+                    if command_name_for_db_validation:
+                        try:
+                            db_command = await asyncio.to_thread(
+                                lambda: db.query(IoTCommand)
+                                .filter(IoTCommand.command_name == command_name_for_db_validation)
+                                .first()
+                            )
+                            if not db_command:
+                                logger.warning(
+                                    f"Comando IoT '{command_name_for_db_validation}' no encontrado en la base de datos. Modificando respuesta."
+                                )
+                                full_response_content = "Lo siento, no reconozco ese comando IoT."
+                                continue # Skip further processing for this command
+                        except Exception as e:
+                            logger.error(f"Error al validar el comando IoT '{command_name_for_db_validation}' en la base de datos: {e}")
+                            full_response_content = "Lo siento, hubo un error al procesar tu comando."
+                            continue # Skip further processing for this command
+
+                    # If it's an mqtt_publish command or a validated iot_command, process it
+                    iot_response = await self._iot_command_processor.process_iot_command(
+                        db, full_command_with_args
+                    )
+                    if iot_response:
+                        full_response_content = iot_response
+                        logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
+                    else:
+                        logger.warning(f"El comando IoT '{full_command_with_args}' no produjo una respuesta específica.")
                 logger.debug("Comandos IoT procesados.")
 
                 # --- Cambio de nombre ---

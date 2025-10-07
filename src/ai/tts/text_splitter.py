@@ -3,7 +3,7 @@ import logging
 
 logger = logging.getLogger("TextSplitter")
 
-MAX_SENTENCE_LENGTH = 200  # Define la longitud máxima de una frase en caracteres
+MAX_SENTENCE_LENGTH = 150  # Define la longitud máxima de una frase en caracteres
 
 def _split_text_into_sentences(text: str) -> list[str]:
     """
@@ -12,7 +12,7 @@ def _split_text_into_sentences(text: str) -> list[str]:
     """
     logger.debug(f"Texto original para dividir: {text[:100]}...")
     # Divide por puntos, signos de interrogación, signos de exclamación, comas, dos puntos o punto y coma, manteniendo el delimitador.
-    sentences = re.split(r'((?<!\d)\.(?! Son las )|(?<!\d):(?![\d])|!|\?|;|,|-)', text)
+    sentences = re.split(r'(\.(?![0-9]|\s*Son las )|(?<!\d):(?![\d])|!|\?|;|,|-)', text)
     
     # Reconstruye las frases con sus delimitadores y filtra cadenas vacías
     result = []

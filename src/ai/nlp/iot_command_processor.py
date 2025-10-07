@@ -17,63 +17,49 @@ class IoTCommandProcessor:
         self._serial_manager = serial_manager
         self._mqtt_client = mqtt_client
 
-    def _parse_preferences(self, preferences_str: str) -> dict:
-        preferences = {}
-        if preferences_str and preferences_str != "No hay preferencias de usuario registradas.":
-            for item in preferences_str.split(", "):
-                if ": " in item:
-                    key, value = item.split(": ", 1)
-                    preferences[key.strip()] = value.strip()
-        return preferences
 
     async def process_iot_command(
-        self, db: Session, full_response_content: str, user_preferences_str: str
+        self, db: Session, full_response_content: str
     ) -> Optional[str]:
-        user_preferences = self._parse_preferences(user_preferences_str)
-        logger.debug(f"Preferencias del usuario parseadas: {user_preferences}")
-
         # --- Manejo de comandos IoT ---
         iot_command_match = re.search(r"iot_command:(.+)", full_response_content)
         if iot_command_match:
-            command_str = iot_command_match.group(1).strip()
-            logger.info(f"Comando IoT detectado: {command_str}")
+            full_command_with_args = iot_command_match.group(1).strip()
+
+            base_command_name = full_command_with_args.split(':', 1)[0]
+            logger.info(f"Base comando IoT detectado: {base_command_name}")
 
             # Buscar el comando en la base de datos
             db_command = await asyncio.to_thread(
                 lambda: db.query(IoTCommand)
-                .filter(IoTCommand.command_name == command_str)
+                .filter(IoTCommand.command_name == base_command_name)
                 .first()
             )
 
             if db_command:
-                logger.debug(f"Comando '{command_str}' encontrado en la base de datos. Tipo: {db_command.command_type}")
+                logger.debug(f"Comando '{base_command_name}' encontrado en la base de datos. Tipo: {db_command.command_type}")
                 
-                # Aplicar preferencias si son relevantes
-                final_command_value = db_command.command_value
-                if "temperature" in user_preferences and "temperature" in db_command.command_name.lower():
-                    # Ejemplo: Si el comando es para temperatura y hay una preferencia de temperatura
-                    # Esto es un ejemplo, la lógica real dependerá de cómo se formulan los comandos
-                    final_command_value = re.sub(r'\d+', user_preferences["temperature"], final_command_value)
-                    logger.info(f"Aplicando preferencia de temperatura. Comando modificado a: {final_command_value}")
-                elif "light_color" in user_preferences and "light" in db_command.command_name.lower():
-                    # Ejemplo: Si el comando es para luz y hay una preferencia de color de luz
-                    final_command_value = f"{final_command_value} {user_preferences['light_color']}"
-                    logger.info(f"Aplicando preferencia de color de luz. Comando modificado a: {final_command_value}")
-                # Añadir más lógica para otras preferencias según sea necesario
-
                 if db_command.command_type == "serial":
-                    logger.info(f"Enviando comando serial: {final_command_value}")
-                    await self._serial_manager.send_command(
-                        final_command_value
-                    )
-                    return f"Comando serial '{command_str}' ejecutado."
+                    command_to_send = full_command_with_args
+                    logger.info(f"Enviando comando serial: {command_to_send}")
+                    await self._serial_manager.send_command(command_to_send)
+                    return f"Comando serial '{base_command_name}' ejecutado."
                 elif db_command.command_type == "mqtt":
-                    topic, payload = final_command_value.split(":", 1)
-                    logger.info(
-                        f"Publicando mensaje MQTT en tópico '{topic}' con payload '{payload}'"
-                    )
-                    await self._mqtt_client.publish(topic, payload)
-                    return f"Comando MQTT '{command_str}' ejecutado."
+                    try:
+                        if ':' in full_command_with_args:
+                            mqtt_args = full_command_with_args.split(':', 1)[1]
+                            topic, payload = mqtt_args.split(",", 1) 
+                        else:
+                            raise ValueError("MQTT command missing topic and payload.")
+
+                        logger.info(
+                            f"Publicando mensaje MQTT en tópico '{topic}' con payload '{payload}'"
+                        )
+                        await self._mqtt_client.publish(topic, payload)
+                        return f"Comando MQTT '{base_command_name}' ejecutado."
+                    except ValueError:
+                        logger.error(f"Formato de comando MQTT inválido para '{full_command_with_args}'. Se esperaba 'mqtt_publish:topic,payload'.")
+                        return f"Error: Formato de comando MQTT inválido para '{full_command_with_args}'."
                 else:
                     logger.warning(
                         f"Tipo de comando IoT desconocido: {db_command.command_type}"

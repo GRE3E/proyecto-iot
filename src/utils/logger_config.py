@@ -33,6 +33,8 @@ class ColoredFormatter(logging.Formatter):
         'MemoryManager': '\033[38;5;110m',         # Azul acero
         'OllamaManager': '\033[38;5;99m',          # Púrpura ceniza
         'MQTTClient': '\033[38;5;75m',             # Azul claro
+        'UserManager': '\033[38;5;160m',            # Rojo brillante para UserManager
+        'IoTCommandProcessor': '\033[38;5;27m',      # Azul oscuro para IoTCommandProcessor
         'root': '\033[38;5;240m',                  # Gris oscuro
     }
 

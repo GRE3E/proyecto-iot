@@ -17,9 +17,21 @@ class IoTCommandProcessor:
         self._serial_manager = serial_manager
         self._mqtt_client = mqtt_client
 
+    def _parse_preferences(self, preferences_str: str) -> dict:
+        preferences = {}
+        if preferences_str and preferences_str != "No hay preferencias de usuario registradas.":
+            for item in preferences_str.split(", "):
+                if ": " in item:
+                    key, value = item.split(": ", 1)
+                    preferences[key.strip()] = value.strip()
+        return preferences
+
     async def process_iot_command(
-        self, db: Session, full_response_content: str
+        self, db: Session, full_response_content: str, user_preferences_str: str
     ) -> Optional[str]:
+        user_preferences = self._parse_preferences(user_preferences_str)
+        logger.debug(f"Preferencias del usuario parseadas: {user_preferences}")
+
         # --- Manejo de comandos IoT ---
         iot_command_match = re.search(r"iot_command:(.+)", full_response_content)
         if iot_command_match:
@@ -35,14 +47,28 @@ class IoTCommandProcessor:
 
             if db_command:
                 logger.debug(f"Comando '{command_str}' encontrado en la base de datos. Tipo: {db_command.command_type}")
+                
+                # Aplicar preferencias si son relevantes
+                final_command_value = db_command.command_value
+                if "temperature" in user_preferences and "temperature" in db_command.command_name.lower():
+                    # Ejemplo: Si el comando es para temperatura y hay una preferencia de temperatura
+                    # Esto es un ejemplo, la lógica real dependerá de cómo se formulan los comandos
+                    final_command_value = re.sub(r'\d+', user_preferences["temperature"], final_command_value)
+                    logger.info(f"Aplicando preferencia de temperatura. Comando modificado a: {final_command_value}")
+                elif "light_color" in user_preferences and "light" in db_command.command_name.lower():
+                    # Ejemplo: Si el comando es para luz y hay una preferencia de color de luz
+                    final_command_value = f"{final_command_value} {user_preferences['light_color']}"
+                    logger.info(f"Aplicando preferencia de color de luz. Comando modificado a: {final_command_value}")
+                # Añadir más lógica para otras preferencias según sea necesario
+
                 if db_command.command_type == "serial":
-                    logger.info(f"Enviando comando serial: {db_command.command_value}")
+                    logger.info(f"Enviando comando serial: {final_command_value}")
                     await self._serial_manager.send_command(
-                        db_command.command_value
+                        final_command_value
                     )
                     return f"Comando serial '{command_str}' ejecutado."
                 elif db_command.command_type == "mqtt":
-                    topic, payload = db_command.command_value.split(":", 1)
+                    topic, payload = final_command_value.split(":", 1)
                     logger.info(
                         f"Publicando mensaje MQTT en tópico '{topic}' con payload '{payload}'"
                     )

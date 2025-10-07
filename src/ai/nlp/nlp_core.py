@@ -19,8 +19,6 @@ import src.db.models as models
 from src.utils.datetime_utils import get_current_datetime, format_datetime
 
 
-
-
 class NLPModule:
     """Clase principal para el procesamiento NLP con integración a Ollama y control IoT."""
 
@@ -42,6 +40,21 @@ class NLPModule:
         """Libera el OllamaManager al destruir la instancia."""
         logger.info("Cerrando NLPModule.")
         del self._ollama_manager
+
+    def _safe_format_value(self, value: Any) -> str:
+        """Convierte valores a strings seguros para formateo del system prompt."""
+        if value is None:
+            return "No disponible"
+        if isinstance(value, dict):
+            # Convertir dict a string con formato clave: valor
+            return ", ".join([f"{k}: {self._safe_format_value(v)}" for k, v in value.items()])
+        if isinstance(value, (list, tuple)):
+            return ", ".join([self._safe_format_value(item) for item in value])
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, bool):
+            return str(value).lower() # Use 'true' or 'false' for boolean values
+        return str(value).replace('"', "'")  # Por seguridad, reemplazar todas las comillas dobles
 
     def set_iot_managers(self, serial_manager: Any, mqtt_client: Any) -> None:
         """Establece los gestores de comunicación IoT (serial y MQTT)."""
@@ -109,135 +122,130 @@ class NLPModule:
 
             # --- Búsqueda en logs de conversación ---
             search_results_str = ""
-            search_match = re.search(r"(?:busca|¿alguna vez|has|recuerdas)\s+(?:en mi historial|que te (?:pedí|dije))\s*(.*)", prompt, re.IGNORECASE)
-            if search_match and user_id:
-                logger.info("Detectada una consulta de historial de conversación.")
-                query = search_match.group(1).strip()
-                if query:
+            reprompt_with_search = False
+
+            retries = 3
+            client = ollama.AsyncClient(host="http://localhost:11434")
+            for attempt in range(retries):
+                # Construcción del prompt con formateo seguro
+                logger.debug("Construyendo system_prompt para Ollama.")
+                
+                # Preparar valores seguros
+                last_interaction_value = (
+                    memory_db.last_interaction.isoformat()
+                    if memory_db.last_interaction
+                    else "No hay registro de interacciones previas."
+                )
+                
+                device_states_value = (
+                    memory_db.device_states
+                    if memory_db.device_states
+                    else "No hay estados de dispositivos registrados."
+                )
+                
+                system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+                    assistant_name=self._config["assistant_name"],
+                    language=self._config["language"],
+                    capabilities="\n".join(f"- {cap}" for cap in all_capabilities),
+                    iot_commands=formatted_iot_commands,
+                    last_interaction=last_interaction_value,
+                    device_states=self._safe_format_value(device_states_value),
+                    user_preferences=self._safe_format_value(user_preferences_str),
+                    identified_speaker=user_name if user_name else "Desconocido",
+                    is_owner=is_owner,
+                    user_permissions=self._safe_format_value(user_permissions_str),
+                    current_datetime=format_datetime(
+                        get_current_datetime(self._config.get("timezone", "UTC"))
+                    ),
+                    search_results=self._safe_format_value(search_results_str),
+                )
+                logger.debug("System_prompt construido correctamente.")
+
+                prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
+                logger.debug(f"Enviando prompt a Ollama (intento {attempt+1}/{retries})...")
+                response_stream = await client.chat(
+                    model=self._config["model"]["name"],
+                    messages=[{"role": "user", "content": prompt_text}],
+                    options={
+                        "temperature": self._config["model"]["temperature"],
+                        "num_predict": self._config["model"]["max_tokens"],
+                    },
+                    stream=True,
+                )
+
+                full_response_content = ""
+                async for chunk in response_stream:
+                    if "content" in chunk["message"]:
+                        full_response_content += chunk["message"]["content"]
+
+                if not full_response_content:
+                    logger.warning("Ollama devolvió una respuesta vacía")
+                    continue
+
+                logger.debug(f"Respuesta completa de Ollama: '{full_response_content[:200]}...'\n")
+
+                # Check for memory_search tag
+                memory_search_match = re.search(r"memory_search:\s*(.+)", full_response_content)
+                if memory_search_match and user_id and not reprompt_with_search:
+                    query = memory_search_match.group(1).strip()
+                    logger.info(f"Detectada solicitud de búsqueda en memoria con query: '{query}'")
                     search_results = await self._memory_manager.search_conversation_logs(db, user_id, query)
                     if search_results:
                         formatted_results = []
                         for log in search_results:
-                            formatted_results.append(f"- En {format_datetime(log.timestamp)} (Usuario: {log.speaker_identifier}): \"{{log.prompt}}\" (Asistente: \"{{log.response}}\")")
+                            formatted_results.append(f"- En {format_datetime(log.timestamp)} (Usuario: {log.speaker_identifier}): \"{log.prompt}\" (Asistente: \"{log.response}\")")
                         search_results_str = "\n".join(formatted_results)
                         logger.debug(f"Resultados de búsqueda de historial encontrados: {len(search_results)}")
                     else:
                         search_results_str = "No se encontraron resultados en el historial de conversaciones."
                         logger.debug("No se encontraron resultados en el historial de conversaciones.")
-                else:
-                    search_results_str = "No se especificó una consulta para buscar en el historial."
-                    logger.debug("Consulta de historial vacía.")
-                # Si es una consulta sobre el historial, omitir procesamiento de comandos IoT
-                logger.info("Respondiendo a la consulta de historial y omitiendo procesamiento IoT.")
+
+                    reprompt_with_search = True
+                    attempt = -1
+                    continue
+
+                # --- Manejo de preferencias ---
+                logger.debug("Procesando preferencias de usuario.")
+                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                logger.debug("Preferencias de usuario procesadas.")
+
+                # --- Manejo de comandos IoT ---
+                logger.debug("Procesando comandos IoT.")
+                iot_response = await self._iot_command_processor.process_iot_command(db, full_response_content, user_preferences_str)
+                if iot_response:
+                    full_response_content = iot_response
+                    logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
+                logger.debug("Comandos IoT procesados.")
+
+                # --- Cambio de nombre ---
+                name_change_match = re.search(r"name_change:\s*(.+)", full_response_content)
+                if name_change_match and user_name:
+                    new_name = name_change_match.group(1).strip()
+                    logger.info(f"Detectado cambio de nombre a: {new_name}")
+                    full_response_content = await self._user_manager.handle_name_change(
+                        db, user_name, new_name
+                    )
+                    if full_response_content:
+                        await self._memory_manager.update_memory(
+                            user_id, prompt, full_response_content, db, speaker_identifier=user_name
+                        )
+                        logger.info("Cambio de nombre procesado y memoria actualizada.")
+                        return {
+                            "identified_speaker": user_name or "Desconocido",
+                            "response": full_response_content,
+                        }
+                logger.debug("Cambio de nombre procesado (si aplica).")
+
+                # --- Guardar memoria ---
+                logger.debug("Actualizando memoria con la respuesta generada.")
+                await self._memory_manager.update_memory(
+                    user_id, prompt, full_response_content, db, speaker_identifier=user_name
+                )
+                logger.info("Memoria actualizada con la respuesta.")
                 return {
                     "identified_speaker": user_name or "Desconocido",
-                    "response": search_results_str or "No hay registros de esa solicitud.",
+                    "response": full_response_content,
                 }
-
-            # --- Construcción del prompt ---
-            logger.debug("Construyendo system_prompt para Ollama.")
-            system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-                assistant_name=self._config["assistant_name"],
-                language=self._config["language"],
-                capabilities="\n".join(f"- {cap}" for cap in all_capabilities),
-                iot_commands=formatted_iot_commands,
-                last_interaction=memory_db.last_interaction.isoformat()
-                if memory_db.last_interaction
-                else "No hay registro de interacciones previas.",
-                device_states=memory_db.device_states
-                if memory_db.device_states
-                else "No hay estados de dispositivos registrados.",
-                user_preferences=user_preferences_str,
-                identified_speaker=user_name if user_name else "Desconocido",
-                is_owner=is_owner,
-                user_permissions=user_permissions_str,
-                current_datetime=format_datetime(
-                    get_current_datetime(self._config.get("timezone", "UTC"))
-                ),
-                search_results=search_results_str,
-            )
-            logger.debug("System_prompt construido.")
-
-            retries = 3
-            client = ollama.AsyncClient(host="http://localhost:11434")
-            for attempt in range(retries):
-                try:
-                    prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
-                    logger.debug(f"Enviando prompt a Ollama (intento {attempt+1}/{retries})...")
-                    client = ollama.AsyncClient(host="http://localhost:11434")
-                    response_stream = await client.chat(
-                        model=self._config["model"]["name"],
-                        messages=[{"role": "user", "content": prompt_text}],
-                        options={
-                            "temperature": self._config["model"]["temperature"],
-                            "num_predict": self._config["model"]["max_tokens"],
-                        },
-                        stream=True,
-                    )
-
-                    full_response_content = ""
-                    async for chunk in response_stream:
-                        if "content" in chunk["message"]:
-                            full_response_content += chunk["message"]["content"]
-
-                    if not full_response_content:
-                        logger.warning("Ollama devolvió una respuesta vacía")
-                        continue
-
-                    logger.debug(f"Respuesta completa de Ollama: '{full_response_content[:200]}...'\n")
-
-                    # --- Manejo de preferencias ---
-                    logger.debug("Procesando preferencias de usuario.")
-                    full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
-                    logger.debug("Preferencias de usuario procesadas.")
-
-                    # --- Manejo de comandos IoT ---
-                    logger.debug("Procesando comandos IoT.")
-                    iot_response = await self._iot_command_processor.process_iot_command(db, full_response_content)
-                    if iot_response:
-                        full_response_content = iot_response
-                        logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
-                    logger.debug("Comandos IoT procesados.")
-
-                    # --- Cambio de nombre ---
-                    name_match = re.search(
-                        r"(?:llámame|mi nombre es)\s+([A-Za-zÀ-ÿ]+)", prompt, re.IGNORECASE
-                    )
-                    if name_match and user_name:
-                        logger.info(f"Detectado cambio de nombre a: {name_match.group(1)}")
-                        full_response_content = await self._user_manager.handle_name_change(
-                            db, user_name, name_match
-                        )
-                        if full_response_content:
-                            await self._memory_manager.update_memory(
-                                user_id, prompt, full_response_content, db, speaker_identifier=user_name
-                            )
-                            logger.info("Cambio de nombre procesado y memoria actualizada.")
-                            return {
-                                "identified_speaker": user_name or "Desconocido",
-                                "response": full_response_content,
-                            }
-                    logger.debug("Cambio de nombre procesado (si aplica).")
-
-                    # --- Guardar memoria ---
-                    logger.debug("Actualizando memoria con la respuesta generada.")
-                    await self._memory_manager.update_memory(
-                        user_id, prompt, full_response_content, db, speaker_identifier=user_name
-                    )
-                    logger.info("Memoria actualizada con la respuesta.")
-                    return {
-                        "identified_speaker": user_name or "Desconocido",
-                        "response": full_response_content,
-                    }
-
-                except ollama.ResponseError as e:
-                    logger.error(f"Error de Ollama (intento {attempt+1}/{retries}): {e}")
-                except Exception as e:
-                    logger.exception(
-                        f"Excepción en generate_response (intento {attempt+1}/{retries}): {e}"
-                    )
-                if attempt < retries - 1:
-                    await asyncio.sleep(2)
 
             logger.error("Se agotaron todos los intentos para generar respuesta")
             self._online = False

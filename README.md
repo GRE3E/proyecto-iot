@@ -697,6 +697,11 @@ Respuesta:
     │   └── models.py
     ├── iot/
     │   ├── __init__.py
+    │   ├── arduino_code/
+    │   │   ├── Esclavo1.txt
+    │   │   ├── Esclavo2.txt
+    │   │   ├── Esclavo3.txt
+    │   │   └── Master.txt
     │   ├── devices.py
     │   ├── mqtt_client.py
     │   ├── serial_manager.py

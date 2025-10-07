@@ -23,43 +23,11 @@ class ConfigManager:
             logger.info(f"Configuración cargada desde {self._config_path}")
         except FileNotFoundError:
             logger.warning(f"Archivo de configuración no encontrado en {self._config_path}. Creando configuración por defecto.")
-            self._config = {
-                "assistant_name": "Murph",
-                "language": "es",
-                "capabilities": [
-                    "control_luces",
-                    "control_temperatura",
-                    "control_dispositivos",
-                    "consulta_estado",
-                ],
-                "model": {
-                    "name": "mistral:7b-instruct",
-                    "temperature": 0.7,
-                    "max_tokens": 150,
-                },
-                "memory_size": 10,
-                "timezone": "America/Lima",
-            }
+            self._set_default_config()
             self.save_config()
         except json.JSONDecodeError:
             logger.error(f"Error al decodificar JSON en {self._config_path}. Usando configuración por defecto.")
-            self._config = {
-                "assistant_name": "Murph",
-                "language": "es",
-                "capabilities": [
-                    "control_luces",
-                    "control_temperatura",
-                    "control_dispositivos",
-                    "consulta_estado",
-                ],
-                "model": {
-                    "name": "mistral:7b-instruct",
-                    "temperature": 0.7,
-                    "max_tokens": 150,
-                },
-                "memory_size": 10,
-                "timezone": "America/Lima",
-            }
+            self._set_default_config()
             self.save_config()
 
     def save_config(self) -> None:
@@ -71,9 +39,32 @@ class ConfigManager:
 
     def get_config(self) -> Dict[str, Any]:
         """Devuelve la configuración actual."""
+        logger.debug(f"Obteniendo configuración: {self._config}")
         return self._config
 
     def update_config(self, new_config: Dict[str, Any]) -> None:
         """Actualiza la configuración con un nuevo diccionario y la guarda."""
+        logger.info(f"Actualizando configuración con: {new_config}")
         self._config.update(new_config)
         self.save_config()
+
+    def _set_default_config(self) -> None:
+        """Establece la configuración por defecto."""
+        logger.info("Estableciendo configuración por defecto.")
+        self._config = {
+            "assistant_name": "Murph",
+            "language": "es",
+            "capabilities": [
+                "control_luces",
+                "control_temperatura",
+                "control_dispositivos",
+                "consulta_estado",
+            ],
+            "model": {
+                "name": "mistral:7b-instruct",
+                "temperature": 0.7,
+                "max_tokens": 150,
+            },
+            "memory_size": 10,
+            "timezone": "America/Lima",
+        }

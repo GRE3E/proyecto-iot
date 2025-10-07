@@ -27,10 +27,13 @@ class UserMemory(Base):
         user_preferences (str): Preferencias del usuario en formato JSON.
         last_interaction (datetime): Marca de tiempo de la última interacción del usuario.
     """
-    id = Column(Integer, primary_key=True, default=1)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
     device_states = Column(Text, default="{}")
     user_preferences = Column(Text, default="{}")
     last_interaction = Column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="memory")
 
 class ConversationLog(Base):
     __tablename__ = "conversation_log"
@@ -39,16 +42,20 @@ class ConversationLog(Base):
 
     Atributos:
         id (int): Identificador único del registro de conversación.
+        user_id (int): ID del usuario al que pertenece esta conversación.
         timestamp (datetime): Marca de tiempo de la conversación.
         prompt (str): El mensaje de entrada del usuario.
         response (str): La respuesta generada por el asistente.
         speaker_identifier (str): Identificador del hablante (opcional).
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     timestamp = Column(DateTime, default=func.now())
     prompt = Column(Text)
     response = Column(Text)
     speaker_identifier = Column(String(100), nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="conversation_logs")
 
 class APILog(Base):
     __tablename__ = "api_log"
@@ -111,6 +118,8 @@ class User(Base):
 
     preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user") # Cambiado a uno a muchos
     permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user")
+    memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
+    conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user")
 
     def has_permission(self, permission_name: str) -> bool:
         """

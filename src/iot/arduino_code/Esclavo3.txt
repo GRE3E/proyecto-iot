@@ -1,0 +1,166 @@
+#include <Wire.h>
+#include <Servo.h>
+
+// ---- Direccion del esclavo ----
+#define ESCLAVO_ID 10   // Esclavo 3 con ID = 10
+
+// ---- Nombres de las puertas para comunicacion ----
+const String doorNames[] = {
+  "DOOR_1", "DOOR_2", "DOOR_3", "DOOR_4",
+  "DOOR_5", "DOOR_6", "DOOR_7", "DOOR_8"
+};
+
+// ---- Pines de los servos ----
+const int puertaP = 2;       // Puerta principal
+const int puertaGaraje = 3;
+const int puertaGarInt = 4;
+const int puertaHabInv = 5;
+const int puertaBaInv = 6;
+const int puertaLav = 7;
+const int puertaHabP = 8;
+const int puertaBaHP = 9;   // Ultima puerta
+
+// ---- Objetos Servo ----
+Servo sPuertaP, sPuertaGaraje, sPuertaGarInt, sPuertaHabInv;
+Servo sPuertaBaInv, sPuertaLav, sPuertaHabP, sPuertaBaHP;
+
+Servo* servos[8]; // Array de punteros a objetos Servo
+
+// ---- Estados de las puertas ----
+bool estadoPuerta[8] = {false, false, false, false, false, false, false, false};
+
+// ---- Comunicacion ----
+String ultimoComando = "";
+String ultimaRespuesta = "";
+
+// ---- Declaraciones ----
+void recibirDato(int n);
+void responder();
+void moverPuerta(Servo &servo, bool &estado, const String &accion, const String &nombre);
+void cerrarTodo();
+
+void setup() {
+  Wire.begin(ESCLAVO_ID);
+  Wire.onReceive(recibirDato);
+  Wire.onRequest(responder);
+
+  Serial.begin(9600);
+  Serial.println("Esclavo 3 listo (ID=10, control de puertas)");
+
+  // ---- Vincular servos y asignar al array ----
+  sPuertaP.attach(puertaP);
+  servos[0] = &sPuertaP;
+  sPuertaGaraje.attach(puertaGaraje);
+  servos[1] = &sPuertaGaraje;
+  sPuertaGarInt.attach(puertaGarInt);
+  servos[2] = &sPuertaGarInt;
+  sPuertaHabInv.attach(puertaHabInv);
+  servos[3] = &sPuertaHabInv;
+  sPuertaBaInv.attach(puertaBaInv);
+  servos[4] = &sPuertaBaInv;
+  sPuertaLav.attach(puertaLav);
+  servos[5] = &sPuertaLav;
+  sPuertaHabP.attach(puertaHabP);
+  servos[6] = &sPuertaHabP;
+  sPuertaBaHP.attach(puertaBaHP);
+  servos[7] = &sPuertaBaHP;
+
+  cerrarTodo(); // Asegura que todas las puertas estÃ©n cerradas al inicio
+}
+
+void loop() {
+  // Nada que hacer en loop, todo se maneja por interrupciones I2C
+}
+
+// ---- Cerrar todas las puertas ----
+void cerrarTodo() {
+  sPuertaP.write(0);
+  sPuertaGaraje.write(0);
+  sPuertaGarInt.write(0);
+  sPuertaHabInv.write(0);
+  sPuertaBaInv.write(0);
+  sPuertaLav.write(0);
+  sPuertaHabP.write(0);
+  sPuertaBaHP.write(0);
+
+  for (int i = 0; i < 8; i++) {
+    estadoPuerta[i] = false;
+  }
+  ultimaRespuesta = "ALL_DOORS:CLOSED"; // Respuesta inicial para una consulta general
+  Serial.println(ultimaRespuesta);
+}
+
+// ---- Procesar datos recibidos ----
+void recibirDato(int n) {
+  ultimoComando = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    if (c >= 32 && c <= 126) { // Filtrar caracteres imprimibles
+      ultimoComando += c;
+    }
+  }
+  ultimoComando.trim();
+  Serial.print("Esclavo 3 recibio: ");
+  Serial.println(ultimoComando);
+
+  int espacio = ultimoComando.indexOf(' ');
+  if (espacio == -1) {
+    ultimaRespuesta = "INVALID_COMMAND";
+    return;
+  }
+
+  String deviceTypeIndex = ultimoComando.substring(0, espacio);
+  String accion = ultimoComando.substring(espacio + 1);
+  deviceTypeIndex.toUpperCase();
+  accion.toUpperCase();
+
+  bool foundDoor = false;
+  for (int i = 0; i < 8; i++) {
+    if (deviceTypeIndex == doorNames[i]) {
+      moverPuerta(*servos[i], estadoPuerta[i], accion, doorNames[i]);
+      foundDoor = true;
+      break;
+    }
+  }
+
+  if (!foundDoor) {
+    ultimaRespuesta = "UNKNOWN_DEVICE";
+  }
+}
+
+// ---- Mover un servo y actualizar estado ----
+void moverPuerta(Servo &servo, bool &estado, const String &accion, const String &nombre) {
+  if (accion == "ON") {
+    if (!estado) {
+      servo.write(45);  // Angulo de apertura (ajustable)
+      estado = true;
+      ultimaRespuesta = nombre + ":OPEN";
+    } else {
+      ultimaRespuesta = nombre + ":ALREADY_OPEN";
+    }
+  } else if (accion == "OFF") {
+    if (estado) {
+      servo.write(0);   // Angulo de cierre
+      estado = false;
+      ultimaRespuesta = nombre + ":CLOSED";
+    } else {
+      ultimaRespuesta = nombre + ":ALREADY_CLOSED";
+    }
+  } else if (accion == "STATUS") { // Nueva accion para reportar el estado actual
+    if (estado) {
+      ultimaRespuesta = nombre + ":OPEN";
+    } else {
+      ultimaRespuesta = nombre + ":CLOSED";
+    }
+  }
+  else {
+    ultimaRespuesta = nombre + ":INVALID_ACTION";
+  }
+
+  Serial.println(ultimaRespuesta);
+}
+
+// ---- Responder al Master ----
+void responder() {
+  Wire.write(ultimaRespuesta.c_str(), ultimaRespuesta.length());
+}

@@ -18,6 +18,7 @@ class UserManager:
         """
         Recupera los datos del usuario, sus permisos y preferencias.
         """
+        logger.debug(f"Attempting to retrieve user data for user_name: {user_name}")
         db_user = None
         user_permissions_str = ""
         user_preferences_str = ""
@@ -26,6 +27,10 @@ class UserManager:
             db_user = await asyncio.to_thread(
                 lambda: db.query(User).filter(User.nombre == user_name).first()
             )
+            if db_user:
+                logger.info(f"User '{user_name}' found in database.")
+            else:
+                logger.info(f"User '{user_name}' not found in database.")
 
         if db_user:
             await asyncio.to_thread(lambda: db.expire(db_user))
@@ -33,6 +38,7 @@ class UserManager:
 
             permissions = [up.permission.name for up in db_user.permissions]
             user_permissions_str = ", ".join(permissions)
+            logger.debug(f"Permissions for user '{user_name}': {user_permissions_str}")
 
             user_preferences = await asyncio.to_thread(
                 lambda: db.query(Preference).filter(Preference.user_id == db_user.id).all()
@@ -42,18 +48,19 @@ class UserManager:
                 if user_preferences
                 else "No hay preferencias de usuario registradas."
             )
+            logger.debug(f"Preferences for user '{user_name}': {user_preferences_str}")
+        logger.debug(f"Finished retrieving user data for user_name: {user_name}")
         return db_user, user_permissions_str, user_preferences_str
 
     async def handle_preference_setting(self, db: Session, db_user: User, full_response_content: str) -> str:
-        """
-        Procesa y guarda las preferencias del usuario extraídas de la respuesta del modelo.
-        """
+        logger.debug(f"Attempting to handle preference setting for user: {db_user.nombre if db_user else 'None'}")
         matches = list(
             re.finditer(r"preference_set:\s*([^,]+),\s*(.+)", full_response_content)
         )
         for match in matches:
             if db_user:
                 pref_key, pref_value = match.group(1).strip(), match.group(2).strip()
+                logger.info(f"Detected preference to set: key='{pref_key}', value='{pref_value}' for user '{db_user.nombre}'.")
                 existing = await asyncio.to_thread(
                     lambda: db.query(Preference)
                     .filter(
@@ -64,7 +71,7 @@ class UserManager:
                 )
                 if existing:
                     existing.value = pref_value
-                    logging.info(
+                    logger.info(
                         f"Preferencia '{pref_key}' actualizada para '{db_user.nombre}': {pref_value}"
                     )
                 else:
@@ -77,33 +84,35 @@ class UserManager:
                             )
                         )
                     )
-                    logging.info(
+                    logger.info(
                         f"Nueva preferencia '{pref_key}' guardada para '{db_user.nombre}': {pref_value}"
                     )
                 await asyncio.to_thread(lambda: db.commit())
+                logger.debug(f"Preference '{pref_key}' committed to database for user '{db_user.nombre}'.")
 
         return re.sub(
             r"preference_set:\s*([^,]+),\s*(.+)", "", full_response_content
         ).strip()
 
     async def handle_name_change(self, db: Session, user_name: str, match: re.Match) -> Optional[str]:
-        """Cambia el nombre del usuario en la DB."""
+        logger.debug(f"Attempting to handle name change for user '{user_name}'.")
         new_name = match.group(1).capitalize()
         try:
             existing_user = await asyncio.to_thread(
                 lambda: db.query(User).filter(User.nombre == user_name).first()
             )
             if existing_user:
-                logging.info(f"Cambiando nombre de '{existing_user.nombre}' a '{new_name}'.")
+                logger.info(f"Cambiando nombre de '{existing_user.nombre}' a '{new_name}'.")
                 existing_user.nombre = new_name
                 await asyncio.to_thread(lambda: db.commit())
+                logger.info(f"User name changed to '{new_name}' and committed to database.")
                 return f"De acuerdo, a partir de ahora te llamaré {new_name}."
             else:
-                logging.warning(
+                logger.warning(
                     f"Usuario '{user_name}' no encontrado para cambio de nombre."
                 )
                 return None
         except Exception as e:
-            logging.error(f"Error al cambiar el nombre: {e}")
+            logger.error(f"Error al cambiar el nombre: {e}")
             await asyncio.to_thread(lambda: db.rollback())
             return None

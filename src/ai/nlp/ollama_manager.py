@@ -6,7 +6,7 @@ import ollama
 
 logger = logging.getLogger("OllamaManager")
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class OllamaManager:
     """
@@ -22,8 +22,15 @@ class OllamaManager:
         self._ollama_process: Optional[subprocess.Popen] = None
         self._online: bool = False
         self._model_config: Dict[str, Any] = model_config
+        self._model_name: Optional[str] = model_config.get("name")
+        logger.debug("Iniciando Ollama server...")
         self._start_ollama_server()
+        logger.debug("Verificando conexión a Ollama...")
         self._online = self._check_connection()
+        if self._online:
+            logger.info("OllamaManager inicializado y en línea.")
+        else:
+            logger.warning("OllamaManager inicializado pero no está en línea.")
 
     def _start_ollama_server(self, retries: int = 30, delay: int = 1):
         """
@@ -34,6 +41,7 @@ class OllamaManager:
             retries (int): Número de intentos para conectar con el servidor.
             delay (int): Retraso en segundos entre intentos.
         """
+        logger.debug("Intentando verificar si el servidor Ollama ya está en ejecución.")
         try:
             client = ollama.Client(host='http://localhost:11434')
             client.list()
@@ -104,14 +112,15 @@ class OllamaManager:
         Returns:
             bool: True si la conexión es exitosa y el modelo está disponible, False en caso contrario.
         """
+        logger.debug("Realizando verificación de conexión y modelo Ollama.")
         try:
             client = ollama.Client(host='http://localhost:11434')
             available_models = client.list()
             model_names = [m['name'] for m in available_models.get('models', [])]
+            logger.debug(f"Modelos Ollama disponibles: {', '.join(model_names)}")
 
-            model_name = self._model_config.get("name")
-            if not model_name or model_name not in model_names:
-                logger.error(f"Error: El modelo '{model_name}' no está disponible.")
+            if not self._model_name or self._model_name not in model_names:
+                logger.error(f"Error: El modelo '{self._model_name}' no está disponible.")
                 logger.error("Modelos disponibles: " + ", ".join(model_names) if model_names else "Ninguno.")
                 return False
                 
@@ -124,13 +133,17 @@ class OllamaManager:
             if not isinstance(max_tokens, int) or max_tokens <= 0:
                 logger.error(f"Error: El valor de 'max_tokens' ({max_tokens}) debe ser un número entero positivo.")
                 return False
-                
+            
+            logger.info(f"Conexión Ollama y modelo '{self._model_name}' verificados exitosamente.")
             return True
         except ollama.ResponseError as e:
             logger.error(f"Error de respuesta de Ollama al verificar la conexión: {e}")
             return False
         except ConnectionError as e:
             logger.error(f"Error de conexión con el servidor Ollama: {e}")
+            return False
+        except KeyError:
+            logger.error("La clave 'models' no se encontró en la respuesta de Ollama.")
             return False
         except Exception as e:
             logger.error(f"Error inesperado al verificar la conexión de Ollama: {e}")
@@ -154,6 +167,7 @@ class OllamaManager:
         """
         logger.info("Recargando configuración de Ollama y revalidando conexión...")
         self._model_config = model_config
+        self._model_name = model_config.get("name")
         self._online = self._check_connection()
         if self._online:
             logger.info("Ollama recargado y en línea.")

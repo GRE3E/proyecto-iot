@@ -1,0 +1,157 @@
+#include <Wire.h>
+
+const int airAcond = 2;     // Aire acondicionado
+const int tempPin = A1;     // Sensor de temperatura TMP36
+const int trigPin = 4;      // Trigger Ultrasonico
+const int echoPin = 3;      // Echo Ultrasonico
+
+unsigned long ultimaMedicionTemp = 0; // Para la medición periódica de temperatura
+unsigned long ultimaMedicionDist = 0; // Para la medición periódica de distancia
+const unsigned long intervaloTemp = 1000; // cada 1 segundo
+const unsigned long intervaloDist = 200; // cada 200ms para distancia
+
+String ultimoMensajeParaMaster = ""; // Almacena la respuesta que se enviará al Master
+float temperaturaActual = 0.0;
+long distanciaActual = -1;
+
+// Estado de dispositivos
+bool aireEncendido = false;
+
+// Para detectar direccion del movimiento
+long distanciaAnterior = -1;
+const int umbralDistancia = 100; // cm
+
+void recibirDato(int n);
+void responder();
+float leerTemperatura();
+long medirDistancia();
+
+void setup() {
+  Wire.begin(9); // Identificador esclavo 2
+  Wire.onReceive(recibirDato);
+  Wire.onRequest(responder);
+
+  pinMode(airAcond, OUTPUT);
+  digitalWrite(airAcond, LOW); // Asegurarse de que el aire esté apagado al inicio
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  Serial.begin(9600);
+  Serial.println("Esclavo 2 listo (ID=9)");
+}
+
+void loop() {
+  unsigned long ahora = millis();
+
+  // *** MODIFICACIÓN: Actualizar temperatura periódicamente para tener el valor listo ***
+  if (ahora - ultimaMedicionTemp >= intervaloTemp) {
+    ultimaMedicionTemp = ahora;
+    temperaturaActual = leerTemperatura();
+    Serial.println("Temp actualizada: " + String(temperaturaActual, 1)); // Solo para depuración interna
+  }
+
+  // *** MODIFICACIÓN: Actualizar distancia periódicamente para tener el valor listo ***
+  if (ahora - ultimaMedicionDist >= intervaloDist) {
+    ultimaMedicionDist = ahora;
+    distanciaActual = medirDistancia();
+    // Serial.println("Distancia actualizada: " + String(distanciaActual)); // Solo para depuración interna
+
+    // Lógica del sensor ultrasónico para detectar dirección (se mantiene, pero no se imprime a Serial)
+    if (distanciaActual > 0 && distanciaActual < 300) { // valido hasta 3m
+      if (distanciaAnterior > 0) {
+        if (distanciaActual < umbralDistancia && distanciaActual > distanciaAnterior) {
+          // Serial.println("Bienvenido a casa"); // Ya no se imprime directamente
+          // Podrías enviar un mensaje DATA:ARDUINO_9:PRESENCE:1:ENTERED si quisieras
+        } else if (distanciaActual < umbralDistancia && distanciaActual < distanciaAnterior) {
+          // Serial.println("Despedida detectada"); // Ya no se imprime directamente
+          // Podrías enviar un mensaje DATA:ARDUINO_9:PRESENCE:1:EXITED si quisieras
+        }
+      }
+      distanciaAnterior = distanciaActual;
+    } else {
+      distanciaAnterior = -1; // reset si no hay detección
+    }
+  }
+}
+
+// Recibir comandos desde el master
+void recibirDato(int n) {
+  String comandoCompleto = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    if (c >= 32 && c <= 126) { // filtrar solo ASCII imprimible
+      comandoCompleto += c;
+    }
+  }
+  comandoCompleto.trim();
+  comandoCompleto.toUpperCase(); // Convertir a mayúsculas para facilitar la comparación
+
+  Serial.print("Esclavo 2 recibio: ");
+  Serial.println(comandoCompleto);
+
+  // *** MODIFICACIÓN: Parsear el comando en formato "DEVICE_TYPE_INDEX ACTION" ***
+  int espacioIndex = comandoCompleto.indexOf(' ');
+  if (espacioIndex == -1) {
+    ultimoMensajeParaMaster = "ERROR:INVALID_FORMAT"; // Comando mal formado
+    return;
+  }
+
+  String deviceTypeIndex = comandoCompleto.substring(0, espacioIndex);
+  String action = comandoCompleto.substring(espacioIndex + 1);
+
+  if (deviceTypeIndex == "AIRE_1") { // Comando para el aire acondicionado
+    if (action == "ON") {
+      digitalWrite(airAcond, HIGH);
+      aireEncendido = true;
+      ultimoMensajeParaMaster = "AIRE_1:ON"; // Respuesta formateada
+    } else if (action == "OFF") {
+      digitalWrite(airAcond, LOW);
+      aireEncendido = false;
+      ultimoMensajeParaMaster = "AIRE_1:OFF"; // Respuesta formateada
+    } else if (action == "STATUS") { // Si el Master pide el estado
+      ultimoMensajeParaMaster = "AIRE_1:" + String(aireEncendido ? "ON" : "OFF");
+    } else {
+      ultimoMensajeParaMaster = "ERROR:AIRE_1_UNKNOWN_ACTION";
+    }
+  } else if (deviceTypeIndex == "TEMP_SENSOR_1") { // Solicitud de temperatura
+    if (action == "STATUS") {
+      ultimoMensajeParaMaster = "TEMP_SENSOR_1:" + String(temperaturaActual, 1); // Enviar la última temperatura medida
+    } else {
+      ultimoMensajeParaMaster = "ERROR:TEMP_SENSOR_1_UNKNOWN_ACTION";
+    }
+  } else if (deviceTypeIndex == "ULTRASONIC_1") { // Solicitud de distancia
+    if (action == "READ") {
+      ultimoMensajeParaMaster = "ULTRASONIC_1:" + String(distanciaActual); // Enviar la última distancia medida
+    } else {
+      ultimoMensajeParaMaster = "ERROR:ULTRASONIC_1_UNKNOWN_ACTION";
+    }
+  } else {
+    ultimoMensajeParaMaster = "ERROR:UNKNOWN_DEVICE"; // Dispositivo no reconocido
+  }
+}
+
+// Responder al master
+void responder() {
+  // *** MODIFICACIÓN: Enviar el mensaje preparado en recibirDato o el estado actual ***
+  Wire.write(ultimoMensajeParaMaster.c_str(), ultimoMensajeParaMaster.length());
+}
+
+// Funciones auxiliares
+float leerTemperatura() {
+  int valor = analogRead(tempPin);
+  float voltaje = valor * (5.0 / 1023.0);
+  return (voltaje - 0.5) * 100.0; // TMP36
+}
+
+long medirDistancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duracion = pulseIn(echoPin, HIGH, 30000); // timeout 30ms (~5m)
+  if (duracion == 0) return -1; // no hay eco
+  return duracion * 0.034 / 2;
+}

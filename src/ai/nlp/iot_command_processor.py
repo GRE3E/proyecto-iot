@@ -34,6 +34,7 @@ class IoTCommandProcessor:
             )
 
             if db_command:
+                logger.debug(f"Comando '{command_str}' encontrado en la base de datos. Tipo: {db_command.command_type}")
                 if db_command.command_type == "serial":
                     logger.info(f"Enviando comando serial: {db_command.command_value}")
                     await self._serial_manager.send_command(
@@ -55,4 +56,5 @@ class IoTCommandProcessor:
             else:
                 logger.warning(f"Comando '{command_str}' no encontrado en la DB.")
                 return f"Comando IoT '{command_str}' no reconocido."
+        logger.debug("No se detectó ningún comando IoT en la respuesta.")
         return None

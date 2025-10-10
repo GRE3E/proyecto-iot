@@ -1,5 +1,4 @@
 import unittest
-import serial
 import paho.mqtt.client as mqtt
 from unittest.mock import MagicMock, patch
 import time
@@ -11,44 +10,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.iot.serial_manager import SerialManager
 from src.iot.mqtt_client import MQTTClient
 from src.iot.devices import Light, Door, Sensor
 
-class TestSerialManager(unittest.TestCase):
-
-    @patch('serial.Serial')
-    def test_connection_success(self, mock_serial):
-        mock_instance = mock_serial.return_value
-        manager = SerialManager(port="COM_TEST", baudrate=9600)
-        manager.connect()
-        self.assertTrue(manager.is_connected)
-        mock_serial.assert_called_with("COM_TEST", 9600, timeout=1)
-        self.assertTrue(mock_instance.is_open)
-
-    @patch('serial.Serial', side_effect=serial.SerialException("Test Error"))
-    def test_connection_failure(self, mock_serial):
-        manager = SerialManager(port="COM_TEST", baudrate=9600)
-        manager.connect()
-        self.assertFalse(manager.is_connected)
-
-    @patch('serial.Serial')
-    def test_send_command(self, mock_serial):
-        mock_instance = mock_serial.return_value
-        manager = SerialManager(port="COM_TEST", baudrate=9600)
-        manager.connect()
-        manager.send_command("TEST_CMD")
-        mock_instance.write.assert_called_with(b"TEST_CMD\n")
-
-    @patch('serial.Serial')
-    def test_read_data(self, mock_serial):
-        mock_instance = mock_serial.return_value
-        mock_instance.in_waiting = 10
-        mock_instance.readline.return_value = b"DATA_FROM_ARDUINO\n"
-        manager = SerialManager(port="COM_TEST", baudrate=9600)
-        manager.connect()
-        data = manager.read_data()
-        self.assertEqual(data, "DATA_FROM_ARDUINO")
 
 class TestMQTTClient(unittest.TestCase):
 

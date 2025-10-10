@@ -1,186 +1,183 @@
 #include <Wire.h>
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
 #include <LiquidCrystal_I2C.h>
 
+// === Configuración WiFi ===
+const char* ssid = "YOUR_WIFI_SSID"; // Reemplaza con tu SSID
+const char* password = "YOUR_WIFI_PASSWORD"; // Reemplaza con tu contraseña
+
+// === Configuración MQTT ===
+const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // Reemplaza con la IP de tu broker MQTT
+const int mqtt_port = 1883; // Puerto MQTT estándar
+const char* mqtt_client_id = "MasterDisplay"; // ID único para este cliente MQTT
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
 // ---- Configuración LCD 16x2 ----
-// Ahora PCF8574-based, dirección 0x27
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-unsigned long ultimoTiempo = 0;
-const unsigned long intervalo = 1000; // cada 1 segundo consulta esclavo 9
-String ultimaRespuestaLCD = ""; // Para evitar parpadeo
+// === Tópicos MQTT a los que suscribirse ===
+const char* topic_luz1_estado = "iot/luces/luz_sala/estado";
+const char* topic_luz2_estado = "iot/luces/luz_cocina/estado";
+const char* topic_luz3_estado = "iot/luces/luz_dormitorio/estado";
+
+const char* topic_aire_estado = "iot/hvac/aire_sala/estado";
+const char* topic_temp_estado = "iot/sensores/temperatura_sala/estado";
+const char* topic_ultrasonico_estado = "iot/sensores/ultrasonico_entrada/estado";
+
+const char* topic_puerta_principal_estado = "iot/puertas/principal/estado";
+const char* topic_puerta_garaje_estado = "iot/puertas/garaje/estado";
+
+// Variables para almacenar los últimos estados y mostrarlos en el LCD
+String estadoLuz1 = "DESCONOCIDO";
+String estadoLuz2 = "DESCONOCIDO";
+String estadoLuz3 = "DESCONOCIDO";
+String estadoAire = "DESCONOCIDO";
+String estadoTemp = "DESCONOCIDO";
+String estadoDist = "DESCONOCIDO";
+String estadoPuertaPrincipal = "DESCONOCIDO";
+String estadoPuertaGaraje = "DESCONOCIDO";
+
+// === Declaraciones de funciones ===
+void setup_wifi();
+void callback(char* topic, byte* payload, unsigned int length);
+void reconnect();
+void actualizarLCD();
+
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi conectado");
+  Serial.print("Dirección IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  String mensaje = "";
+  for (int i = 0; i < length; i++) {
+    mensaje += (char)payload[i];
+  }
+  Serial.print("Mensaje MQTT recibido en ");
+  Serial.print(topic);
+  Serial.print(": ");
+  Serial.println(mensaje);
+
+  // Actualizar estados basados en el tópico
+  if (strcmp(topic, topic_luz1_estado) == 0) {
+    estadoLuz1 = mensaje;
+  } else if (strcmp(topic, topic_luz2_estado) == 0) {
+    estadoLuz2 = mensaje;
+  } else if (strcmp(topic, topic_luz3_estado) == 0) {
+    estadoLuz3 = mensaje;
+  } else if (strcmp(topic, topic_aire_estado) == 0) {
+    estadoAire = mensaje;
+  } else if (strcmp(topic, topic_temp_estado) == 0) {
+    estadoTemp = mensaje;
+  } else if (strcmp(topic, topic_ultrasonico_estado) == 0) {
+    estadoDist = mensaje;
+  } else if (strcmp(topic, topic_puerta_principal_estado) == 0) {
+    estadoPuertaPrincipal = mensaje;
+  } else if (strcmp(topic, topic_puerta_garaje_estado) == 0) {
+    estadoPuertaGaraje = mensaje;
+  }
+  actualizarLCD();
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    if (client.connect(mqtt_client_id)) {
+      Serial.println("conectado");
+      // Suscribirse a los tópicos de estado de los esclavos
+      client.subscribe(topic_luz1_estado);
+      client.subscribe(topic_luz2_estado);
+      client.subscribe(topic_luz3_estado);
+      client.subscribe(topic_aire_estado);
+      client.subscribe(topic_temp_estado);
+      client.subscribe(topic_ultrasonico_estado);
+      client.subscribe(topic_puerta_principal_estado);
+      client.subscribe(topic_puerta_garaje_estado);
+
+      Serial.println("Suscrito a tópicos de estado.");
+    } else {
+      Serial.print("falló, rc=");
+      Serial.print(client.state());
+      Serial.println(" intentando de nuevo en 5 segundos");
+      delay(5000);
+    }
+  }
+}
 
 void setup() {
-  Wire.begin(); // Master
-  Serial.begin(9600);
+  Serial.begin(115200); // Usar una velocidad de baudios más alta para ESP8266
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 
   // ---- Inicializar LCD ----
   lcd.init();        // Inicializar LCD
   lcd.backlight();   // Encender luz de fondo
   lcd.setCursor(0, 0);
-  lcd.print("Master iniciado");
+  lcd.print("Master MQTT");
   lcd.setCursor(0, 1);
-  lcd.print("Esperando cmd...");
+  lcd.print("Iniciando...");
 
-  // *** MODIFICACIÓN: Mensaje de bienvenida actualizado para el nuevo formato de comando ***
-  Serial.println("Master listo. Ingresa comandos: <ID> <DEVICE_TYPE_INDEX> <VALUE>");
-  Serial.println("Ejemplo: 8 LIGHT_1 ON  |  9 MOTOR_2 SPEED_50");
+  Serial.println("Master Display listo (MQTT)");
 }
 
 void loop() {
-  // ---- Comandos desde consola (o desde Python via Serial) ----
-  if (Serial.available()) {
-    String comandoCompleto = Serial.readStringUntil('\n');
-    comandoCompleto.trim();
-
-    if (comandoCompleto.length() > 0) {
-      // *** MODIFICACIÓN: Parsear el comando completo en el nuevo formato "ID DEVICE_TYPE_INDEX VALUE" ***
-      int firstSpace = comandoCompleto.indexOf(' ');
-      int secondSpace = comandoCompleto.indexOf(' ', firstSpace + 1);
-
-      if (firstSpace == -1 || secondSpace == -1) {
-        Serial.println("ERROR: Comando invalido. Formato: <ID> <DEVICE_TYPE_INDEX> <VALUE>");
-        // *** MODIFICACIÓN: Enviar un mensaje de error a Python si el formato es incorrecto ***
-        Serial.println("ERROR:ARDUINO_MASTER:COMMAND:INVALID:" + comandoCompleto);
-        return;
-      }
-
-      int arduinoId = comandoCompleto.substring(0, firstSpace).toInt();
-      String deviceTypeIndex = comandoCompleto.substring(firstSpace + 1, secondSpace); // Ej: "LIGHT_1", "MOTOR_2"
-      String value = comandoCompleto.substring(secondSpace + 1); // Ej: "ON", "SPEED_50"
-
-      // Extraer DEVICE_TYPE y DEVICE_INDEX de deviceTypeIndex
-      // Extraer DEVICE_TYPE y DEVICE_INDEX de deviceTypeIndex
-      int lastUnderscoreIndex = deviceTypeIndex.lastIndexOf('_');
-      String deviceType = deviceTypeIndex;
-      String deviceIndex = "1"; // Valor por defecto si no se proporciona un índice
-
-      if (lastUnderscoreIndex != -1) {
-        deviceType = deviceTypeIndex.substring(0, lastUnderscoreIndex);
-        deviceIndex = deviceTypeIndex.substring(lastUnderscoreIndex + 1);
-      }
-
-      // Mensaje a enviar al esclavo via I2C.
-      // Enviamos 'deviceTypeIndex value' para que el esclavo lo interprete.
-      String mensajeParaEsclavo = deviceTypeIndex + " " + value;
-
-      // Enviar al esclavo via I2C
-      Wire.beginTransmission(arduinoId);
-      Wire.write(mensajeParaEsclavo.c_str(), mensajeParaEsclavo.length());
-      byte error = Wire.endTransmission(); // Capturar el resultado de la transmisión
-
-      delay(50); // Pequeña espera para que el esclavo procese
-
-      // Leer respuesta inmediata del esclavo
-      Wire.requestFrom(arduinoId, 32);
-      String respuestaEsclavo = "";
-      while (Wire.available()) {
-        char c = Wire.read();
-        if (c >= 32 && c <= 126) respuestaEsclavo += c; // Solo caracteres imprimibles
-      }
-      respuestaEsclavo.trim();
-
-      // *** MODIFICACIÓN: Enviar confirmación a Python en el nuevo formato ***
-      // Formato: CONFIRM:ARDUINO_ID:DEVICE_TYPE:DEVICE_INDEX:VALUE
-      String pythonConfirmMsg;
-      if (error == 0) { // Si la transmisión I2C fue exitosa
-          // Check if the slave response contains data that should be used as the VALUE
-          int colonIndexInResponse = respuestaEsclavo.indexOf(':');
-          if (colonIndexInResponse != -1) {
-            // If the response is in "DEVICE_TYPE_INDEX:VALUE" format, extract the value
-            String responseValue = respuestaEsclavo.substring(colonIndexInResponse + 1);
-            pythonConfirmMsg = "CONFIRM:ARDUINO_" + String(arduinoId) + ":" + deviceType + ":" + deviceIndex + ":" + responseValue;
-          } else {
-            // Otherwise, use the original command's value or the full slave response if it's not empty
-            if (respuestaEsclavo.length() > 0) {
-                pythonConfirmMsg = "CONFIRM:ARDUINO_" + String(arduinoId) + ":" + deviceType + ":" + deviceIndex + ":" + respuestaEsclavo;
-            } else {
-                pythonConfirmMsg = "CONFIRM:ARDUINO_" + String(arduinoId) + ":" + deviceType + ":" + deviceIndex + ":" + value;
-            }
-          }
-      } else {
-          // Si hubo un error en la transmisión I2C
-          pythonConfirmMsg = "CONFIRM:ARDUINO_" + String(arduinoId) + ":" + deviceType + ":" + deviceIndex + ":FAILED_I2C_ERROR_" + String(error);
-      }
-      Serial.println(pythonConfirmMsg);
-
-
-      // ---- Mostrar en LCD solo si hay cambio ----
-      if (arduinoId != 9) { // Solo actualizar LCD para respuestas de comandos si no es el Esclavo 9
-        String lcdTexto = "ID " + String(arduinoId) + " -> ";
-        lcdTexto += (respuestaEsclavo.length() > 0) ? respuestaEsclavo : mensajeParaEsclavo;
-
-        if (lcdTexto != ultimaRespuestaLCD) {
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print(lcdTexto.substring(0,16));
-          lcd.setCursor(0,1);
-          if (lcdTexto.length() > 16) lcd.print(lcdTexto.substring(16,32));
-          ultimaRespuestaLCD = lcdTexto;
-        }
-      }
-    }
+  if (!client.connected()) {
+    reconnect();
   }
+  client.loop();
+}
 
-  // ---- Consulta periódica al esclavo 9 ----
-  unsigned long ahora = millis();
-  if (ahora - ultimoTiempo >= intervalo) {
-    ultimoTiempo = ahora;
+void actualizarLCD() {
+  // Esta función se llamará cada vez que se reciba un mensaje MQTT
+  // Podemos rotar la información o mostrar la más relevante.
+  // Por simplicidad, mostraremos la temperatura y el estado de una luz/puerta.
 
-    Wire.requestFrom(9, 32); // Solicitar datos del esclavo 9
-    String respuestaEsclavo = "";
-    while (Wire.available()) {
-      char c = Wire.read();
-      if (c >= 32 && c <= 126) respuestaEsclavo += c;
-    }
-    respuestaEsclavo.trim();
+  static int displayMode = 0;
+  lcd.clear();
 
-    if (respuestaEsclavo.length() > 0) {
-      // *** MODIFICACIÓN: Esperamos que el esclavo 9 responda en el formato "DEVICE_TYPE_INDEX:VALUE" ***
-      // Ej: "TEMP_SENSOR_1:25.5", "HUMIDITY_1:60"
-      int colonIndex = respuestaEsclavo.indexOf(':');
-      if (colonIndex != -1) {
-        String deviceTypeIndex = respuestaEsclavo.substring(0, colonIndex); // Ej: "TEMP_SENSOR_1"
-        String value = respuestaEsclavo.substring(colonIndex + 1); // Ej: "25.5"
-
-        // Extraer DEVICE_TYPE y DEVICE_INDEX de deviceTypeIndex
-        int lastUnderscoreIndex = deviceTypeIndex.lastIndexOf('_');
-        String deviceType = deviceTypeIndex;
-        String deviceIndex = "1"; // Valor por defecto
-
-        if (lastUnderscoreIndex != -1) {
-          deviceType = deviceTypeIndex.substring(0, lastUnderscoreIndex);
-          deviceIndex = deviceTypeIndex.substring(lastUnderscoreIndex + 1);
-        }
-
-        // *** MODIFICACIÓN: Enviar datos a Python en el nuevo formato ***
-        // Formato: DATA:ARDUINO_ID:DEVICE_TYPE:DEVICE_INDEX:VALUE
-        // String pythonDataMsg = "DATA:ARDUINO_9:" + deviceType + ":" + deviceIndex + ":" + value;
-        // Serial.println(pythonDataMsg);
-
-        if (deviceType == "TEMP_SENSOR") {
-          if (respuestaEsclavo != ultimaRespuestaLCD) {
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("Temperatura:");
-            lcd.setCursor(0,1);
-            lcd.print(value);
-            ultimaRespuestaLCD = respuestaEsclavo;
-          }
-        } else { // Para otros tipos de datos del Esclavo 9
-          if (respuestaEsclavo != ultimaRespuestaLCD) {
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("Estado");
-            lcd.setCursor(0,1);
-            lcd.print(respuestaEsclavo.substring(0,16));
-            ultimaRespuestaLCD = respuestaEsclavo;
-          }
-        }
-      } else {
-        // Si el esclavo 9 envía un mensaje simple sin el formato esperado,
-        // lo enviamos a Python como un tipo desconocido para depuración.
-        Serial.println("DATA:ARDUINO_9:UNKNOWN:1:" + respuestaEsclavo);
-      }
-    }
+  switch (displayMode) {
+    case 0:
+      lcd.setCursor(0, 0);
+      lcd.print("Temp: " + estadoTemp + " C");
+      lcd.setCursor(0, 1);
+      lcd.print("Aire: " + estadoAire);
+      break;
+    case 1:
+      lcd.setCursor(0, 0);
+      lcd.print("Luz Sala: " + estadoLuz1);
+      lcd.setCursor(0, 1);
+      lcd.print("Luz Cocina: " + estadoLuz2);
+      break;
+    case 2:
+      lcd.setCursor(0, 0);
+      lcd.print("Puerta Ppal: " + estadoPuertaPrincipal);
+      lcd.setCursor(0, 1);
+      lcd.print("Garaje: " + estadoPuertaGaraje);
+      break;
+    case 3:
+      lcd.setCursor(0, 0);
+      lcd.print("Distancia: " + estadoDist + " cm");
+      lcd.setCursor(0, 1);
+      lcd.print("Luz Dorm: " + estadoLuz3);
+      break;
   }
+  displayMode = (displayMode + 1) % 4; // Rotar entre 4 modos de visualización
 }

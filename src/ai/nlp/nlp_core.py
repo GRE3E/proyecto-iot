@@ -7,6 +7,8 @@ import logging
 
 logger = logging.getLogger("NLPModule")
 import re
+from ollama import ResponseError
+from httpx import ConnectError
 
 from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
 from src.ai.nlp.ollama_manager import OllamaManager
@@ -29,7 +31,6 @@ class NLPModule:
         self._config = self._config_manager.get_config()
         self._ollama_manager = OllamaManager(self._config["model"])
         self._online = self._ollama_manager.is_online()
-        self.serial_manager = None
         self.mqtt_client = None
         self._memory_manager = MemoryManager()
         self._user_manager = UserManager()
@@ -54,13 +55,12 @@ class NLPModule:
             return value.isoformat()
         if isinstance(value, bool):
             return str(value).lower() # Use 'true' or 'false' for boolean values
-        return str(value).replace('"', "'")  # Por seguridad, reemplazar todas las comillas dobles
+        return str(value).replace("\"", "'")  # Por seguridad, reemplazar todas las comillas dobles
 
-    def set_iot_managers(self, serial_manager: Any, mqtt_client: Any) -> None:
-        """Establece los gestores de comunicación IoT (serial y MQTT)."""
-        self.serial_manager = serial_manager
+    def set_iot_managers(self, mqtt_client: Any) -> None:
+        """Establece los gestores de comunicación IoT (MQTT)."""
         self.mqtt_client = mqtt_client
-        self._iot_command_processor = IoTCommandProcessor(serial_manager, mqtt_client)
+        self._iot_command_processor = IoTCommandProcessor(mqtt_client)
         logger.info("IoT managers configurados en NLPModule.")
 
     def is_online(self) -> bool:
@@ -98,10 +98,9 @@ class NLPModule:
             logger.debug(f"Obteniendo datos de usuario para '{user_name}'")
             db_user, user_permissions_str, user_preferences_dict = await self._user_manager.get_user_data(db, user_name)
 
-            user_id = db_user.id if db_user else None
-            if user_id is None:
-                logger.error("No se pudo obtener el ID del usuario. No se puede gestionar la memoria.")
-                return None
+            user_id = db_user.id if db_user else 0 # Asignar 0 para usuarios invitados
+            if user_id == 0:
+                logger.info("Usuario invitado detectado. Usando user_id = 0.")
 
             logger.debug(f"Obteniendo memoria para el usuario {user_id}")
             memory_db = await self._memory_manager.get_user_memory(db, user_id)
@@ -112,7 +111,7 @@ class NLPModule:
                 iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
             except Exception as e:
                 logger.error(f"Error al cargar comandos IoT de la base de datos: {e}")
-                return None
+                return {"error": f"No se pudieron cargar los comandos IoT de la base de datos. Por favor, verifica la conexión o la configuración: {e}"}
             formatted_iot_commands = (
                 "\n".join([f"- {cmd.command_payload}: {cmd.description}" for cmd in iot_commands_db])
                 if iot_commands_db
@@ -174,23 +173,40 @@ class NLPModule:
 
                 prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
                 logger.debug(f"Enviando prompt a Ollama (intento {attempt+1}/{retries})...")
-                response_stream = await client.chat(
-                    model=self._config["model"]["name"],
-                    messages=[{"role": "user", "content": prompt_text}],
-                    options={
-                        "temperature": self._config["model"]["temperature"],
-                        "num_predict": self._config["model"]["max_tokens"],
-                    },
-                    stream=True,
-                )
+                try:
+                    response_stream = await client.chat(
+                        model=self._config["model"]["name"],
+                        messages=[{"role": "user", "content": prompt_text}],
+                        options={
+                            "temperature": self._config["model"]["temperature"],
+                            "num_predict": self._config["model"]["max_tokens"],
+                        },
+                        stream=True,
+                    )
 
-                full_response_content = ""
-                async for chunk in response_stream:
-                    if "content" in chunk["message"]:
-                        full_response_content += chunk["message"]["content"]
+                    full_response_content = ""
+                    extracted_command = None # Initialize extracted_command here
+                    async for chunk in response_stream:
+                        if "content" in chunk["message"]:
+                            full_response_content += chunk["message"]["content"]
 
-                if not full_response_content:
-                    logger.warning("Ollama devolvió una respuesta vacía. Reintentando...")
+                    if not full_response_content:
+                        logger.warning("Ollama devolvió una respuesta vacía. Reintentando...")
+                        continue
+                except ResponseError as e:
+                    logger.error(f"Error de respuesta de Ollama: {e}. Reintentando...")
+                    if attempt == retries - 1:
+                        return {"error": f"Error de respuesta de Ollama después de {retries} intentos: {e}"}
+                    continue
+                except ConnectError as e:
+                    logger.error(f"Error de conexión con Ollama: {e}. Reintentando...")
+                    if attempt == retries - 1:
+                        return {"error": f"Error de conexión con Ollama después de {retries} intentos: {e}"}
+                    continue
+                except Exception as e:
+                    logger.error(f"Error inesperado al comunicarse con Ollama: {e}. Reintentando...")
+                    if attempt == retries - 1:
+                        return {"error": f"Error inesperado al comunicarse con Ollama después de {retries} intentos: {e}"}
                     continue
 
                 logger.debug(f"Respuesta completa de Ollama: '{full_response_content[:200]}...'\n")
@@ -215,33 +231,37 @@ class NLPModule:
                     attempt = -1
                     continue
 
-                # --- Manejo de preferencias --- 
+                # --- Manejo de preferencias ---
                 logger.debug("Procesando preferencias de usuario.")
                 full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                # Eliminar cualquier rastro de preference_set de la respuesta final
+                full_response_content = re.sub(r"preference_set:\s*", "", full_response_content).strip()
                 logger.debug("Preferencias de usuario procesadas.")
 
                 # --- Manejo de comandos IoT ---
                 logger.debug("Procesando comandos IoT.")
-                # Search for an IoT command pattern in the full_response_content
-                # Ejm: iot_command:turn_on_light(room=living_room) or mqtt_publish:topic,payload
-                iot_command_match = re.search(r"(iot_command:\w+\(.*?\)|mqtt_publish:[^,]+,.*)", full_response_content)
+                extracted_command = None
+                iot_command_match = re.search(r"(iot_command|mqtt_publish):[^\s]+", full_response_content)
 
                 if iot_command_match:
-                    full_command_with_args = iot_command_match.group(0)
+                    extracted_command = iot_command_match.group(0)
+                    full_response_content = re.sub(r"(iot_command|mqtt_publish):[^\s]+", "", full_response_content).strip()
+                    logger.info(f"Comando IoT/MQTT extraído: {extracted_command}")
+
+                if extracted_command:
+                    full_command_with_args = extracted_command
                     command_name_for_db_validation = None
 
                     if full_command_with_args.startswith("iot_command:"):
-                        # Extract command name for iot_command type for database validation
                         name_match = re.match(r"iot_command:(\w+)\(.*?\)", full_command_with_args)
                         if name_match:
                             command_name_for_db_validation = name_match.group(1)
 
-                    # Perform database validation only for iot_command type
                     if command_name_for_db_validation:
                         try:
                             db_command = await asyncio.to_thread(
                                 lambda: db.query(IoTCommand)
-                                .filter(IoTCommand.command_name == command_name_for_db_validation)
+                                .filter(IoTCommand.name == command_name_for_db_validation)
                                 .first()
                             )
                             if not db_command:
@@ -249,21 +269,30 @@ class NLPModule:
                                     f"Comando IoT '{command_name_for_db_validation}' no encontrado en la base de datos. Modificando respuesta."
                                 )
                                 full_response_content = "Lo siento, no reconozco ese comando IoT."
-                                continue # Skip further processing for this command
+                                extracted_command = None # Clear command if not found
+                                # continue # Skip further processing for this command
+                            if db_command.command_type != "mqtt":
+                                logger.warning(
+                                    f"Comando IoT '{command_name_for_db_validation}' no es de tipo MQTT. Modificando respuesta."
+                                )
+                                full_response_content = "Lo siento, ese comando IoT no es de tipo MQTT."
+                                extracted_command = None # Clear command if not MQTT type
+                                # continue # Skip further processing for this command
                         except Exception as e:
                             logger.error(f"Error al validar el comando IoT '{command_name_for_db_validation}' en la base de datos: {e}")
                             full_response_content = "Lo siento, hubo un error al procesar tu comando."
-                            continue # Skip further processing for this command
+                            extracted_command = None # Clear command on error
+                            # continue # Skip further processing for this command
 
-                    # If it's an mqtt_publish command or a validated iot_command, process it
-                    iot_response = await self._iot_command_processor.process_iot_command(
-                        db, full_command_with_args
-                    )
-                    if iot_response:
-                        full_response_content = iot_response
-                        logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
-                    else:
-                        logger.warning(f"El comando IoT '{full_command_with_args}' no produjo una respuesta específica.")
+                    if extracted_command: # Only process if command is still valid after validation
+                        iot_response = await self._iot_command_processor.process_iot_command(
+                            db, full_command_with_args
+                        )
+                        if iot_response:
+                            full_response_content = iot_response
+                            logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
+                        else:
+                            logger.warning(f"El comando IoT '{full_command_with_args}' no produjo una respuesta específica.")
                 logger.debug("Comandos IoT procesados.")
 
                 # --- Cambio de nombre ---
@@ -275,6 +304,8 @@ class NLPModule:
                         db, user_name, new_name
                     )
                     if full_response_content:
+                        # Eliminar el prefijo 'name_change:' de la respuesta antes de guardarla y devolverla
+                        full_response_content = re.sub(r"^name_change:\s*", "", full_response_content).strip()
                         await self._memory_manager.update_memory(
                             user_id, prompt, full_response_content, db, speaker_identifier=user_name
                         )
@@ -282,23 +313,32 @@ class NLPModule:
                         return {
                             "identified_speaker": user_name or "Desconocido",
                             "response": full_response_content,
+                            "command": extracted_command,
                         }
                 logger.debug("Cambio de nombre procesado (si aplica).")
 
                 # --- Guardar memoria ---
-                logger.debug("Actualizando memoria con la respuesta generada.")
-                await self._memory_manager.update_memory(
-                    user_id, prompt, full_response_content, db, speaker_identifier=user_name
-                )
-                logger.info("Memoria actualizada con la respuesta.")
+                if user_id != 0:
+                    logger.debug("Actualizando memoria con la respuesta generada.")
+                    try:
+                        await self._memory_manager.update_memory(
+                            user_id, prompt, full_response_content, db, speaker_identifier=user_name
+                        )
+                        logger.info("Memoria actualizada con la respuesta.")
+                    except Exception as e:
+                        logger.error(f"Error al actualizar la memoria del usuario: {e}")
+                        return {"error": f"Error interno al actualizar la memoria: {e}"}
+                else:
+                    logger.info("No se guarda la memoria para usuarios invitados.")
                 return {
                     "identified_speaker": user_name or "Desconocido",
                     "response": full_response_content,
+                    "command": extracted_command,
                 }
 
             logger.error("Se agotaron todos los intentos para generar respuesta")
             self._online = False
-            return None
+            return {"error": "Lo siento, no pude procesar tu solicitud en este momento. ¿Podrías reformular la pregunta o intentar más tarde?"}
 
         finally:
             logger.debug("Cerrando sesión de base de datos.")

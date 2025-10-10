@@ -29,7 +29,6 @@ class ColoredFormatter(logging.Formatter):
         'AppLogger': '\033[38;5;33m',              # Azul corporativo
         'MainApp': '\033[38;5;141m',               # Lavanda
         'ConfigManager': '\033[38;5;112m',         # Verde esmeralda
-        'SerialManager': '\033[38;5;218m',         # Rosa pastel (diferente del rojo)
         'MemoryManager': '\033[38;5;110m',         # Azul acero
         'OllamaManager': '\033[38;5;99m',          # Púrpura ceniza
         'MQTTClient': '\033[38;5;75m',             # Azul claro

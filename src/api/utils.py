@@ -3,7 +3,6 @@ from src.ai.stt.stt import STTModule
 from src.ai.speaker.speaker import SpeakerRecognitionModule
 from src.ai.tts.tts_module import TTSModule
 from src.ai.hotword.hotword import HotwordDetector, hotword_callback_async
-from src.iot.serial_manager import SerialManager
 from src.iot.mqtt_client import MQTTClient
 import os
 import logging
@@ -21,7 +20,6 @@ _nlp_module: Optional[NLPModule] = None
 _stt_module: Optional[STTModule] = None
 _speaker_module: Optional[SpeakerRecognitionModule] = None
 _hotword_module: Optional[HotwordDetector] = None
-_serial_manager: Optional[SerialManager] = None
 _mqtt_client: Optional[MQTTClient] = None
 _hotword_task: Optional[asyncio.Task] = None
 _tts_module: Optional[TTSModule] = None
@@ -37,7 +35,6 @@ def get_module_status() -> StatusResponse:
     stt_status = "ONLINE" if _stt_module and _stt_module.is_online() else "OFFLINE"
     speaker_status = "ONLINE" if _speaker_module and _speaker_module.is_online() else "OFFLINE"
     hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
-    serial_status = "ONLINE" if _serial_manager and _serial_manager.is_connected else "OFFLINE"
     mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
     tts_status = "ONLINE" if _tts_module and _tts_module.is_online() else "OFFLINE"
     utils_status = "ONLINE" if _nlp_module else "OFFLINE"
@@ -47,11 +44,18 @@ def get_module_status() -> StatusResponse:
         stt=stt_status,
         speaker=speaker_status,
         hotword=hotword_status,
-        serial=serial_status,
         mqtt=mqtt_status,
         tts=tts_status,
         utils=utils_status
     )
+
+def _sanitize_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    sensitive_keys = ["password", "token", "access_key", "secret", "api_key"]
+    sanitized_data = data.copy()
+    for key in sensitive_keys:
+        if key in sanitized_data:
+            sanitized_data[key] = "[REDACTED]"
+    return sanitized_data
 
 def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_data: Dict[str, Any], db: Session) -> None:
     """
@@ -70,8 +74,8 @@ def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_data: Di
         log_entry = APILog(
             timestamp=datetime.now(),
             endpoint=endpoint,
-            request_body=json.dumps(request_body, ensure_ascii=False),
-            response_data=json.dumps(response_data, ensure_ascii=False)
+            request_body=json.dumps(_sanitize_data(request_body), ensure_ascii=False),
+            response_data=json.dumps(_sanitize_data(response_data), ensure_ascii=False)
         )
         db.add(log_entry)
         db.commit()
@@ -89,7 +93,7 @@ async def initialize_nlp() -> None:
     Raises:
         Exception: Si ocurre un error durante la inicialización.
     """
-    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _serial_manager, _mqtt_client, _hotword_task, _tts_module
+    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client, _hotword_task, _tts_module
     
     try:
         logger.info("Inicializando módulos...")
@@ -119,20 +123,6 @@ async def initialize_nlp() -> None:
                 logger.error(f"Error al inicializar HotwordDetector: {e}")
                 _hotword_module = None
 
-        # Inicialización de SerialManager
-        serial_port = os.getenv("SERIAL_PORT")
-        serial_baudrate = os.getenv("SERIAL_BAUDRATE")
-        if serial_port and serial_baudrate:
-            try:
-                _serial_manager = SerialManager(port=serial_port, baudrate=int(serial_baudrate))
-                _serial_manager.connect()
-                logger.info(f"SerialManager inicializado y conectado en {serial_port}:{serial_baudrate}. Online: {_serial_manager.is_connected}")
-            except Exception as e:
-                logger.error(f"Error al inicializar SerialManager: {e}")
-                _serial_manager = None
-        else:
-            logger.info("Variables de entorno SERIAL_PORT o SERIAL_BAUDRATE no configuradas. SerialManager no se inicializará.")
-
         # Inicialización de MQTTClient
         mqtt_broker = os.getenv("MQTT_BROKER")
         mqtt_port = os.getenv("MQTT_PORT")
@@ -149,8 +139,8 @@ async def initialize_nlp() -> None:
 
         # Pasar instancias de IoT al módulo NLP
         if _nlp_module:
-            _nlp_module.set_iot_managers(serial_manager=_serial_manager, mqtt_client=_mqtt_client)
-            logger.info("Instancias de SerialManager y MQTTClient pasadas al módulo NLP.")
+            _nlp_module.set_iot_managers(mqtt_client=_mqtt_client)
+            logger.info("Instancias de MQTTClient pasadas al módulo NLP.")
             
         logger.info("Todos los módulos inicializados correctamente.")
     except Exception as e:

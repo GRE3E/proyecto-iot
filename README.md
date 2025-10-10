@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Este proyecto es un asistente de hogar inteligente avanzado, diseñado para interactuar de manera eficiente y segura con el usuario para controlar dispositivos IoT, ejecutar comandos específicos y proporcionar información relevante sobre el entorno del hogar. Utiliza procesamiento de lenguaje natural (NLP), reconocimiento de voz (STT y Speaker Recognition), síntesis de voz (TTS), detección de hotword y comunicación con dispositivos IoT a través de serial y MQTT.
+Este proyecto es un asistente de hogar inteligente avanzado, diseñado para interactuar de manera eficiente y segura con el usuario para controlar dispositivos IoT, ejecutar comandos específicos y proporcionar información relevante sobre el entorno del hogar. Utiliza procesamiento de lenguaje natural (NLP), reconocimiento de voz (STT y Speaker Recognition), síntesis de voz (TTS), detección de hotword y comunicación con dispositivos IoT a través de MQTT.
 
 ## Requisitos (actualizar)
 
@@ -11,6 +11,7 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
 - Dependencias listadas en `requirements.txt`
 - Modelos de Whisper (se descargarán automáticamente al usar el módulo STT)
 - Picovoice Console para obtener una clave de acceso y entrenar una palabra clave personalizada.
+- Configuración de MQTT para la comunicación con dispositivos IoT.
 
 ## Instalación
 
@@ -80,7 +81,6 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
@@ -89,7 +89,7 @@ Respuesta:
 
 ### POST /hotword/process_audio
 
-Procesa el audio tras la detección de hotword: STT (voz a texto), Identificación de hablante, Procesamiento NLP y comando serial, Generación TTS.
+Procesa el audio tras la detección de hotword: STT (voz a texto), Identificación de hablante, Procesamiento NLP y Generación TTS.
 
 Cuerpo de la solicitud:
 
@@ -104,7 +104,6 @@ Respuesta:
   "transcribed_text": "string",
   "identified_speaker": "string",
   "nlp_response": "string",
-  "serial_command_identified": "string",
   "tts_audio_file_path": "string"
 }
 ```
@@ -172,7 +171,6 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
@@ -199,7 +197,6 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
@@ -244,7 +241,6 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
@@ -270,7 +266,6 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
@@ -337,31 +332,9 @@ Respuesta:
   "stt": "ONLINE",
   "speaker": "ONLINE",
   "hotword": "ONLINE",
-  "serial": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
   "utils": "ONLINE"
-}
-```
-
-### POST /iot/serial_command
-
-Envía un comando al puerto serial conectado (Arduino).
-
-Cuerpo de la solicitud:
-
-```json
-{
-  "command": "string"
-}
-```
-
-Respuesta:
-
-```json
-{
-  "status": "string",
-  "message": "string"
 }
 ```
 
@@ -703,9 +676,7 @@ Respuesta:
     │   │   ├── Esclavo3.txt
     │   │   └── Master.txt
     │   ├── devices.py
-    │   ├── mqtt_client.py
-    │   ├── serial_manager.py
-    │   └── serial_reader.py
+    │   └── mqtt_client.py
     ├── main.py
     ├── test/
     │   ├── test_ai_nlp_stt_hotword.py
@@ -730,8 +701,6 @@ La detección de hotword se configura a través de variables de entorno:
 
 El módulo IoT se configura a través de variables de entorno en el archivo `.env`:
 
-- `SERIAL_PORT`: Puerto serial para la comunicación (ej. `COM3` en Windows, `/dev/ttyUSB0` en Linux).
-- `SERIAL_BAUDRATE`: Velocidad en baudios para la comunicación serial (ej. `9600`).
 - `MQTT_BROKER`: Dirección del broker MQTT (ej. `localhost`).
 - `MQTT_PORT`: Puerto del broker MQTT (ej. `1883`).
 
@@ -742,8 +711,6 @@ PICOVOICE_ACCESS_KEY=YOUR_PICOVOICE_ACCESS_KEY
 HOTWORD_PATH=src/ai/hotword/models/model.ppn
 
 # IoT Module Configuration
-SERIAL_PORT=COM3
-SERIAL_BAUDRATE=9600
 MQTT_BROKER=localhost
 MQTT_PORT=1883
 ```

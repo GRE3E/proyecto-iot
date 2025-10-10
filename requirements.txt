@@ -16,7 +16,6 @@ pvporcupine
 pyaudio
 httpx
 python-dotenv
-pyserial
 paho-mqtt
 webrtcvad==2.0.10
 TTS==0.22.0

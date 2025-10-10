@@ -97,12 +97,33 @@ class OllamaManager:
             logger.info("Terminando el proceso del servidor de Ollama...")
             try:
                 self._ollama_process.terminate()
+                # Esperar un tiempo para que el proceso termine de forma limpia
                 self._ollama_process.wait(timeout=5)
-                if self._ollama_process.poll() is None:
+                if self._ollama_process.poll() is None: # Si aún está vivo después de terminate
+                    logger.warning("El proceso de Ollama no terminó, forzando el cierre...")
                     self._ollama_process.kill()
-                logger.info("Proceso del servidor de Ollama terminado.")
+                    self._ollama_process.wait() # Esperar a que kill termine
+                
+                if self._ollama_process.returncode is not None:
+                    logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode}.")
+                else:
+                    logger.error("El proceso de Ollama no se pudo terminar correctamente.")
+
+            except subprocess.TimeoutExpired:
+                logger.warning("El proceso de Ollama no terminó a tiempo, forzando el cierre...")
+                self._ollama_process.kill()
+                self._ollama_process.wait() # Esperar a que kill termine
+                if self._ollama_process.returncode is not None:
+                    logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode} (forzado).")
+                else:
+                    logger.error("El proceso de Ollama no se pudo terminar correctamente incluso con kill.")
             except Exception as e:
-                logger.error(f"Error al intentar terminar el proceso de Ollama: {e}")
+                logger.error(f"Error inesperado al intentar terminar el proceso de Ollama: {e}")
+            finally:
+                self._ollama_process = None
+        elif self._ollama_process and self._ollama_process.poll() is not None:
+            logger.info("El proceso de Ollama ya había terminado.")
+            self._ollama_process = None
 
     def _check_connection(self) -> bool:
         """

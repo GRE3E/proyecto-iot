@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import logging
 import time
 import random
+import asyncio
 
 logger = logging.getLogger("MQTTClient")
 
@@ -68,10 +69,10 @@ class MQTTClient:
         self.reconnect_delay_sec = min(self.reconnect_delay_sec * 2, self.max_reconnect_delay_sec) # Aumentar el retardo exponencialmente
         self.connect()
 
-    def publish(self, topic: str, payload: str) -> bool:
+    async def publish(self, topic: str, payload: str) -> bool:
         if self.is_connected:
             try:
-                self.client.publish(topic, payload)
+                await asyncio.to_thread(self.client.publish, topic, payload)
                 logger.info(f"Publicado en {topic}: {payload}")
                 return True
             except Exception as e:

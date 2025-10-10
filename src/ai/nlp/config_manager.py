@@ -3,6 +3,7 @@ import os
 import logging
 from pathlib import Path
 from typing import Dict, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 logger = logging.getLogger("ConfigManager")
 
@@ -29,6 +30,8 @@ class ConfigManager:
             logger.error(f"Error al decodificar JSON en {self._config_path}. Usando configuración por defecto.")
             self._set_default_config()
             self.save_config()
+        
+        self._validate_timezone()
 
     def save_config(self) -> None:
         """Guarda la configuración actual en config.json."""
@@ -68,3 +71,20 @@ class ConfigManager:
             "memory_size": 10,
             "timezone": "America/Lima",
         }
+
+    def _validate_timezone(self) -> None:
+        """Valida la configuración de la zona horaria y establece un valor por defecto si es inválido."""
+        configured_timezone = self._config.get("timezone")
+        if configured_timezone:
+            try:
+                ZoneInfo(configured_timezone)
+            except ZoneInfoNotFoundError:
+                logger.warning(
+                    f"Zona horaria configurada '{configured_timezone}' no es válida. Estableciendo 'UTC' como predeterminada."
+                )
+                self._config["timezone"] = "UTC"
+                self.save_config()
+        else:
+            logger.warning("No se encontró la configuración de zona horaria. Estableciendo 'UTC' como predeterminada.")
+            self._config["timezone"] = "UTC"
+            self.save_config()

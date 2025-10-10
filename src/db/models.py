@@ -84,7 +84,7 @@ class IoTCommand(Base):
         id (int): Identificador único del comando IoT.
         name (str): Nombre único del comando.
         description (str): Descripción del comando.
-        command_type (str): Tipo de comando (e.g., "serial", "mqtt").
+        command_type (str): Tipo de comando (e.g., "mqtt").
         command_payload (str): Carga útil del comando.
         mqtt_topic (str): Tópico MQTT si el tipo de comando es "mqtt" (opcional).
         permissions (List[Permission]): Permisos asociados a este comando.
@@ -92,7 +92,7 @@ class IoTCommand(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text, nullable=True)
-    command_type = Column(String(50), nullable=False) # e.g., "serial", "mqtt"
+    command_type = Column(String(50), nullable=False) # e.g., "mqtt"
     command_payload = Column(Text, nullable=False)
     mqtt_topic = Column(String(255), nullable=True) # Solo si command_type es "mqtt"
 

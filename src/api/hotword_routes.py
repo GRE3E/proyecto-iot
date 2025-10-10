@@ -36,7 +36,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
     Procesa el audio tras la detección de hotword:
     - STT (voz a texto)
     - Identificación de hablante
-    - Procesamiento NLP y comando serial
+    - Procesamiento NLP y comando IoT
     - Generación TTS (si está disponible)
     """
     # === Verificar disponibilidad de módulos ===
@@ -143,7 +143,7 @@ async def process_hotword_audio(audio_file: UploadFile = File(...), db: Session 
             transcribed_text=transcribed_text,
             identified_speaker=identified_speaker_name,
             nlp_response=nlp_response["response"],
-            serial_command_identified=nlp_response.get("serial_command"),
+
 
         )
 

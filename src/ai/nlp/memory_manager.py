@@ -5,6 +5,7 @@ logger = logging.getLogger("MemoryManager")
 from typing import Generator, Optional, List
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.exc import IntegrityError
 from src.db.models import Base, UserMemory, ConversationLog
 from src.db.database import get_db, create_all_tables
 from datetime import datetime
@@ -41,14 +42,22 @@ class MemoryManager:
         return await asyncio.to_thread(self._sync_get_user_memory_logic, db, user_id)
 
     def _sync_get_user_memory_logic(self, db: Session, user_id: int) -> UserMemory:
-        memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
+        memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
         if not memory_db:
-            logger.info(f"Memoria no encontrada para el usuario {user_id}. Creando nueva memoria.")
-            memory_db = UserMemory(user_id=user_id)
-            db.add(memory_db)
-            db.commit()
-            db.refresh(memory_db)
-            logger.debug(f"Nueva memoria creada para el usuario {user_id}: {memory_db}")
+            logger.info(f"Memoria no encontrada para el usuario {user_id}. Intentando crear nueva memoria.")
+            try:
+                memory_db = UserMemory(user_id=user_id)
+                db.add(memory_db)
+                db.commit()
+                db.refresh(memory_db)
+                logger.debug(f"Nueva memoria creada para el usuario {user_id}: {memory_db}")
+            except IntegrityError:
+                db.rollback()
+                logger.warning(f"Conflicto al crear memoria para el usuario {user_id}. Reintentando recuperar.")
+                memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
+                if not memory_db:
+                    logger.error(f"Fallo al recuperar o crear memoria para el usuario {user_id} después de un conflicto.")
+                    raise
         else:
             logger.debug(f"Memoria encontrada para el usuario {user_id}: {memory_db}")
         return memory_db
@@ -93,13 +102,21 @@ class MemoryManager:
     def _sync_update_memory_logic(self, user_id: int, prompt: str, response: str, db: Session, speaker_identifier: Optional[str] = None):
         timestamp = datetime.now()
 
-        memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).first()
+        memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
         if not memory_db:
             logger.info(f"Memoria de usuario no encontrada para {user_id}. Creando nueva entrada.")
-            memory_db = UserMemory(user_id=user_id)
-            db.add(memory_db)
-            db.commit()
-            db.refresh(memory_db)
+            try:
+                memory_db = UserMemory(user_id=user_id)
+                db.add(memory_db)
+                db.commit()
+                db.refresh(memory_db)
+            except IntegrityError:
+                db.rollback()
+                logger.warning(f"Conflicto al crear memoria para el usuario {user_id} durante la actualización. Reintentando recuperar.")
+                memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
+                if not memory_db:
+                    logger.error(f"Fallo al recuperar o crear memoria para el usuario {user_id} después de un conflicto durante la actualización.")
+                    raise
 
         memory_db.last_interaction = timestamp
         db.commit()

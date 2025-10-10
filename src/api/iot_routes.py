@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
-from src.api.iot_schemas import SerialCommand, SerialCommandResponse, IoTCommandCreate, IoTCommand, IoTDashboardData
+from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData
 from src.db.database import get_db
 from src.db import models
 import logging
@@ -13,21 +13,6 @@ logger = logging.getLogger("APIRoutes")
 
 iot_router = APIRouter()
 
-@iot_router.post("/serial_command", response_model=SerialCommandResponse)
-async def send_serial_command(request: Request, command: SerialCommand):
-    """Envía un comando al puerto serial conectado (Arduino)."""
-    app = request.app
-    if not hasattr(app.state, "serial_manager") or not app.state.serial_manager or not app.state.serial_manager.is_connected:
-        logger.error("SerialManager no está inicializado o conectado para /iot/serial_command.")
-        raise HTTPException(status_code=503, detail="SerialManager no está inicializado o conectado.")
-    
-    success = app.state.serial_manager.send_command(command.command)
-    if success:
-        logger.info(f"Comando '{command.command}' enviado exitosamente al Arduino para /iot/serial_command.")
-        return SerialCommandResponse(status="success", message=f"Comando '{command.command}' enviado al Arduino.")
-    else:
-        logger.error(f"Fallo al enviar el comando '{command.command}' al Arduino para /iot/serial_command.")
-        raise HTTPException(status_code=500, detail=f"Fallo al enviar el comando '{command.command}' al Arduino.")
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
 async def get_iot_dashboard_data(request: Request):

@@ -46,6 +46,7 @@ class UserManager:
         db_user = None
         user_permissions_str = ""
         user_preferences_str = ""
+        user_preferences_dict = {}
 
         if user_name:
             try:

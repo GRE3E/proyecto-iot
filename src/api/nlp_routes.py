@@ -4,6 +4,7 @@ from src.db.database import SessionLocal
 from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate
 from src.api.schemas import StatusResponse
 import logging
+import re
 
 # Importar módulos globales desde utils
 from src.api import utils
@@ -31,36 +32,81 @@ async def query_nlp(query: NLPQuery, request: Request, db: Session = Depends(get
         try:
             utils._nlp_module.reload()
             if not utils._nlp_module.is_online():
+                logger.error("El módulo NLP no se pudo recargar y sigue fuera de línea.")
                 raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
         except Exception as e:
             logger.error(f"Error al recargar módulo NLP para /nlp/query: {e}")
-            raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
+            raise HTTPException(status_code=503, detail=f"El módulo NLP está fuera de línea: {e}")
     
     try:
-        identified_user = None
+        user_name = None
+        is_owner = False
+
+        if not query.user_id:
+            logger.warning("Solicitud recibida sin user_id. Se requiere identificación.")
+            return NLPResponse(
+                prompt_sent=query.prompt,
+                response="Por favor, identifícate para usar esta función.",
+                command=None,
+                preference_key=None,
+                preference_value=None
+            )
+
         if query.user_id:
             identified_user = db.query(User).filter(User.id == query.user_id).first()
             if identified_user:
                 db.refresh(identified_user)
-            if identified_user is None:
-                logger.warning(f"Usuario con ID {query.user_id} no encontrado en la base de datos para /nlp/query.")
+                # ✅ CORRECCIÓN: Usar 'nombre' en lugar de 'name'
+                user_name = identified_user.nombre
+                is_owner = identified_user.is_owner
+                logger.info(f"Usuario identificado: {user_name} (ID: {query.user_id}, Owner: {is_owner})")
+            else:
+                logger.warning(f"Usuario con ID {query.user_id} no encontrado en la base de datos.")
 
-        response = await utils._nlp_module.generate_response(query.prompt, identified_user)
+        # ✅ CORRECCIÓN: Pasar user_name e is_owner correctamente
+        response = await utils._nlp_module.generate_response(
+            query.prompt, 
+            user_name=user_name, 
+            is_owner=is_owner
+        )
+        
+        # ✅ CORRECCIÓN: Validar respuesta y manejar errores
         if response is None:
             raise HTTPException(status_code=500, detail="No se pudo generar la respuesta")
+        
+        if isinstance(response, dict) and "error" in response:
+            logger.error(f"Error al generar respuesta NLP: {response['error']}")
+            raise HTTPException(status_code=500, detail=response['error'])
         
         response_obj = NLPResponse(
             response=response["response"],
             preference_key=response.get("preference_key"),
-            preference_value=response.get("preference_value")
+            preference_value=response.get("preference_value"),
+            command=response.get("command"),
+            prompt_sent=query.prompt,
+            user_name=user_name,
+            user_id=query.user_id
         )
-        logger.info(f"Consulta NLP procesada exitosamente para /nlp/query. Respuesta: {response_obj.response}")
-        utils._save_api_log("/nlp/query", query.dict(), response_obj.dict(), db)
+        
+        # Limpiar cualquier rastro de etiquetas de comando que puedan haber quedado (solo memory_search, name_change, preference_set)
+        response_obj.response = re.sub(r"^(memory_search:|name_change:|preference_set:)", "", response_obj.response).strip()
+        
+        logger.info(f"Consulta NLP procesada exitosamente. Respuesta completa: {response_obj.dict()}")
+        
+        # ✅ CORRECCIÓN: Manejo seguro de guardado de log
+        try:
+            utils._save_api_log("/nlp/query", query.dict(), response_obj.dict(), db)
+        except Exception as log_error:
+            logger.error(f"Error al guardar log de API: {log_error}")
+            # No falla el request por error de logging
+        
         return response_obj
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error en consulta NLP para /nlp/query: {e}")
-        raise HTTPException(status_code=500, detail="Error al procesar la consulta NLP")
+        logger.error(f"Error inesperado en consulta NLP para /nlp/query: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al procesar la consulta NLP: {str(e)}")
 
 @nlp_router.put("/config/assistant-name", response_model=StatusResponse)
 async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depends(get_db)):
@@ -80,7 +126,7 @@ async def update_assistant_name(update: AssistantNameUpdate, db: Session = Depen
         
     except Exception as e:
         logger.error(f"Error al actualizar nombre del asistente para /config/assistant-name: {e}")
-        raise HTTPException(status_code=500, detail=f"No se pudo actualizar el nombre del asistente: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar el nombre del asistente: {str(e)}")
 
 @nlp_router.put("/config/capabilities", response_model=StatusResponse)
 async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(get_db)):
@@ -100,4 +146,4 @@ async def update_capabilities(update: CapabilitiesUpdate, db: Session = Depends(
         
     except Exception as e:
         logger.error(f"Error al actualizar capacidades para /config/capabilities: {e}")
-        raise HTTPException(status_code=500, detail=f"No se pudieron actualizar las capacidades: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar las capacidades: {str(e)}")

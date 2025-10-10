@@ -8,9 +8,13 @@ class NLPQuery(BaseModel):
 
 class NLPResponse(BaseModel):
     """Modelo para las respuestas del módulo NLP."""
+    prompt_sent: Optional[str] = None
     response: str
+    command: Optional[str] = None
     preference_key: Optional[str] = None
     preference_value: Optional[str] = None
+    user_name: Optional[str] = None
+    user_id: Optional[int] = None
 
 class AssistantNameUpdate(BaseModel):
     """Modelo para actualizar el nombre del asistente."""

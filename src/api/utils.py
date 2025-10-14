@@ -13,6 +13,7 @@ from src.db.models import APILog
 import asyncio
 from src.api.schemas import StatusResponse
 from typing import Optional, Dict, Any
+from src.utils.error_handler import ErrorHandler
 
 logger = logging.getLogger("APIUtils")
 
@@ -86,63 +87,95 @@ def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_data: Di
         db.rollback()
         raise
 
+@ErrorHandler.handle_async_exceptions
 async def initialize_nlp() -> None:
     """
     Inicializa los módulos NLP, STT, Speaker, Hotword, SerialManager y MQTTClient.
-
-    Raises:
-        Exception: Si ocurre un error durante la inicialización.
+    Utiliza ErrorHandler para manejo unificado de excepciones.
     """
     global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client, _hotword_task, _tts_module
     
-    try:
-        logger.info("Inicializando módulos...")
-        _nlp_module = NLPModule()
-        await _nlp_module._memory_manager.async_init()
-        logger.info(f"NLPModule inicializado. Online: {_nlp_module.is_online()}")
-        _stt_module = STTModule()
-        logger.info(f"STTModule inicializado. Online: {_stt_module.is_online()}")
-        _speaker_module = SpeakerRecognitionModule()
-        logger.info(f"SpeakerRecognitionModule inicializado. Online: {_speaker_module.is_online()}")
-        _tts_module = TTSModule()
-        logger.info(f"TTSModule inicializado. Online: {_tts_module.is_online()}")
+    logger.info("Inicializando módulos...")
+    
+    # Inicialización de módulos principales con manejo de errores unificado
+    _nlp_module = await ErrorHandler.safe_execute_async(
+        lambda: NLPModule(),
+        default_return=None,
+        context="initialize_nlp.nlp_module"
+    )
+    logger.info(f"NLPModule inicializado. Online: {_nlp_module.is_online() if _nlp_module else False}")
+    
+    _stt_module = await ErrorHandler.safe_execute_async(
+        lambda: STTModule(),
+        default_return=None,
+        context="initialize_nlp.stt_module"
+    )
+    logger.info(f"STTModule inicializado. Online: {_stt_module.is_online() if _stt_module else False}")
+    
+    _speaker_module = await ErrorHandler.safe_execute_async(
+        lambda: SpeakerRecognitionModule(),
+        default_return=None,
+        context="initialize_nlp.speaker_module"
+    )
+    logger.info(f"SpeakerRecognitionModule inicializado. Online: {_speaker_module.is_online() if _speaker_module else False}")
+    
+    _tts_module = await ErrorHandler.safe_execute_async(
+        lambda: TTSModule(),
+        default_return=None,
+        context="initialize_nlp.tts_module"
+    )
+    logger.info(f"TTSModule inicializado. Online: {_tts_module.is_online() if _tts_module else False}")
+    
+    # Inicialización del módulo Hotword
+    access_key = os.getenv("PICOVOICE_ACCESS_KEY")
+    hotword_path = os.getenv("HOTWORD_PATH")
+    
+    if not access_key or not hotword_path:
+        logger.warning("PICOVOICE_ACCESS_KEY o HOTWORD_PATH no configurados. El módulo Hotword no se inicializará.")
+        _hotword_module = None
+    else:
+        _hotword_module = await ErrorHandler.safe_execute_async(
+            lambda: HotwordDetector(access_key=access_key, hotword_path=hotword_path),
+            default_return=None,
+            context="initialize_nlp.hotword_module"
+        )
         
-        # Inicialización del módulo Hotword
-        access_key = os.getenv("PICOVOICE_ACCESS_KEY")
-        hotword_path = os.getenv("HOTWORD_PATH")
+        if _hotword_module:
+            logger.info(f"Módulo Hotword inicializado correctamente. Online: {_hotword_module.is_online()}")
+            _hotword_task = asyncio.create_task(_hotword_module.start(hotword_callback_async))
+        else:
+            logger.error("Error al inicializar HotwordDetector")
+
+    # Inicialización de MQTTClient
+    mqtt_broker = os.getenv("MQTT_BROKER")
+    mqtt_port = os.getenv("MQTT_PORT")
+    if mqtt_broker and mqtt_port:
+        _mqtt_client = await ErrorHandler.safe_execute_async(
+            lambda: MQTTClient(broker=mqtt_broker, port=int(mqtt_port)),
+            default_return=None,
+            context="initialize_nlp.mqtt_client"
+        )
         
-        if not access_key or not hotword_path:
-            logger.warning("PICOVOICE_ACCESS_KEY o HOTWORD_PATH no configurados. El módulo Hotword no se inicializará.")
-            _hotword_module = None
-        else:
-            try:
-                _hotword_module = HotwordDetector(access_key=access_key, hotword_path=hotword_path)
-                logger.info(f"Módulo Hotword inicializado correctamente. Online: {_hotword_module.is_online()}")
-                _hotword_task = asyncio.create_task(_hotword_module.start(hotword_callback_async))
-            except Exception as e:
-                logger.error(f"Error al inicializar HotwordDetector: {e}")
-                _hotword_module = None
+        if _mqtt_client:
+            await ErrorHandler.safe_execute_async(
+                lambda: _mqtt_client.connect(),
+                context="initialize_nlp.mqtt_connect"
+            )
+            logger.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
+    else:
+        logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")
 
-        # Inicialización de MQTTClient
-        mqtt_broker = os.getenv("MQTT_BROKER")
-        mqtt_port = os.getenv("MQTT_PORT")
-        if mqtt_broker and mqtt_port:
-            try:
-                _mqtt_client = MQTTClient(broker=mqtt_broker, port=int(mqtt_port))
-                _mqtt_client.connect()
-                logger.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
-            except Exception as e:
-                logger.error(f"Error al inicializar MQTTClient: {e}")
-                _mqtt_client = None
-        else:
-            logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")
-
-        # Pasar instancias de IoT al módulo NLP
-        if _nlp_module:
-            _nlp_module.set_iot_managers(mqtt_client=_mqtt_client)
-            logger.info("Instancias de MQTTClient pasadas al módulo NLP.")
-            
-        logger.info("Todos los módulos inicializados correctamente.")
-    except Exception as e:
-        logger.error(f"Error general al inicializar módulos: {e}")
-        raise
+    # Pasar instancias de IoT al módulo NLP
+    if _nlp_module:
+        from src.db.database import get_db
+        db = next(get_db())
+        try:
+            await ErrorHandler.safe_execute_async(
+                lambda: _nlp_module.set_iot_managers(mqtt_client=_mqtt_client, db=db),
+                context="initialize_nlp.set_iot_managers"
+            )
+            logger.info("Instancias de MQTTClient pasadas al módulo NLP y caché inicializado.")
+        finally:
+            db.close()
+        
+    logger.info("Todos los módulos inicializados correctamente.")

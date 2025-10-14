@@ -55,7 +55,7 @@ class ConfigManager:
         """Establece la configuración por defecto."""
         logger.info("Estableciendo configuración por defecto.")
         self._config = {
-            "assistant_name": "Murph",
+            "assistant_name": "Murphy",
             "language": "es",
             "capabilities": [
                 "control_luces",
@@ -65,7 +65,7 @@ class ConfigManager:
             ],
             "model": {
                 "name": "mistral:7b-instruct",
-                "temperature": 0.7,
+                "temperature": 0.8,
                 "max_tokens": 150,
             },
             "memory_size": 10,

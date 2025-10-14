@@ -2,12 +2,12 @@ import os
 import asyncio
 import logging
 import warnings
+from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+from src.utils.error_handler import ErrorHandler
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
-from typing import Dict, Any, Optional
-from dotenv import load_dotenv
-
 # Cargar variables de entorno del archivo .env al inicio
 load_dotenv()
 
@@ -38,6 +38,7 @@ app = FastAPI(title="Casa Inteligente API")
 # Configuración
 CONFIG_PATH = "src/ai/config/config.json"
 
+@ErrorHandler.handle_exceptions
 def load_config() -> Dict[str, Any]:
     """
     Carga la configuración desde config.json o crea una por defecto si no existe.
@@ -45,38 +46,30 @@ def load_config() -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Diccionario con la configuración cargada o por defecto.
     """
+    default_config = {
+        "assistant_name": "Murph",
+        "language": "es",
+        "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
+        "model": {
+            "name": "mistral:7b-instruct",
+            "temperature": 0.7,
+            "max_tokens": 150
+        },
+        "memory_size": 10
+    }
+    
     try:
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except FileNotFoundError:
         logger.warning(f"Archivo de configuración no encontrado en {CONFIG_PATH}. Creando configuración por defecto.")
-        config = {
-            "assistant_name": "Murph",
-            "language": "es",
-            "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
-            "model": {
-                "name": "mistral:7b-instruct",
-                "temperature": 0.7,
-                "max_tokens": 150
-            },
-            "memory_size": 10
-        }
+        config = default_config
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
     except json.JSONDecodeError as e:
         logger.error(f"Error al decodificar JSON en {CONFIG_PATH}: {e}. Usando configuración por defecto.")
-        config = {
-            "assistant_name": "Murph",
-            "language": "es",
-            "capabilities": ["control_luces", "control_temperatura", "control_dispositivos", "consulta_estado"],
-            "model": {
-                "name": "mistral:7b-instruct",
-                "temperature": 0.7,
-                "max_tokens": 150
-            },
-            "memory_size": 10
-        }
+        config = default_config
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
@@ -84,6 +77,7 @@ def load_config() -> Dict[str, Any]:
     return config
 
 @app.on_event("startup")
+@ErrorHandler.handle_async_exceptions
 async def startup_event() -> None:
     """
     Evento de inicio de la aplicación.
@@ -91,27 +85,23 @@ async def startup_event() -> None:
     """
     logger.info("Iniciando aplicación Casa Inteligente...")
     
-    try:
-        config = load_config()
-        logger.info(f"Configuración cargada: {config}")
+    config = load_config()
+    logger.info(f"Configuración cargada: {config}")
 
-        Base.metadata.create_all(bind=engine)
-        
-        await initialize_nlp()
+    Base.metadata.create_all(bind=engine)
+    
+    await initialize_nlp()
 
-        app.state.mqtt_client = _mqtt_client
-        app.state.iot_data = {} # Diccionario para almacenar el estado de los dispositivos IoT y datos de sensores
+    app.state.mqtt_client = _mqtt_client
+    app.state.iot_data = {}
 
-        if _hotword_module and not _hotword_module.is_online():
-            logger.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
+    if _hotword_module and not _hotword_module.is_online():
+        logger.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
 
-        logger.info("Aplicación iniciada correctamente")
-        
-    except Exception as e:
-        logger.error(f"Error durante el inicio de la aplicación: {e}")
-        raise
+    logger.info("Aplicación iniciada correctamente")
 
 @app.on_event("shutdown")
+@ErrorHandler.handle_async_exceptions
 async def shutdown_event() -> None:
     """
     Evento de cierre de la aplicación.
@@ -119,27 +109,24 @@ async def shutdown_event() -> None:
     """
     logger.info("Cerrando aplicación...")
     
-    try:
-        if _hotword_task:
-            logger.info("Cancelando tarea de HotwordDetector...")
-            _hotword_task.cancel()
-            try:
-                await _hotword_task
-            except asyncio.CancelledError:
-                logger.info("Tarea de HotwordDetector cancelada correctamente")
-            except Exception as e:
-                logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
+    if _hotword_task:
+        logger.info("Cancelando tarea de HotwordDetector...")
+        _hotword_task.cancel()
+        try:
+            await _hotword_task
+        except asyncio.CancelledError:
+            logger.info("Tarea de HotwordDetector cancelada correctamente")
+        except Exception as e:
+            logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
 
-        if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
-            try:
-                app.state.mqtt_client.disconnect()
-                logger.info("Desconectando cliente MQTT...")
-            except Exception as e:
-                logger.error(f"Error al desconectar MQTTClient: {e}")
-        
-        logger.info("Aplicación cerrada correctamente")
-        
-    except Exception as e:
-        logger.error(f"Error durante el cierre de la aplicación: {e}")
+    if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
+        await ErrorHandler.safe_execute_async(
+            app.state.mqtt_client.disconnect,
+            default_return=None,
+            context="shutdown_event.mqtt_disconnect"
+        )
+        logger.info("Desconectando cliente MQTT...")
+    
+    logger.info("Aplicación cerrada correctamente")
 
 app.include_router(router, prefix="")

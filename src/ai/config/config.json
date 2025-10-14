@@ -3,8 +3,8 @@
   "language": "es",
   "model": {
     "name": "qwen2.5:3b-instruct",
-    "temperature": 0.8,
-    "max_tokens": 300
+    "temperature": 0.7,
+    "max_tokens": 200
   },
   "capabilities": [
     "control_luces",
@@ -13,7 +13,7 @@
     "consulta_estado",
     "administrar_comandos_iot"
   ],
-  "memory_size": 100,
+  "memory_size": 50,
   "timezone": "America/Lima",
   "owner_name": "Gre"
 }

@@ -1,66 +1,68 @@
 import asyncio
-from typing import Optional, Any
-from datetime import datetime
-from pathlib import Path
-import ollama
 import logging
-
-logger = logging.getLogger("NLPModule")
 import re
-from ollama import ResponseError
+from typing import Optional, Any
+from pathlib import Path
+from ollama import AsyncClient, ResponseError
 from httpx import ConnectError
-
-from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
+from datetime import datetime
+from contextlib import asynccontextmanager
 from src.ai.nlp.ollama_manager import OllamaManager
-from src.ai.nlp.memory_manager import MemoryManager
 from src.ai.nlp.config_manager import ConfigManager
 from src.ai.nlp.iot_command_processor import IoTCommandProcessor
 from src.ai.nlp.user_manager import UserManager
-from src.db.models import UserMemory, User, Permission, IoTCommand, Preference
-import src.db.models as models
-from src.utils.datetime_utils import get_current_datetime, format_datetime, format_date_human_readable, format_time_only, get_country_from_timezone
+from src.ai.nlp.prompt_creator import create_system_prompt
+from src.db.database import get_db
+from sqlalchemy.orm import Session
 
+logger = logging.getLogger("NLPModule")
+
+MEMORY_SEARCH_REGEX = re.compile(r"memory_search:\s*(.+)")
+PREFERENCE_MARKERS_REGEX = re.compile(r"(preference_set:|memory_search:|name_change:)")
+IOT_COMMAND_REGEX = re.compile(r"(iot_command|mqtt_publish):[^\s]+")
+NAME_CHANGE_REGEX = re.compile(r"name_change:\s*(.+)")
 
 class NLPModule:
     """Clase principal para el procesamiento NLP con integración a Ollama y control IoT."""
 
+    @asynccontextmanager
+    async def get_db_session(self):
+        """Context manager para gestionar sesiones de base de datos a nivel de clase.
+        Cierra la sesión inmediatamente después de su uso para liberar recursos."""
+        db = next(get_db())
+        try:
+            yield db
+        finally:
+            db.close()
+
     def __init__(self) -> None:
-        """Inicializa configuración, OllamaManager y MemoryManager."""
+        """Inicializa configuración, OllamaManager y UserManager."""
         self._config_path = Path(__file__).parent.parent / "config" / "config.json"
         self._config_manager = ConfigManager(self._config_path)
         self._config = self._config_manager.get_config()
         self._ollama_manager = OllamaManager(self._config["model"])
         self._online = self._ollama_manager.is_online()
         self.mqtt_client = None
-        self._memory_manager = MemoryManager()
+
         self._user_manager = UserManager()
         self._iot_command_processor = None
         logger.info("NLPModule inicializado.")
 
     def __del__(self) -> None:
-        """Libera el OllamaManager al destruir la instancia."""
+        """Libera recursos al destruir la instancia."""
         logger.info("Cerrando NLPModule.")
         del self._ollama_manager
 
-    def _safe_format_value(self, value: Any) -> str:
-        """Convierte valores a strings seguros para formateo del system prompt."""
-        if value is None:
-            return "No disponible"
-        if isinstance(value, dict):
-            # Convertir dict a string con formato clave: valor
-            return ", ".join([f"{k}: {self._safe_format_value(v)}" for k, v in value.items()])
-        if isinstance(value, (list, tuple)):
-            return ", ".join([self._safe_format_value(item) for item in value])
-        if isinstance(value, datetime):
-            return value.isoformat()
-        if isinstance(value, bool):
-            return str(value).lower() # Use 'true' or 'false' for boolean values
-        return str(value).replace("\"", "'")  # Por seguridad, reemplazar todas las comillas dobles
-
-    def set_iot_managers(self, mqtt_client: Any) -> None:
-        """Establece los gestores de comunicación IoT (MQTT)."""
+    async def set_iot_managers(self, mqtt_client: Any, db: Session) -> None:
+        """Configura el cliente MQTT y el procesador IoT.
+        
+        Args:
+            mqtt_client: Cliente MQTT para enviar comandos.
+            db: Sesión de base de datos para inicializar el caché.
+        """
         self.mqtt_client = mqtt_client
         self._iot_command_processor = IoTCommandProcessor(mqtt_client)
+        await self._iot_command_processor.initialize(db)
         logger.info("IoT managers configurados en NLPModule.")
 
     def is_online(self) -> bool:
@@ -74,272 +76,232 @@ class NLPModule:
         self._config = self._config_manager.get_config()
         self._ollama_manager.reload(self._config["model"])
         self._online = self._ollama_manager.is_online()
-        if self._online:
-            logger.info("NLPModule recargado y en línea.")
-        else:
-            logger.warning("NLPModule recargado pero no está en línea.")
+        if self._iot_command_processor:
+            self._iot_command_processor.invalidate_command_cache()
+        log_fn = logger.info if self._online else logger.warning
+        log_fn("NLPModule recargado." if self._online else "NLPModule recargado pero no en línea.")
 
-    async def generate_response(
-        self, prompt: str, user_name: Optional[str] = None, is_owner: bool = False
-    ) -> Optional[dict]:
-        """Genera una respuesta usando Ollama y gestiona memoria, permisos, preferencias y comandos IoT."""
-        logger.info(f"Generando respuesta para el prompt: '{prompt[:100]}...' (Usuario: {user_name}, Propietario: {is_owner})")
+    async def _validate_user(self, db, user_id: int) -> tuple:
+        """Valida el usuario y obtiene sus datos
+        
+        Nota: user_id=0 es un caso especial que se usa para el sistema
+        y no requiere actualización de memoria (ver línea donde se usa if user_id != 0)
+        """
+        if user_id is None:
+            return None, None, None, None, None
+        
+        db_user, user_permissions_str, user_preferences_dict = await self._user_manager.get_user_data_by_id(db, user_id)
+        if not db_user:
+            return None, None, None, None, None
+            
+        return db_user, db_user.nombre, db_user.is_owner, user_permissions_str, user_preferences_dict
+    
+    async def _load_iot_commands(self, db) -> tuple:
+        """Carga los comandos IoT desde la base de datos"""
+        try:
+            formatted_iot_commands, iot_commands_db = await self._iot_command_processor.load_commands_from_db(db)
+            all_capabilities = self._config["capabilities"] + [cmd.name for cmd in iot_commands_db]
+            return formatted_iot_commands, iot_commands_db, all_capabilities, None
+        except Exception as e:
+            error_msg = f"No se pudieron cargar los comandos IoT: {e}"
+            return None, None, None, error_msg
+    
+    async def _get_llm_response(self, client, system_prompt, prompt_text, retries=2) -> tuple:
+        """Obtiene la respuesta del modelo de lenguaje"""
+        for attempt in range(retries):
+            try:
+                response_stream = await client.chat(
+                    model=self._config["model"]["name"],
+                    messages=[{"role": "user", "content": prompt_text}],
+                    options={
+                        "temperature": self._config["model"]["temperature"],
+                        "num_predict": self._config["model"]["max_tokens"],
+                    },
+                    stream=True,
+                )
+
+                full_response_content = ""
+                async for chunk in response_stream:
+                    if "content" in chunk["message"]:
+                        full_response_content += chunk["message"]["content"]
+
+                if not full_response_content:
+                    logger.warning("Respuesta vacía de Ollama. Reintentando...")
+                    continue
+                
+                return full_response_content, None
+                
+            except (ResponseError, ConnectError, Exception) as e:
+                logger.error(f"Error con Ollama: {e}. Reintentando...")
+                if attempt == retries - 1:
+                    return None, f"Error con Ollama después de {retries} intentos: {e}"
+                continue
+        
+        return None, "No se pudo generar una respuesta después de varios intentos."
+    
+    async def _process_memory_search(self, db, user_id, full_response_content) -> tuple:
+        """Procesa la búsqueda en memoria si existe"""
+        memory_search_match = MEMORY_SEARCH_REGEX.search(full_response_content)
+        if not memory_search_match or not user_id:
+            return "", False
+            
+        query = memory_search_match.group(1).strip()
+        search_results = await self._user_manager.search_memory(db, user_id, query)
+        
+        if search_results:
+            formatted_results = [
+                f"- En {log.timestamp:%Y-%m-%d %H:%M} (Usuario: {log.speaker_identifier}): \"{log.prompt}\" (Asistente: \"{log.response}\")"
+                for log in search_results
+            ]
+            search_results_str = "\n".join(formatted_results)
+        else:
+            search_results_str = "No se encontraron resultados en el historial de conversaciones."
+            
+        return search_results_str, True
+    
+    async def _process_iot_command(self, db, full_response_content) -> tuple:
+        """Procesa comandos IoT en la respuesta"""
+        if not full_response_content:
+            return full_response_content, None
+            
+        iot_match = IOT_COMMAND_REGEX.search(full_response_content)
+        extracted_command = iot_match.group(0) if iot_match else None
+        
+        if not extracted_command:
+            return full_response_content, None
+            
+        clean_response = re.sub(IOT_COMMAND_REGEX, "", full_response_content).strip()
+        
+        is_valid, error_message = await self._iot_command_processor.validate_command(db, extracted_command)
+        if not is_valid:
+            return error_message, None
+            
+        iot_response = await self._iot_command_processor.process_iot_command(db, extracted_command)
+        if iot_response:
+            return iot_response, extracted_command
+            
+        return clean_response, extracted_command
+    
+    async def _process_name_change(self, db, full_response_content, user_id: int) -> str:
+        """Procesa cambios de nombre en la respuesta"""
+        name_change_match = NAME_CHANGE_REGEX.search(full_response_content)
+        if not name_change_match or user_id is None:
+            return full_response_content
+            
+        new_name = name_change_match.group(1).strip()
+        name_change_response = await self._user_manager.handle_name_change(db, user_id, new_name)
+        
+        if name_change_response:
+            return name_change_response
+        else:
+            return re.sub(NAME_CHANGE_REGEX, "", full_response_content).strip()
+    
+    async def generate_response(self, prompt: str, user_id: int) -> Optional[dict]:
+        """Genera una respuesta usando Ollama, gestionando memoria, permisos y comandos IoT."""
+        logger.info(f"Generando respuesta para el prompt: '{prompt[:100]}...' (Usuario ID: {user_id})")
+
         if not prompt or not prompt.strip():
-            logger.warning("El prompt no puede estar vacío.")
-            return None
+            return {"response": "El prompt no puede estar vacío.", "error": "Prompt vacío", "user_name": "", "preference_key": None, "preference_value": None}
 
         if not self.is_online():
-            logger.error("El módulo NLP no está en línea.")
-            return None
-
-        db = next(self._memory_manager.get_db())
-        try:
-            # --- Inicializar usuario y permisos ---
-            logger.debug(f"Obteniendo datos de usuario para '{user_name}'")
-            db_user, user_permissions_str, user_preferences_dict = await self._user_manager.get_user_data(db, user_name)
-
-            user_id = db_user.id if db_user else 0 # Asignar 0 para usuarios invitados
-            if user_id == 0:
-                logger.info("Usuario invitado detectado. Usando user_id = 0.")
-
-            logger.debug(f"Obteniendo memoria para el usuario {user_id}")
-            memory_db = await self._memory_manager.get_user_memory(db, user_id)
-
-            # --- Cargar comandos IoT ---
-            logger.debug("Cargando comandos IoT de la base de datos.")
             try:
-                iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
+                self.reload()
+                if not self.is_online():
+                    return {"response": "El módulo NLP está fuera de línea.", "error": "Módulo NLP fuera de línea", "user_name": "", "preference_key": None, "preference_value": None}
             except Exception as e:
-                logger.error(f"Error al cargar comandos IoT de la base de datos: {e}")
-                return {"error": f"No se pudieron cargar los comandos IoT de la base de datos. Por favor, verifica la conexión o la configuración: {e}"}
-            formatted_iot_commands = (
-                "\n".join([f"- {cmd.command_payload}: {cmd.description}" for cmd in iot_commands_db])
-                if iot_commands_db
-                else "No hay comandos IoT registrados."
-            )
-            logger.debug(f"Comandos IoT cargados: {len(iot_commands_db)}")
+                return {"response": f"El módulo NLP está fuera de línea: {e}", "error": "Módulo NLP fuera de línea", "user_name": "", "preference_key": None, "preference_value": None}
 
-            all_capabilities = self._config["capabilities"] + [
-                cmd.name for cmd in iot_commands_db
-            ]
+        if user_id is None:
+            return {"response": "user_id es requerido para consultas NLP.", "error": "user_id es requerido", "user_name": "", "preference_key": None, "preference_value": None}
+        
+        async with self.get_db_session() as db:
+            user_task = asyncio.create_task(self._validate_user(db, user_id))
+            iot_commands_task = asyncio.create_task(self._load_iot_commands(db))
+            
+            await asyncio.gather(user_task, iot_commands_task)
+            
+            db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = user_task.result()
+            formatted_iot_commands, iot_commands_db, all_capabilities, iot_error = iot_commands_task.result()
+            
+            # ⭐ NUEVO: Cargar historial de conversación 
+            recent_conversations = await self._user_manager.get_recent_conversation(db, user_id, limit=5)
+        
+        if not db_user:
+            return {"response": "Usuario no autorizado o no encontrado.", "error": "Usuario no autorizado o no encontrado.", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
 
-            # --- Búsqueda en logs de conversación ---
-            search_results_str = ""
-            reprompt_with_search = False
+        if iot_error:
+            return {"response": iot_error, "error": iot_error, "user_name": user_name, "preference_key": None, "preference_value": None}
 
-            retries = 3
-            client = ollama.AsyncClient(host="http://localhost:11434")
-            for attempt in range(retries):
-                # Construcción del prompt con formateo seguro
-                logger.debug("Construyendo system_prompt para Ollama.")
-                
-                # Preparar valores seguros
-                last_interaction_value = (
-                    memory_db.last_interaction.isoformat()
-                    if memory_db.last_interaction
-                    else "No hay registro de interacciones previas."
-                )
-                
-                device_states_value = (
-                    memory_db.device_states
-                    if memory_db.device_states
-                    else "No hay estados de dispositivos registrados."
-                )
-                
-                timezone_str = self._config.get("timezone", "UTC")
-                current_full_datetime = get_current_datetime(timezone_str)
-                current_date_formatted = format_date_human_readable(current_full_datetime)
-                current_time_formatted = format_time_only(current_full_datetime)
-                current_country = get_country_from_timezone(timezone_str)
+        search_results_str = ""
+        reprompt_with_search = False
+        retries = 2
+        client = AsyncClient(host="http://localhost:11434")
+        extracted_command = None
 
-                system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-                    assistant_name=self._config["assistant_name"],
-                    language=self._config["language"],
-                    capabilities="\n".join(f"- {cap}" for cap in all_capabilities),
-                    iot_commands=formatted_iot_commands,
-                    last_interaction=last_interaction_value,
-                    device_states=self._safe_format_value(device_states_value),
-                    user_preferences=self._safe_format_value(user_preferences_dict),
-                    identified_speaker=user_name if user_name else "Desconocido",
-                    is_owner=is_owner,
-                    user_permissions=self._safe_format_value(user_permissions_str),
-                    current_date=current_date_formatted,
-                    current_time=current_time_formatted,
-                    current_timezone=timezone_str,
-                    search_results=self._safe_format_value(search_results_str),
-                    current_country=current_country,
-                )
-                logger.debug("System_prompt construido correctamente.")
+        for attempt in range(retries):
+            system_prompt, prompt_text = create_system_prompt(
+                config=self._config,
+                user_name=user_name,
+                is_owner=is_owner,
+                user_permissions_str=user_permissions_str,
+                formatted_iot_commands=formatted_iot_commands,
+                all_capabilities=all_capabilities,
+                search_results_str=search_results_str,
+            user_preferences_dict=user_preferences_dict,
+            prompt=prompt,
+            recent_conversations=recent_conversations  # ⭐ NUEVO
+        )
 
-                prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
-                logger.debug(f"Enviando prompt a Ollama (intento {attempt+1}/{retries})...")
-                try:
-                    response_stream = await client.chat(
-                        model=self._config["model"]["name"],
-                        messages=[{"role": "user", "content": prompt_text}],
-                        options={
-                            "temperature": self._config["model"]["temperature"],
-                            "num_predict": self._config["model"]["max_tokens"],
-                        },
-                        stream=True,
-                    )
+            full_response_content, llm_error = await self._get_llm_response(client, system_prompt, prompt_text)
+            if llm_error:
+                if attempt == retries - 1:
+                    return {"response": llm_error, "error": llm_error, "user_name": user_name, "preference_key": None, "preference_value": None}
+                continue
 
-                    full_response_content = ""
-                    extracted_command = None # Initialize extracted_command here
-                    async for chunk in response_stream:
-                        if "content" in chunk["message"]:
-                            full_response_content += chunk["message"]["content"]
-
-                    if not full_response_content:
-                        logger.warning("Ollama devolvió una respuesta vacía. Reintentando...")
-                        continue
-                except ResponseError as e:
-                    logger.error(f"Error de respuesta de Ollama: {e}. Reintentando...")
-                    if attempt == retries - 1:
-                        return {"error": f"Error de respuesta de Ollama después de {retries} intentos: {e}"}
-                    continue
-                except ConnectError as e:
-                    logger.error(f"Error de conexión con Ollama: {e}. Reintentando...")
-                    if attempt == retries - 1:
-                        return {"error": f"Error de conexión con Ollama después de {retries} intentos: {e}"}
-                    continue
-                except Exception as e:
-                    logger.error(f"Error inesperado al comunicarse con Ollama: {e}. Reintentando...")
-                    if attempt == retries - 1:
-                        return {"error": f"Error inesperado al comunicarse con Ollama después de {retries} intentos: {e}"}
-                    continue
-
-                logger.debug(f"Respuesta completa de Ollama: '{full_response_content[:200]}...'\n")
-
-                # memory_search tag
-                memory_search_match = re.search(r"memory_search:\s*(.+)", full_response_content)
-                if memory_search_match and user_id and not reprompt_with_search:
-                    query = memory_search_match.group(1).strip()
-                    logger.info(f"Detectada solicitud de búsqueda en memoria con query: '{query}'")
-                    search_results = await self._memory_manager.search_conversation_logs(db, user_id, query, limit=5)
-                    if search_results:
-                        formatted_results = []
-                        for log in search_results:
-                            formatted_results.append(f"- En {format_datetime(log.timestamp)} (Usuario: {log.speaker_identifier}): \"{log.prompt}\" (Asistente: \"{log.response}\")")
-                        search_results_str = "\n".join(formatted_results)
-                        logger.debug(f"Resultados de búsqueda de historial encontrados: {len(search_results)}")
-                    else:
-                        search_results_str = "No se encontraron resultados en el historial de conversaciones."
-                        logger.debug("No se encontraron resultados en el historial de conversaciones.")
-
-                    reprompt_with_search = True
-                    attempt = -1
-                    continue
-
-                # --- Manejo de preferencias ---
-                logger.debug("Procesando preferencias de usuario.")
-                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
-                # Eliminar cualquier rastro de preference_set de la respuesta final
-                full_response_content = re.sub(r"preference_set:\s*", "", full_response_content).strip()
-                logger.debug("Preferencias de usuario procesadas.")
-
-                # --- Manejo de comandos IoT ---
-                logger.debug("Procesando comandos IoT.")
-                extracted_command = None
-                iot_command_match = re.search(r"(iot_command|mqtt_publish):[^\s]+", full_response_content)
-
-                if iot_command_match:
-                    extracted_command = iot_command_match.group(0)
-                    full_response_content = re.sub(r"(iot_command|mqtt_publish):[^\s]+", "", full_response_content).strip()
-                    logger.info(f"Comando IoT/MQTT extraído: {extracted_command}")
-
-                if extracted_command:
-                    full_command_with_args = extracted_command
-                    command_name_for_db_validation = None
-
-                    if full_command_with_args.startswith("iot_command:"):
-                        name_match = re.match(r"iot_command:(\w+)\(.*?\)", full_command_with_args)
-                        if name_match:
-                            command_name_for_db_validation = name_match.group(1)
-
-                    if command_name_for_db_validation:
-                        try:
-                            db_command = await asyncio.to_thread(
-                                lambda: db.query(IoTCommand)
-                                .filter(IoTCommand.name == command_name_for_db_validation)
-                                .first()
-                            )
-                            if not db_command:
-                                logger.warning(
-                                    f"Comando IoT '{command_name_for_db_validation}' no encontrado en la base de datos. Modificando respuesta."
-                                )
-                                full_response_content = "Lo siento, no reconozco ese comando IoT."
-                                extracted_command = None # Clear command if not found
-                                # continue # Skip further processing for this command
-                            if db_command.command_type != "mqtt":
-                                logger.warning(
-                                    f"Comando IoT '{command_name_for_db_validation}' no es de tipo MQTT. Modificando respuesta."
-                                )
-                                full_response_content = "Lo siento, ese comando IoT no es de tipo MQTT."
-                                extracted_command = None # Clear command if not MQTT type
-                                # continue # Skip further processing for this command
-                        except Exception as e:
-                            logger.error(f"Error al validar el comando IoT '{command_name_for_db_validation}' en la base de datos: {e}")
-                            full_response_content = "Lo siento, hubo un error al procesar tu comando."
-                            extracted_command = None # Clear command on error
-                            # continue # Skip further processing for this command
-
-                    if extracted_command: # Only process if command is still valid after validation
-                        iot_response = await self._iot_command_processor.process_iot_command(
-                            db, full_command_with_args
-                        )
-                        if iot_response:
-                            full_response_content = iot_response
-                            logger.info(f"Comando IoT ejecutado, respuesta: {iot_response}")
+            async with self.get_db_session() as db:
+                if not reprompt_with_search:
+                    memory_results, needs_reprompt = await self._process_memory_search(db, user_id, full_response_content)
+                    if needs_reprompt:
+                        search_results_str = memory_results
+                        reprompt_with_search = True
+                        if attempt < retries - 1:
+                            continue
                         else:
-                            logger.warning(f"El comando IoT '{full_command_with_args}' no produjo una respuesta específica.")
-                logger.debug("Comandos IoT procesados.")
+                            logger.warning("Se alcanzó el límite de reintentos para búsqueda en memoria.")
 
-                # --- Cambio de nombre ---
-                name_change_match = re.search(r"name_change:\s*(.+)", full_response_content)
-                if name_change_match and user_name:
-                    new_name = name_change_match.group(1).strip()
-                    logger.info(f"Detectado cambio de nombre a: {new_name}")
-                    full_response_content = await self._user_manager.handle_name_change(
-                        db, user_name, new_name
-                    )
-                    if full_response_content:
-                        # Eliminar el prefijo 'name_change:' de la respuesta antes de guardarla y devolverla
-                        full_response_content = re.sub(r"^name_change:\s*", "", full_response_content).strip()
-                        await self._memory_manager.update_memory(
-                            user_id, prompt, full_response_content, db, speaker_identifier=user_name
-                        )
-                        logger.info("Cambio de nombre procesado y memoria actualizada.")
-                        return {
-                            "identified_speaker": user_name or "Desconocido",
-                            "response": full_response_content,
-                            "command": extracted_command,
-                        }
-                logger.debug("Cambio de nombre procesado (si aplica).")
-
-                # --- Guardar memoria ---
+                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                full_response_content = await self._process_name_change(db, full_response_content, user_id)
+                full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
+                
+                response_for_memory = full_response_content  # Guardar ANTES de limpiar
+                full_response_content, extracted_command = await self._process_iot_command(db, full_response_content)
+                
                 if user_id != 0:
-                    logger.debug("Actualizando memoria con la respuesta generada.")
                     try:
-                        await self._memory_manager.update_memory(
-                            user_id, prompt, full_response_content, db, speaker_identifier=user_name
-                        )
-                        logger.info("Memoria actualizada con la respuesta.")
+                        await self._user_manager.update_memory(db, user_id, prompt, response_for_memory) # Usar la versión completa
                     except Exception as e:
-                        logger.error(f"Error al actualizar la memoria del usuario: {e}")
-                        return {"error": f"Error interno al actualizar la memoria: {e}"}
-                else:
-                    logger.info("No se guarda la memoria para usuarios invitados.")
-                return {
-                    "identified_speaker": user_name or "Desconocido",
-                    "response": full_response_content,
-                    "command": extracted_command,
-                }
+                        return {"response": f"Error interno al actualizar la memoria: {e}", "error": str(e), "user_name": user_name, "preference_key": None, "preference_value": None}
 
-            logger.error("Se agotaron todos los intentos para generar respuesta")
+            return {
+                "identified_speaker": user_name or "Desconocido",
+                "response": full_response_content,
+                "command": extracted_command,
+                "user_name": user_name,
+                "preference_key": None,
+                "preference_value": None
+            }
+
             self._online = False
-            return {"error": "Lo siento, no pude procesar tu solicitud en este momento. ¿Podrías reformular la pregunta o intentar más tarde?"}
+            return {"response": "No se pudo procesar tu solicitud. Intenta más tarde.", "error": "Agotados intentos", "user_name": user_name, "preference_key": None, "preference_value": None}
 
-        finally:
-            logger.debug("Cerrando sesión de base de datos.")
-            await asyncio.to_thread(lambda: db.close())
+    def update_assistant_name(self, new_name: str):
+        """Actualiza el nombre del asistente."""
+        self._config["assistant_name"] = new_name
+        self._config_manager.save_config()
+        logger.info(f"Nombre del asistente actualizado a '{new_name}'.")
+
+    def update_capabilities(self, new_capabilities: list[str]):
+        """Actualiza las capacidades del asistente."""
+        self._config["capabilities"] = new_capabilities
+        self._config_manager.save_config()
+        logger.info(f"Capacidades actualizadas: {new_capabilities}")

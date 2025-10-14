@@ -65,6 +65,50 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     - API: `http://127.0.0.1:8000`
     - Documentación: `http://127.0.0.1:8000/docs`
 
+## Uso de las nuevas características
+
+### Manejo de errores unificado
+
+Para utilizar el sistema de manejo de errores unificado en tus módulos:
+
+```python
+from src.utils.error_handler import ErrorHandler
+
+# Decorador para funciones sincrónicas
+@ErrorHandler.handle_exceptions
+def mi_funcion():
+    # Tu código aquí
+    pass
+
+# Decorador para funciones asincrónicas
+@ErrorHandler.handle_async_exceptions
+async def mi_funcion_asincronica():
+    # Tu código asincrónico aquí
+    pass
+
+# Ejecución segura de funciones
+resultado = ErrorHandler.safe_execute(
+    funcion_que_podria_fallar,
+    arg1, arg2,
+    default_return=valor_por_defecto,
+    context="contexto_para_logs"
+)
+```
+
+### Caché de comandos IoT
+
+El sistema de caché para comandos IoT se utiliza automáticamente en el procesador de comandos IoT. Para invalidar la caché manualmente:
+
+```python
+from src.ai.nlp.iot_command_processor import IoTCommandProcessor
+
+# Invalidar un comando específico
+processor.invalidate_command_cache("nombre_comando")
+
+# Invalidar toda la caché
+processor.invalidate_command_cache()
+```
+
 ## Endpoints
 
 Los endpoints de la API están definidos en el directorio `src/api/` y se agrupan por funcionalidad. Puedes explorar la documentación interactiva en `http://127.0.0.1:8000/docs` para ver todos los endpoints disponibles y sus esquemas.

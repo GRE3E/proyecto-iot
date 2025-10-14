@@ -3,10 +3,9 @@ import time
 import logging
 import os
 import ollama
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger("OllamaManager")
-
-from typing import Dict, Any, Optional
 
 class OllamaManager:
     """
@@ -97,12 +96,11 @@ class OllamaManager:
             logger.info("Terminando el proceso del servidor de Ollama...")
             try:
                 self._ollama_process.terminate()
-                # Esperar un tiempo para que el proceso termine de forma limpia
                 self._ollama_process.wait(timeout=5)
-                if self._ollama_process.poll() is None: # Si aún está vivo después de terminate
+                if self._ollama_process.poll() is None:
                     logger.warning("El proceso de Ollama no terminó, forzando el cierre...")
                     self._ollama_process.kill()
-                    self._ollama_process.wait() # Esperar a que kill termine
+                    self._ollama_process.wait()
                 
                 if self._ollama_process.returncode is not None:
                     logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode}.")
@@ -112,7 +110,7 @@ class OllamaManager:
             except subprocess.TimeoutExpired:
                 logger.warning("El proceso de Ollama no terminó a tiempo, forzando el cierre...")
                 self._ollama_process.kill()
-                self._ollama_process.wait() # Esperar a que kill termine
+                self._ollama_process.wait()
                 if self._ollama_process.returncode is not None:
                     logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode} (forzado).")
                 else:

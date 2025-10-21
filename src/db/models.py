@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary
 from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 from .database import Base
@@ -120,6 +120,7 @@ class User(Base):
     permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user")
     memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
     conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user")
+    faces: Mapped[List["Face"]] = relationship("Face", back_populates="user")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -201,3 +202,20 @@ class UserPermission(Base):
 
     def __repr__(self) -> str:
         return f"<UserPermission(user_id={self.user_id}, permission_id={self.permission_id})>"
+
+
+class Face(Base):
+    __tablename__ = "faces"
+    """
+    Tabla para almacenar las fotos de los usuarios para reconocimiento facial.
+
+    Atributos:
+        id (int): Identificador único.
+        user_id (int): ID del usuario al que pertenece la foto.
+        image_data (bytes): La imagen en formato binario.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    image_data = Column(LargeBinary, nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="faces")

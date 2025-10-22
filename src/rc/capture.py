@@ -32,7 +32,7 @@ def capture(name, save_dir=DATASET_DIR, cam_id=0, max_imgs=5):
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"👤 Usuario '{name}' agregado a la base de datos con ID {user.id}")
+        print(f"Usuario '{name}' agregado a la base de datos con ID {user.id}")
 
     while True:
         ret, frame = cap.read()
@@ -44,7 +44,7 @@ def capture(name, save_dir=DATASET_DIR, cam_id=0, max_imgs=5):
         if k == ord('s'):
             path = os.path.join(person_dir, f"{count+1}.jpg")
             cv2.imwrite(path, frame)
-            print("📸 Imagen guardada:", path)
+            print("Imagen guardada:", path)
 
             _, buffer = cv2.imencode(".jpg", frame)
             image_bytes = buffer.tobytes()
@@ -53,7 +53,7 @@ def capture(name, save_dir=DATASET_DIR, cam_id=0, max_imgs=5):
             db.add(new_face)
             db.commit()
 
-            print(f"💾 Imagen {count+1} almacenada en la base de datos.")
+            print(f"Imagen {count+1} almacenada en la base de datos.")
             count += 1
 
             if count >= max_imgs:
@@ -65,7 +65,7 @@ def capture(name, save_dir=DATASET_DIR, cam_id=0, max_imgs=5):
     cap.release()
     cv2.destroyAllWindows()
     db.close()
-    print("✅ Captura finalizada y datos guardados correctamente.")
+    print("Captura finalizada y datos guardados correctamente.")
 
 
 if __name__ == "__main__":

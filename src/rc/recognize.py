@@ -4,8 +4,9 @@ import pickle
 import os
 
 # --- Rutas dinámicas relativas a este archivo ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # sube de scripts/ a src/
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Esto apunta a /src/rc
 ENCODINGS_PATH = os.path.join(BASE_DIR, "encodings", "encodings.pickle")
+
 
 # Verificar existencia del archivo
 if not os.path.exists(ENCODINGS_PATH):
@@ -56,6 +57,6 @@ cap.release()
 cv2.destroyAllWindows()
 
 if acceso:
-    print("✅ Acceso concedido a:", name)
+    print(" Acceso concedido a:", name)
 else:
-    print("❌ Acceso denegado")
+    print(" Acceso denegado")

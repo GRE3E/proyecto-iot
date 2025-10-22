@@ -12,6 +12,7 @@ from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
 from src.api.addons_routes import router as addons_router
 from src.api.permissions_routes import router as permissions_router
+from src.api.face_recognition_routes import face_recognition_router
 # Importar módulos globales desde utils
 from src.api import utils
 

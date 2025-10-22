@@ -1,95 +1,76 @@
-import sys
+# src/rc/encode.py
 import os
-import face_recognition
+import sys
 import pickle
-import numpy as np
 import cv2
+import face_recognition
+import numpy as np
+from typing import Tuple
 
-# -------------------------------------------------
-# 🔹 Configurar rutas correctamente
-# -------------------------------------------------
-# BASE_DIR → raíz del proyecto (fuera de src)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Agregar carpeta src al path para poder importar db
-SRC_DIR = os.path.join(BASE_DIR, "src")
+# -----------------------------
+# Rutas: Project root y src dir
+# -----------------------------
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-# -------------------------------------------------
-# 🔹 Importar módulos de la base de datos
-# -------------------------------------------------
-from sqlalchemy.orm import Session
-from db.database import SessionLocal
-from db.models import User, Face
+# Importar modelos/DB solo si necesitas (NO obligatorio para este encoder que lee de disco)
+from db.database import SessionLocal  # no modificado, solo para mantener compatibilidad si lo usas
+from db.models import Face, User  # opcional
 
-# -------------------------------------------------
-# 🔹 Definir rutas
-# -------------------------------------------------
-ENCODINGS_DIR = os.path.join(BASE_DIR, "src", "rc", "encodings")
-ENCODINGS_PATH = os.path.join(ENCODINGS_DIR, "encodings.pickle")
+class FaceEncoder:
+    """
+    Lee imágenes desde: PROYECTO-IOT/data/dataset/<user>/*.jpg
+    Genera encodings y guarda pickle en: PROYECTO-IOT/src/rc/encodings/encodings.pickle
+    """
 
-# Crear carpeta si no existe
-os.makedirs(ENCODINGS_DIR, exist_ok=True)
-print(f"Los encodings se guardarán en: {ENCODINGS_PATH}")
+    def __init__(self):
+        self.dataset_dir = os.path.join(PROJECT_ROOT, "data", "dataset")
+        self.encodings_dir = os.path.join(os.path.dirname(__file__), "encodings")
+        os.makedirs(self.encodings_dir, exist_ok=True)
+        self.encodings_path = os.path.join(self.encodings_dir, "encodings.pickle")
 
-# Verificar ubicación de la base de datos
-db_path = os.path.join(BASE_DIR, "data", "casa_inteligente.db")
-if not os.path.exists(db_path):
-    print(f"[ERROR] No se encontró la base de datos en: {db_path}")
-else:
-    print(f"Base de datos en: {db_path}")
+    def generate_encodings(self, model: str = "hog") -> Tuple[int, int]:
+        """
+        Recorre data/dataset, genera encodings y guarda pickle.
+        Retorna (encodings_count, users_processed).
+        """
+        if not os.path.exists(self.dataset_dir):
+            raise FileNotFoundError(f"No existe dataset en: {self.dataset_dir}")
 
-# -------------------------------------------------
-# 🔹 Conexión a la base de datos
-# -------------------------------------------------
-db: Session = SessionLocal()
+        known_encodings = []
+        known_names = []
+        users_processed = 0
 
-known_encodings = []
-known_names = []
+        for user_name in sorted(os.listdir(self.dataset_dir)):
+            user_path = os.path.join(self.dataset_dir, user_name)
+            if not os.path.isdir(user_path):
+                continue
+            users_processed += 1
+            for fname in sorted(os.listdir(user_path)):
+                fpath = os.path.join(user_path, fname)
+                img = cv2.imread(fpath)
+                if img is None:
+                    continue
+                rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                boxes = face_recognition.face_locations(rgb, model=model)
+                if not boxes:
+                    continue
+                encs = face_recognition.face_encodings(rgb, boxes)
+                for e in encs:
+                    known_encodings.append(e.tolist())
+                    known_names.append(user_name)
 
-# -------------------------------------------------
-# 🔹 Leer las imágenes guardadas en la BD
-# -------------------------------------------------
-faces = db.query(Face).all()
-print(f"Se encontraron {len(faces)} registros en la tabla 'Face'.")
+        # Guardar en src/rc/encodings/encodings.pickle (exactamente como pediste)
+        with open(self.encodings_path, "wb") as f:
+            pickle.dump({"encodings": known_encodings, "names": known_names}, f)
 
-for face in faces:
-    user = db.query(User).filter(User.id == face.user_id).first()
-    name = user.nombre if user else "Desconocido"
+        return len(known_encodings), users_processed
 
-    # Convertir bytes a imagen
-    nparr = np.frombuffer(face.image_data, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    if image is None:
-        print(f"[ERROR] No se pudo decodificar imagen de {name}.")
-        continue
-
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    boxes = face_recognition.face_locations(rgb, model="hog")
-
-    if len(boxes) == 0:
-        print(f"[WARN] No se detectaron rostros en la imagen de {name}.")
-        continue
-
-    encs = face_recognition.face_encodings(rgb, boxes)
-
-    for e in encs:
-        known_encodings.append(e.tolist())
-        known_names.append(name)
-
-# -------------------------------------------------
-# 🔹 Guardar encodings
-# -------------------------------------------------
-with open(ENCODINGS_PATH, "wb") as f:
-    pickle.dump({"encodings": known_encodings, "names": known_names}, f)
-
-print("------------------------------------")
-print("Encodings creados y guardados correctamente en:")
-print(f"  {ENCODINGS_PATH}")
-print(f"Total de rostros codificados: {len(known_encodings)}")
-print("------------------------------------")
-
-db.close()
+# Ejecución opcional
+if __name__ == "__main__":
+    count, users = FaceEncoder().generate_encodings()
+    print(f"Encodings: {count}, Usuarios: {users}")
+    print("Guardado en:", os.path.join(os.path.dirname(__file__), "encodings", "encodings.pickle"))

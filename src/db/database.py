@@ -3,38 +3,35 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import os
 
-# 🔹 Forzar directorio raíz del proyecto (evita que el servidor use otra ruta)
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-os.chdir(PROJECT_ROOT)
+# --------------------------
+# PROJECT_ROOT -> raíz del proyecto (sube 2 niveles desde src/db)
+# --------------------------
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# Define el directorio base para el archivo de la base de datos
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_DIR = os.path.join(BASE_DIR, '..', '..', 'data')
-DATABASE_PATH = os.path.join(DATABASE_DIR, 'casa_inteligente.db')
+# --------------------------
+# Ruta del archivo de la BD (en /data)
+# --------------------------
+DATABASE_DIR = os.path.join(PROJECT_ROOT, "data")
+DATABASE_PATH = os.path.join(DATABASE_DIR, "casa_inteligente.db")
 
-# Mostrar la ruta de la base de datos
+# Mostrar la ruta de la base de datos para depuración
 print("Base de datos en:", DATABASE_PATH)
 
-# Crea el directorio de datos si no existe
+# Asegurar que exista el directorio data
 os.makedirs(DATABASE_DIR, exist_ok=True)
 
+# URL de SQLAlchemy
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={
-        "check_same_thread": False
-    }
-)
-
+# Crear el engine y la sesión
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
 def get_db() -> Session:
     """
-    Dependencia que proporciona una sesión de base de datos.
-    Cada solicitud obtendrá su propia sesión de base de datos que se cerrará después.
+    Provee una sesión de DB (dependencia).
     """
     db: Session = SessionLocal()
     try:
@@ -44,16 +41,25 @@ def get_db() -> Session:
 
 def create_all_tables() -> None:
     """
-    Crea todas las tablas definidas en los modelos de la base de datos.
+    Crea las tablas definidas por los modelos.
     """
     Base.metadata.create_all(bind=engine)
     print("✅ Tablas creadas correctamente en:", DATABASE_PATH)
 
 # ---------------------------------------------
-# EJECUCIÓN DIRECTA DEL SCRIPT
+# EJECUCIÓN DIRECTA DEL SCRIPT -> crea las tablas
 # ---------------------------------------------
 if __name__ == "__main__":
-    # 🔹 Esto asegura que todos los modelos se importen
-    from db.models import User, Face, Preference, Permission, UserPermission, UserMemory, ConversationLog, APILog, IoTCommand
-
+    # Importar todos los modelos para que estén registrados en Base.metadata
+    try:
+        from db.models import (
+            User, Face, Preference, Permission,
+            UserPermission, UserMemory, ConversationLog,
+            APILog, IoTCommand
+        )
+    except Exception:
+        # Si no tenés algunos modelos listados, igualmente intentamos crear tablas
+        # para los que existan. Esto evita fallos si tu models.py tiene nombres distintos.
+        from db import models  # importa lo que exista
     create_all_tables()
+

@@ -48,11 +48,6 @@ logger = logging.getLogger("MainApp")
 # Crear la app FastAPI
 app = FastAPI(title="Casa Inteligente API")
 
-# ❌ Eliminar o comentar la línea antigua con Flask:
-# app.mount("/face", WSGIMiddleware(flask_app))
-
-# ✅ Integrar el nuevo router de reconocimiento facial (FastAPI puro)
-app.include_router(face_recognition_router, prefix="/reconocimiento-facial", tags=["Reconocimiento Facial"])
 
 # Configuración
 CONFIG_PATH = "src/ai/config/config.json"

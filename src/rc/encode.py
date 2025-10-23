@@ -1,4 +1,3 @@
-# src/rc/encode.py
 import os
 import sys
 import pickle
@@ -19,6 +18,7 @@ if SRC_DIR not in sys.path:
 from db.database import SessionLocal  # no modificado, solo para mantener compatibilidad si lo usas
 from db.models import Face, User  # opcional
 
+
 class FaceEncoder:
     """
     Lee imágenes desde: PROYECTO-IOT/data/dataset/<user>/*.jpg
@@ -31,20 +31,24 @@ class FaceEncoder:
         os.makedirs(self.encodings_dir, exist_ok=True)
         self.encodings_path = os.path.join(self.encodings_dir, "encodings.pickle")
 
-    def generate_encodings(self, model: str = "hog") -> Tuple[int, int]:
+    def generate_encodings(self, dataset_dir: str = None, model: str = "hog") -> Tuple[int, int]:
         """
         Recorre data/dataset, genera encodings y guarda pickle.
         Retorna (encodings_count, users_processed).
+
+        ✅ Ahora acepta un parámetro opcional dataset_dir (usado por tu ruta).
         """
-        if not os.path.exists(self.dataset_dir):
-            raise FileNotFoundError(f"No existe dataset en: {self.dataset_dir}")
+        dataset_dir = dataset_dir or self.dataset_dir
+
+        if not os.path.exists(dataset_dir):
+            raise FileNotFoundError(f"No existe dataset en: {dataset_dir}")
 
         known_encodings = []
         known_names = []
         users_processed = 0
 
-        for user_name in sorted(os.listdir(self.dataset_dir)):
-            user_path = os.path.join(self.dataset_dir, user_name)
+        for user_name in sorted(os.listdir(dataset_dir)):
+            user_path = os.path.join(dataset_dir, user_name)
             if not os.path.isdir(user_path):
                 continue
             users_processed += 1

@@ -1,84 +1,103 @@
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import os
 import uuid
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
-from src.rc.capture import FaceCapture
-from rc.encode import FaceEncoder
-from rc.recognize import FaceRecognizer
-from src.api.face_recognition_schemas import (
-    HealthCheckResponse,
-    AddFaceResponse,
-    ListFacesResponse,
-    RecognizeFaceResponse
-)
+from typing import List
+from src.rc.rc_core import FaceRecognitionCore
 
-# === ROUTER SIN PREFIX INTERNOS ===
+
 face_recognition_router = APIRouter(tags=["rc"])
-
-# === PATHS CONSISTENTES CON EL CORE ===
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DATASET_DIR = os.path.join(BASE_DIR, "data", "dataset")
-ENCODINGS_DIR = os.path.join(BASE_DIR, "src", "rc", "encodings")
-ENCODINGS_PATH = os.path.join(ENCODINGS_DIR, "encodings.pickle")
-
-os.makedirs(DATASET_DIR, exist_ok=True)
-os.makedirs(ENCODINGS_DIR, exist_ok=True)
-
-# === INSTANCIAS PRINCIPALES ===
-encoder = FaceEncoder()
-recognizer = FaceRecognizer()
-
-# === ENDPOINTS ===
-
-@face_recognition_router.get("/", response_model=HealthCheckResponse, status_code=status.HTTP_200_OK)
-def health_check():
-    """Verifica que la API de reconocimiento facial esté activa."""
-    return {"status": "ok", "message": "API de reconocimiento facial funcionando correctamente."}
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+core = FaceRecognitionCore()
 
 
-@face_recognition_router.post("/add", response_model=AddFaceResponse, status_code=status.HTTP_200_OK)
-async def add_face(name: str = Form(...), file: UploadFile = File(...)):
-    """Agrega una nueva cara al dataset y actualiza los encodings."""
+
+@face_recognition_router.get("/status", status_code=200)
+def get_status():
+    """
+    Devuelve el estado actual del módulo de reconocimiento facial.
+    """
     try:
-        capture = FaceCapture(dataset_dir=DATASET_DIR)
+        status = core.get_status()
+        return {"status": "ok", "module": "rc", "info": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener estado: {str(e)}")
 
-        # Guardar imagen temporal
-        temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
 
-        # Registrar la imagen y actualizar encodings
-        capture.capture_from_file(name=name, file_path=temp_path)
-        encoder.generate_encodings()
+@face_recognition_router.post("/capture", status_code=200)
+def capture_faces(name: str = Form(...)):
+    """
+    Captura rostros en vivo desde la cámara (usa el FaceCapture del core).
+    """
+    try:
+        count = core.capture_faces(name=name)
+        return {"message": f"Se capturaron {count} imágenes de {name}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al capturar rostros: {str(e)}")
 
-        os.remove(temp_path)
-        return {"message": f"✅ Imagen registrada y encodings actualizados para '{name}'"}
+
+@face_recognition_router.post("/add", status_code=200)
+async def add_faces(name: str = Form(...), files: List[UploadFile] = File(...)):
+    """
+    Agrega imágenes al dataset desde archivos subidos.
+    """
+    temp_paths = []
+    try:
+        for file in files:
+            temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
+            with open(temp_path, "wb") as f:
+                f.write(await file.read())
+            temp_paths.append(temp_path)
+
+        count = core.add_faces_from_files(name=name, file_paths=temp_paths)
+        return {"message": f"Se agregaron {count} imágenes para '{name}'"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al agregar rostro: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al agregar rostros: {str(e)}")
+
+    finally:
+        for path in temp_paths:
+            if os.path.exists(path):
+                os.remove(path)
 
 
-@face_recognition_router.get("/list", response_model=ListFacesResponse, status_code=status.HTTP_200_OK)
+@face_recognition_router.get("/list", status_code=200)
 def list_faces():
-    """Lista todas las personas registradas en el dataset."""
+    """
+    Devuelve la lista de usuarios registrados (dataset).
+    """
     try:
-        capture = FaceCapture(dataset_dir=DATASET_DIR)
-        people = capture.list_registered_users()
-        return {"people": people}
+        status = core.get_status()
+        return {
+            "count": status["registered_users_count"],
+            "users": status["user_list"]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al listar rostros: {str(e)}")
 
 
-@face_recognition_router.post("/recognize", response_model=RecognizeFaceResponse, status_code=status.HTTP_200_OK)
-async def recognize_face(file: UploadFile = File(...)):
-    """Reconoce una cara desde una imagen enviada."""
+@face_recognition_router.post("/encode", status_code=200)
+def encode_faces():
+    """
+    Genera los encodings faciales a partir del dataset.
+    """
     try:
-        temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
+        enc_count, users = core.encode_faces()
+        return {"message": f"Encodings generados: {enc_count} | Usuarios procesados: {users}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar encodings: {str(e)}")
+
+
+@face_recognition_router.post("/recognize", status_code=200)
+async def recognize_face(file: UploadFile = File(...)):
+    """
+    Reconoce un rostro desde una imagen subida (sin cámara).
+    """
+    temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
+    try:
         with open(temp_path, "wb") as f:
             f.write(await file.read())
 
-        recognized_name = recognizer.recognize_from_file(temp_path)
-        os.remove(temp_path)
-
+        recognized_name = core.recognize_face_from_file(temp_path)
         return {
             "recognized": recognized_name != "Desconocido",
             "name": recognized_name
@@ -86,3 +105,22 @@ async def recognize_face(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al reconocer rostro: {str(e)}")
+
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+@face_recognition_router.get("/recognize/cam", status_code=200)
+def recognize_from_cam():
+    """
+    Reconoce un rostro usando la cámara activa en tiempo real.
+    """
+    try:
+        recognized_name = core.recognize_faces_from_cam()
+        return {
+            "recognized": recognized_name != "Desconocido",
+            "name": recognized_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en reconocimiento por cámara: {str(e)}")

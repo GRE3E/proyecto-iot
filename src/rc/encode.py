@@ -6,42 +6,38 @@ import face_recognition
 import numpy as np
 from typing import Tuple
 
-# -----------------------------
-# Rutas: Project root y src dir
-# -----------------------------
+
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-# Importar modelos/DB solo si necesitas (NO obligatorio para este encoder que lee de disco)
-from db.database import SessionLocal  # no modificado, solo para mantener compatibilidad si lo usas
-from db.models import Face, User  # opcional
+
+from db.database import SessionLocal
+from db.models import Face, User
 
 
 class FaceEncoder:
     """
-    Lee imágenes desde: PROYECTO-IOT/data/dataset/<user>/*.jpg
-    Genera encodings y guarda pickle en: PROYECTO-IOT/src/rc/encodings/encodings.pickle
+    Lee imágenes desde: data/dataset/<usuario>/*.jpg
+    Genera encodings y guarda el archivo: src/rc/encodings/encodings.pickle
     """
 
-    def __init__(self):
+    def __init__(self, encodings_path: str = None):
         self.dataset_dir = os.path.join(PROJECT_ROOT, "data", "dataset")
         self.encodings_dir = os.path.join(os.path.dirname(__file__), "encodings")
         os.makedirs(self.encodings_dir, exist_ok=True)
-        self.encodings_path = os.path.join(self.encodings_dir, "encodings.pickle")
+        self.encodings_path = encodings_path or os.path.join(self.encodings_dir, "encodings.pickle")
 
     def generate_encodings(self, dataset_dir: str = None, model: str = "hog") -> Tuple[int, int]:
         """
-        Recorre data/dataset, genera encodings y guarda pickle.
-        Retorna (encodings_count, users_processed).
-
-        ✅ Ahora acepta un parámetro opcional dataset_dir (usado por tu ruta).
+        Recorre data/dataset, genera encodings y guarda el archivo pickle.
+        Retorna una tupla: (cantidad_encodings, cantidad_usuarios_procesados)
         """
         dataset_dir = dataset_dir or self.dataset_dir
 
         if not os.path.exists(dataset_dir):
-            raise FileNotFoundError(f"No existe dataset en: {dataset_dir}")
+            raise FileNotFoundError(f"No existe el dataset en: {dataset_dir}")
 
         known_encodings = []
         known_names = []
@@ -66,15 +62,12 @@ class FaceEncoder:
                     known_encodings.append(e.tolist())
                     known_names.append(user_name)
 
-        # Guardar en src/rc/encodings/encodings.pickle (exactamente como pediste)
+       
         with open(self.encodings_path, "wb") as f:
             pickle.dump({"encodings": known_encodings, "names": known_names}, f)
 
+        print(f"[INFO] Encodings guardados en: {self.encodings_path}")
         return len(known_encodings), users_processed
 
 
-# Ejecución opcional
-if __name__ == "__main__":
-    count, users = FaceEncoder().generate_encodings()
-    print(f"Encodings: {count}, Usuarios: {users}")
-    print("Guardado en:", os.path.join(os.path.dirname(__file__), "encodings", "encodings.pickle"))
+

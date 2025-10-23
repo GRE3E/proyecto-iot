@@ -3,22 +3,35 @@ import face_recognition
 import pickle
 import os
 
-class FaceRecognizer:
-    def __init__(self):
-        # BASE_DIR = src/rc
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.encodings_path = os.path.join(self.base_dir, "encodings", "encodings.pickle")
 
-        # Si no existe el archivo de encodings, inicializamos vacío para que no rompa el servidor
+class FaceRecognizer:
+    """
+    Clase encargada de realizar el reconocimiento facial, ya sea desde cámara o desde archivos.
+    Usa los encodings generados por FaceEncoder y almacenados en:
+    src/rc/encodings/encodings.pickle
+    """
+
+    def __init__(self, encodings_path: str = None):
+        
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        default_encodings_path = os.path.join(self.base_dir, "encodings", "encodings.pickle")
+        self.encodings_path = encodings_path or default_encodings_path
+
+       
         if os.path.exists(self.encodings_path):
             with open(self.encodings_path, "rb") as f:
                 self.data = pickle.load(f)
         else:
             self.data = {"encodings": [], "names": []}
 
-    def recognize(self):
-        print("Iniciando reconocimiento facial...")
-        cap = cv2.VideoCapture(0)
+
+    def recognize_from_cam(self, cam_id: int = 0) -> str:
+        """
+        Reconoce un rostro usando la cámara activa.
+        Retorna el nombre reconocido o 'Desconocido'.
+        """
+        print("[INFO] Iniciando reconocimiento facial desde cámara...")
+        cap = cv2.VideoCapture(cam_id)
         acceso = False
         name = "Desconocido"
 
@@ -44,9 +57,9 @@ class FaceRecognizer:
                     name = max(counts, key=counts.get)
                     acceso = True
 
-                print("Rostro detectado:", name)
+                print(f"[INFO] Rostro detectado: {name}")
 
-            cv2.imshow("Acceso", frame)
+            cv2.imshow("Reconocimiento facial", frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q') or acceso:
                 break
@@ -59,9 +72,12 @@ class FaceRecognizer:
         else:
             print("❌ Acceso denegado")
 
+        return name
+
+    
     def recognize_from_file(self, image_path: str) -> str:
         """
-        Reconoce un rostro desde un archivo de imagen (sin usar la cámara).
+        Reconoce un rostro desde un archivo de imagen.
         Devuelve el nombre reconocido o 'Desconocido'.
         """
         if not os.path.exists(image_path):
@@ -69,7 +85,7 @@ class FaceRecognizer:
 
         img = cv2.imread(image_path)
         if img is None:
-            raise ValueError("No se pudo leer la imagen.")
+            raise ValueError("No se pudo leer la imagen correctamente.")
 
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         boxes = face_recognition.face_locations(rgb)

@@ -3,21 +3,17 @@ import sys
 import cv2
 from sqlalchemy.orm import Session
 
-# -----------------------------
-# Rutas: Project root y src dir
-# -----------------------------
+
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-# Import DB desde paquete 'db' (resuelto con src en sys.path)
+
 from db.database import SessionLocal
 from db.models import User, Face
 
-# -----------------------------
-# Dataset absoluto en /data/dataset
-# -----------------------------
+
 DATASET_DIR = os.path.join(PROJECT_ROOT, "data", "dataset")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
@@ -63,7 +59,7 @@ class FaceCapture:
                 if not ret:
                     break
 
-                # Mostrar (opcional) y guardar con tecla 's'
+                
                 cv2.imshow("Captura - presiona 's' para guardar / 'q' para salir", frame)
                 key = cv2.waitKey(1) & 0xFF
 
@@ -73,7 +69,7 @@ class FaceCapture:
                     img_path = os.path.join(person_dir, img_name)
                     cv2.imwrite(img_path, frame)
 
-                    # Guardar bytes en BD
+                    
                     _, buf = cv2.imencode(".jpg", frame)
                     image_bytes = buf.tobytes()
                     face = Face(user_id=user.id, image_data=image_bytes)
@@ -93,7 +89,10 @@ class FaceCapture:
         """Devuelve la lista de carpetas (personas) registradas en el dataset."""
         if not os.path.exists(self.dataset_dir):
             return []
-        return [name for name in os.listdir(self.dataset_dir) if os.path.isdir(os.path.join(self.dataset_dir, name))]
+        return [
+            name for name in os.listdir(self.dataset_dir)
+            if os.path.isdir(os.path.join(self.dataset_dir, name))
+        ]
 
     def capture_from_file(self, name: str, file_path: str) -> bool:
         """
@@ -105,16 +104,16 @@ class FaceCapture:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"No se encontró el archivo: {file_path}")
 
-        # Crear carpeta del usuario
+        
         person_dir = os.path.join(self.dataset_dir, name)
         os.makedirs(person_dir, exist_ok=True)
 
-        # Leer imagen
+       
         frame = cv2.imread(file_path)
         if frame is None:
             raise ValueError("El archivo no contiene una imagen válida.")
 
-        # Guardar imagen en dataset
+        
         img_count = len(os.listdir(person_dir)) + 1
         img_name = f"{img_count}.jpg"
         img_path = os.path.join(person_dir, img_name)
@@ -141,7 +140,7 @@ class FaceCapture:
         return True
 
 
-# Para compatibilidad manual (no obligatorio para tests)
+
 if __name__ == "__main__":
     name = input("Nombre de la persona: ").strip()
     cnt = FaceCapture().capture(name=name, max_imgs=5)

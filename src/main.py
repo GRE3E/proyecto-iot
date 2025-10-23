@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 import logging
 import warnings
@@ -6,8 +7,15 @@ from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 
+# 🔹 Agregar la carpeta raíz del proyecto y la carpeta 'rc' al path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # C:\Users\Usuario\Desktop\proyecto-iot
+RC_DIR = os.path.join(BASE_DIR, "src", "rc")  # C:\Users\Usuario\Desktop\proyecto-iot\src\rc
+sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, RC_DIR)
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
 # Cargar variables de entorno del archivo .env al inicio
 load_dotenv()
 
@@ -16,6 +24,7 @@ if os.name == 'nt':  # Windows
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI
+from fastapi.middleware.wsgi import WSGIMiddleware
 from src.api.routes import router
 from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _mqtt_client
 from src.api import utils
@@ -29,23 +38,27 @@ from datetime import datetime
 import numpy as np
 from src.utils.logger_config import setup_logging
 
+# ✅ Importar solo el router de reconocimiento facial (FastAPI, no Flask)
+from src.api.face_recognition_routes import face_recognition_router
+
 # Configurar logging
 setup_logging()
 logger = logging.getLogger("MainApp")
 
+# Crear la app FastAPI
 app = FastAPI(title="Casa Inteligente API")
+
+# ❌ Eliminar o comentar la línea antigua con Flask:
+# app.mount("/face", WSGIMiddleware(flask_app))
+
+# ✅ Integrar el nuevo router de reconocimiento facial (FastAPI puro)
+app.include_router(face_recognition_router, prefix="/reconocimiento-facial", tags=["Reconocimiento Facial"])
 
 # Configuración
 CONFIG_PATH = "src/ai/config/config.json"
 
 @ErrorHandler.handle_exceptions
 def load_config() -> Dict[str, Any]:
-    """
-    Carga la configuración desde config.json o crea una por defecto si no existe.
-
-    Returns:
-        Dict[str, Any]: Diccionario con la configuración cargada o por defecto.
-    """
     default_config = {
         "assistant_name": "Murph",
         "language": "es",
@@ -79,17 +92,13 @@ def load_config() -> Dict[str, Any]:
 @app.on_event("startup")
 @ErrorHandler.handle_async_exceptions
 async def startup_event() -> None:
-    """
-    Evento de inicio de la aplicación.
-    Inicializa la configuración, la base de datos y los módulos de IA/IoT.
-    """
     logger.info("Iniciando aplicación Casa Inteligente...")
-    
+
     config = load_config()
     logger.info(f"Configuración cargada: {config}")
 
     Base.metadata.create_all(bind=engine)
-    
+
     await initialize_nlp()
 
     app.state.mqtt_client = _mqtt_client
@@ -103,12 +112,8 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 @ErrorHandler.handle_async_exceptions
 async def shutdown_event() -> None:
-    """
-    Evento de cierre de la aplicación.
-    Realiza la limpieza de recursos, como detener el HotwordDetector y desconectar los gestores IoT.
-    """
     logger.info("Cerrando aplicación...")
-    
+
     if _hotword_task:
         logger.info("Cancelando tarea de HotwordDetector...")
         _hotword_task.cancel()
@@ -126,7 +131,8 @@ async def shutdown_event() -> None:
             context="shutdown_event.mqtt_disconnect"
         )
         logger.info("Desconectando cliente MQTT...")
-    
+
     logger.info("Aplicación cerrada correctamente")
 
+# ✅ Mantener tus rutas principales intactas
 app.include_router(router, prefix="")

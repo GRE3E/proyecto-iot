@@ -24,11 +24,6 @@ os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(ENCODINGS_DIR, exist_ok=True)
 
 logger = logging.getLogger("FaceRecognitionCore")
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-ch.setFormatter(formatter)
-logger.addHandler(ch)
 
 
 class FaceRecognitionCore:

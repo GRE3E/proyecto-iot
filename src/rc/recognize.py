@@ -2,6 +2,7 @@ import cv2
 import face_recognition
 import pickle
 import os
+import logging
 
 
 class FaceRecognizer:
@@ -10,6 +11,8 @@ class FaceRecognizer:
     Usa los encodings generados por FaceEncoder y almacenados en:
     src/rc/encodings/encodings.pickle
     """
+
+    logger = logging.getLogger("FaceRecognizer")
 
     def __init__(self, encodings_path: str = None):
         
@@ -24,13 +27,14 @@ class FaceRecognizer:
         else:
             self.data = {"encodings": [], "names": []}
 
+        FaceRecognizer.logger.info("FaceRecognizer inicializado.")
 
     def recognize_from_cam(self, cam_id: int = 0) -> str:
         """
         Reconoce un rostro usando la cámara activa.
         Retorna el nombre reconocido o 'Desconocido'.
         """
-        print("[INFO] Iniciando reconocimiento facial desde cámara...")
+        FaceRecognizer.logger.info("Iniciando reconocimiento facial desde cámara...")
         cap = cv2.VideoCapture(cam_id)
         acceso = False
         name = "Desconocido"
@@ -57,7 +61,7 @@ class FaceRecognizer:
                     name = max(counts, key=counts.get)
                     acceso = True
 
-                print(f"[INFO] Rostro detectado: {name}")
+                FaceRecognizer.logger.info(f"Rostro detectado: {name}")
 
             cv2.imshow("Reconocimiento facial", frame)
 
@@ -68,9 +72,9 @@ class FaceRecognizer:
         cv2.destroyAllWindows()
 
         if acceso:
-            print(f"✅ Acceso concedido a: {name}")
+            FaceRecognizer.logger.info(f"✅ Acceso concedido a: {name}")
         else:
-            print("❌ Acceso denegado")
+            FaceRecognizer.logger.info("❌ Acceso denegado")
 
         return name
 

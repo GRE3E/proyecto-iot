@@ -4,6 +4,7 @@ import pickle
 import cv2
 import face_recognition
 import numpy as np
+import logging
 from typing import Tuple
 
 
@@ -15,6 +16,8 @@ if SRC_DIR not in sys.path:
 
 from db.database import SessionLocal
 from db.models import Face, User
+
+logger = logging.getLogger("FaceEncoder")
 
 
 class FaceEncoder:

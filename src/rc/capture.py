@@ -1,6 +1,7 @@
 import os
 import sys
 import cv2
+import logging
 from sqlalchemy.orm import Session
 
 
@@ -13,6 +14,7 @@ if SRC_DIR not in sys.path:
 from db.database import SessionLocal
 from db.models import User, Face
 
+logger = logging.getLogger("FaceCapture")
 
 DATASET_DIR = os.path.join(PROJECT_ROOT, "data", "dataset")
 os.makedirs(DATASET_DIR, exist_ok=True)

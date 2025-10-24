@@ -37,6 +37,11 @@ class ColoredFormatter(logging.Formatter):
         'IoTCommandCache': '\033[38;5;214m',       # Naranja-rojo para IoTCommandCache
         'PromptCreator': '\033[38;5;226m',         # Amarillo brillante para PromptCreator
         'PromptLoader': '\033[38;5;198m',          # Rosa vibrante para PromptLoader
+        'FaceRecognitionCore': '\033[38;5;20m',    # Azul oscuro para FaceRecognitionCore
+        'FaceCapture': '\033[38;5;21m',            # Azul medio para FaceCapture
+        'FaceEncoder': '\033[38;5;22m',            # Verde oscuro para FaceEncoder
+        'FaceRecognizer': '\033[38;5;23m',         # Gris azulado para FaceRecognizer
+        'ErrorHandler': '\033[38;5;166m',           # Naranja quemado para ErrorHandler
         'root': '\033[38;5;240m',                  # Gris oscuro
     }
 

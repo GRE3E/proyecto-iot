@@ -127,6 +127,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -217,6 +218,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -243,6 +245,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -287,6 +290,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -312,6 +316,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -378,6 +383,7 @@ Respuesta:
   "hotword": "ONLINE",
   "mqtt": "ONLINE",
   "tts": "ONLINE",
+  "face_recognition": "ONLINE",
   "utils": "ONLINE"
 }
 ```
@@ -386,6 +392,123 @@ Respuesta:
 
 Obtiene los datos actuales del dashboard IoT, incluyendo estados de dispositivos y lecturas de sensores.
 
+```
+
+### Face Recognition Endpoints
+
+#### GET /rc/status
+
+Devuelve el estado actual del módulo de reconocimiento facial.
+
+Respuesta:
+
+```json
+{
+  "status": "ok",
+  "module": "rc",
+  "info": {
+    "active": true,
+    "registered_users_count": 0,
+    "user_list": []
+  }
+}
+```
+
+#### POST /rc/capture
+
+Captura rostros en vivo desde la cámara.
+
+Cuerpo de la solicitud:
+
+```
+name: str (Form)
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Se capturaron {count} imágenes de {name}"
+}
+```
+
+#### POST /rc/add
+
+Agrega imágenes al dataset desde archivos subidos.
+
+Cuerpo de la solicitud:
+
+```
+name: str (Form)
+files: List[UploadFile] (File)
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Se agregaron {count} imágenes para '{name}'"
+}
+```
+
+#### GET /rc/list
+
+Devuelve la lista de usuarios registrados (dataset).
+
+Respuesta:
+
+```json
+{
+  "count": 0,
+  "users": [
+    "string"
+  ]
+}
+```
+
+#### POST /rc/encode
+
+Genera los encodings faciales a partir del dataset.
+
+Respuesta:
+
+```json
+{
+  "message": "Encodings generados: {enc_count} | Usuarios procesados: {users}"
+}
+```
+
+#### POST /rc/recognize
+
+Reconoce un rostro desde una imagen subida (sin cámara).
+
+Cuerpo de la solicitud:
+
+```
+file: UploadFile (File)
+```
+
+Respuesta:
+
+```json
+{
+  "recognized": true,
+  "name": "string"
+}
+```
+
+#### GET /rc/recognize/cam
+
+Reconoce un rostro usando la cámara activa en tiempo real.
+
+Respuesta:
+
+```json
+{
+  "recognized": true,
+  "name": "string"
+}
+```
 Respuesta:
 
 ```json

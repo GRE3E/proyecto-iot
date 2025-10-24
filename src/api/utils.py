@@ -2,6 +2,7 @@ from src.ai.nlp.nlp_core import NLPModule
 from src.ai.stt.stt import STTModule
 from src.ai.speaker.speaker import SpeakerRecognitionModule
 from src.ai.tts.tts_module import TTSModule
+from src.rc.rc_core import FaceRecognitionCore 
 from src.ai.hotword.hotword import HotwordDetector, hotword_callback_async
 from src.iot.mqtt_client import MQTTClient
 import os
@@ -24,6 +25,7 @@ _hotword_module: Optional[HotwordDetector] = None
 _mqtt_client: Optional[MQTTClient] = None
 _hotword_task: Optional[asyncio.Task] = None
 _tts_module: Optional[TTSModule] = None
+_face_recognition_module: Optional[FaceRecognitionCore] = None 
 
 def get_module_status() -> StatusResponse:
     """
@@ -38,6 +40,7 @@ def get_module_status() -> StatusResponse:
     hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
     mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
     tts_status = "ONLINE" if _tts_module and _tts_module.is_online() else "OFFLINE"
+    face_recognition_status = "ONLINE" if _face_recognition_module else "OFFLINE"
     utils_status = "ONLINE" if _nlp_module else "OFFLINE"
     
     return StatusResponse(
@@ -47,6 +50,7 @@ def get_module_status() -> StatusResponse:
         hotword=hotword_status,
         mqtt=mqtt_status,
         tts=tts_status,
+        face_recognition=face_recognition_status,
         utils=utils_status
     )
 
@@ -125,6 +129,13 @@ async def initialize_nlp() -> None:
         context="initialize_nlp.tts_module"
     )
     logger.info(f"TTSModule inicializado. Online: {_tts_module.is_online() if _tts_module else False}")
+    
+    _face_recognition_module = await ErrorHandler.safe_execute_async(
+        lambda: FaceRecognitionCore(),
+        default_return=None,
+        context="initialize_nlp.face_recognition_module"
+    )
+    logger.info(f"FaceRecognitionCore inicializado. Online: {True if _face_recognition_module else False}")
     
     # Inicialización del módulo Hotword
     access_key = os.getenv("PICOVOICE_ACCESS_KEY")

@@ -8,4 +8,5 @@ class StatusResponse(BaseModel):
     hotword: str = "OFFLINE"
     mqtt: str = "OFFLINE"
     tts: str = "OFFLINE"
+    face_recognition: str = "OFFLINE"
     utils: str = "OFFLINE"

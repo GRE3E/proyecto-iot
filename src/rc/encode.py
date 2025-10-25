@@ -68,8 +68,7 @@ class FaceEncoder:
        
         with open(self.encodings_path, "wb") as f:
             pickle.dump({"encodings": known_encodings, "names": known_names}, f)
-
-        print(f"[INFO] Encodings guardados en: {self.encodings_path}")
+        logger.info(f"Encodings guardados en: {self.encodings_path}")
         return len(known_encodings), users_processed
 
 

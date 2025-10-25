@@ -73,7 +73,7 @@ class FaceRecognitionCore:
 
     def recognize_faces_from_cam(self, cam_id: int = 0) -> str:
         """Reconoce un rostro en tiempo real usando cámara."""
-        return self.recognizer.recognize()
+        return self.recognizer.recognize_from_cam(cam_id)
 
     def get_status(self):
         """Devuelve información resumida del sistema."""

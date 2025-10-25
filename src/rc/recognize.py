@@ -4,7 +4,6 @@ import pickle
 import os
 import logging
 
-
 class FaceRecognizer:
     """
     Clase encargada de realizar el reconocimiento facial, ya sea desde cámara o desde archivos.
@@ -15,12 +14,9 @@ class FaceRecognizer:
     logger = logging.getLogger("FaceRecognizer")
 
     def __init__(self, encodings_path: str = None):
-        
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         default_encodings_path = os.path.join(self.base_dir, "encodings", "encodings.pickle")
         self.encodings_path = encodings_path or default_encodings_path
-
-       
         if os.path.exists(self.encodings_path):
             with open(self.encodings_path, "rb") as f:
                 self.data = pickle.load(f)
@@ -43,7 +39,6 @@ class FaceRecognizer:
             ret, frame = cap.read()
             if not ret:
                 break
-
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             boxes = face_recognition.face_locations(rgb)
             encs = face_recognition.face_encodings(rgb, boxes)
@@ -67,18 +62,13 @@ class FaceRecognizer:
 
             if cv2.waitKey(1) & 0xFF == ord('q') or acceso:
                 break
-
         cap.release()
         cv2.destroyAllWindows()
-
         if acceso:
-            FaceRecognizer.logger.info(f"✅ Acceso concedido a: {name}")
+            FaceRecognizer.logger.info(f"Acceso concedido a: {name}")
         else:
-            FaceRecognizer.logger.info("❌ Acceso denegado")
-
+            FaceRecognizer.logger.info("Acceso denegado")
         return name
-
-    
     def recognize_from_file(self, image_path: str) -> str:
         """
         Reconoce un rostro desde un archivo de imagen.
@@ -110,5 +100,4 @@ class FaceRecognizer:
                     counts[n] = counts.get(n, 0) + 1
                 name = max(counts, key=counts.get)
                 return name
-
         return "Desconocido"

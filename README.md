@@ -4,7 +4,7 @@
 
 Este proyecto es un asistente de hogar inteligente avanzado, diseñado para interactuar de manera eficiente y segura con el usuario para controlar dispositivos IoT, ejecutar comandos específicos y proporcionar información relevante sobre el entorno del hogar. Utiliza procesamiento de lenguaje natural (NLP), reconocimiento de voz (STT y Speaker Recognition), síntesis de voz (TTS), detección de hotword y comunicación con dispositivos IoT a través de MQTT.
 
-## Requisitos (actualizar)
+## Requisitos
 
 - Python 3.10 o superior
 - Ollama instalado con el modelo (para NLP)
@@ -12,6 +12,7 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
 - Modelos de Whisper (se descargarán automáticamente al usar el módulo STT)
 - Picovoice Console para obtener una clave de acceso y entrenar una palabra clave personalizada.
 - Configuración de MQTT para la comunicación con dispositivos IoT.
+- CMake para el modulo de reconocimiento facial
 
 ## Instalación
 
@@ -392,7 +393,7 @@ Respuesta:
 
 Obtiene los datos actuales del dashboard IoT, incluyendo estados de dispositivos y lecturas de sensores.
 
-```
+````
 
 ### Face Recognition Endpoints
 
@@ -412,7 +413,7 @@ Respuesta:
     "user_list": []
   }
 }
-```
+````
 
 #### POST /rc/capture
 
@@ -460,9 +461,7 @@ Respuesta:
 ```json
 {
   "count": 0,
-  "users": [
-    "string"
-  ]
+  "users": ["string"]
 }
 ```
 
@@ -509,6 +508,7 @@ Respuesta:
   "name": "string"
 }
 ```
+
 Respuesta:
 
 ```json

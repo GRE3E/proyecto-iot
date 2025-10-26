@@ -1,6 +1,7 @@
+//Tarjetas bases para contenedores
 "use client"
 import React from "react"
-import { useThemeByTime } from "../hooks/useThemeByTime"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 
 const SimpleCard = React.memo(({ children, className = "" }: any) => {
   const { colors } = useThemeByTime()

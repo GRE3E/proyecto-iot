@@ -1,7 +1,8 @@
+// GestionDispositivos.tsx
 "use client"
 
 import React from "react"
-import SimpleCard from "../UI/SimpleCard"
+import SimpleCard from "../components/UI/Card"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Zap,
@@ -19,78 +20,8 @@ import {
   BarChart2,
   Calendar,
 } from "lucide-react"
-
-interface EnergyGaugeProps {
-  value: number
-  maxValue: number
-  label: string
-  color: string
-  icon: React.ReactElement<React.SVGProps<SVGSVGElement>>
-}
-
-// Nuevo componente de Medidor de Energía con efecto líquido
-function EnergyGauge({ value, maxValue, label, color, icon }: EnergyGaugeProps) {
-  const percentage = (value / maxValue) * 100
-  const fluidHeight = Math.min(Math.max(percentage, 5), 100)
-  const gradientColor = `from-${color}-400 to-${color}-600`
-
-  return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <div className="w-32 h-32 md:w-40 md:h-40 relative flex items-center justify-center">
-        <div className="w-full h-full rounded-full border-4 border-slate-700/50 relative overflow-hidden shadow-inner shadow-slate-900/40">
-          <motion.div
-            className={`w-full absolute bottom-0 bg-gradient-to-t ${gradientColor}`}
-            initial={{ height: "0%" }}
-            animate={{ height: `${fluidHeight}%` }}
-            transition={{ type: "spring", stiffness: 100, damping: 20 }}
-            style={{ filter: `drop-shadow(0 0 5px ${color})` }}
-          />
-        </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center bg-slate-800/60 backdrop-blur-sm">
-            {React.cloneElement(icon, { className: "w-8 h-8 md:w-10 md:h-10 text-white" })}
-          </div>
-          <p className="mt-2 text-base md:text-xl font-bold text-white font-inter">
-            {value}
-            <span className="text-sm md:text-base font-semibold text-white"> kWh</span>
-          </p>
-          <p className="text-xs md:text-sm text-white font-medium">{label}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Componente para la gráfica de tendencia mejorada
-function EnergyTrendChart({ data = [210, 220, 200, 230, 240, 250, 260, 245, 235, 255, 270, 265, 280, 290] }) {
-  const max = Math.max(...data)
-  const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / max) * 100}`).join(" ")
-  return (
-    <div className="w-full h-24 sm:h-32 md:h-40 bg-slate-900/40 rounded-lg p-2 sm:p-3">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <defs>
-          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d={`M 0,${100 - (data[0] / max) * 100} L ${points}`}
-          fill="url(#chartGradient)"
-          stroke="none"
-        />
-        <polyline
-          fill="none"
-          stroke="#a78bfa"
-          strokeWidth={2}
-          points={points}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  )
-}
+import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
+import EnergyGauge from "../components/widgets/EnergyGauge"
 
 interface Device {
   name: string
@@ -99,30 +30,22 @@ interface Device {
   on: boolean
 }
 
-interface Props {
-  devices: Device[]
-  setDevices: (d: Device[]) => void
-  energyUsage: number
-  setEnergyUsage: (v: number) => void
-  filter: string
-  setFilter: (f: string) => void
-}
 
-export default function GestionDispositivos({
-  devices,
-  setDevices,
-  energyUsage,
-  setEnergyUsage,
-  filter,
-  setFilter,
-}: Props) {
+export default function GestionDispositivos() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const {
+    devices,
+    energyUsage,
+    setEnergyUsage,
+    filter,
+    setFilter,
+    toggleDevice,
+    estimatedDailyCost,
+    estimatedMonthlyCost,
+    estimatedAnnualCost,
+  } = useGestionDispositivos()
+
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
-
-  const toggleDevice = (index: number) => {
-    const updated = [...devices]
-    updated[index].on = !updated[index].on
-    setDevices(updated)
-  }
 
   const getDeviceIcon = (device: Device) => {
     if (device.name.includes("Luz") || device.name.includes("Bombillo") || device.name.includes("Lámpara")) {
@@ -137,12 +60,8 @@ export default function GestionDispositivos({
   const filteredDevices = devices.filter(
     (d) => filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on),
   )
-  
-  const costPerKWH = 0.15 
-  const estimatedDailyCost = ((energyUsage / 1000) * 24) * costPerKWH 
-  const estimatedMonthlyCost = estimatedDailyCost * 30 
-  const estimatedAnnualCost = estimatedMonthlyCost * 12
 
+  // Mantengo las mismas constantes visuales / cálculos (siempre vienen del hook)
   return (
     <div className="font-inter min-h-screen pb-8">
       <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5 border-b border-slate-700/30">
@@ -290,7 +209,7 @@ export default function GestionDispositivos({
                 <AnimatePresence>
                   {filteredDevices.map((device, i) => (
                     <motion.div
-                      key={device.name} // Usar un key más estable como el nombre del dispositivo
+                      key={device.name}
                       initial={{ opacity: 0, y: 50, scale: 0.8 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
@@ -420,7 +339,28 @@ export default function GestionDispositivos({
                     <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
                     <span>Tendencia de Consumo (últimos 14 días)</span>
                   </h3>
-                  <EnergyTrendChart />
+                  {/* EnergyTrendChart inlined (mantengo la implementación original) */}
+                  <div className="w-full h-24 sm:h-32 md:h-40 bg-slate-900/40 rounded-lg p-2 sm:p-3">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+                      <defs>
+                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      {(() => {
+                        const data = [210, 220, 200, 230, 240, 250, 260, 245, 235, 255, 270, 265, 280, 290]
+                        const max = Math.max(...data)
+                        const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / max) * 100}`).join(" ")
+                        return (
+                          <>
+                            <path d={`M 0,${100 - (data[0] / max) * 100} L ${points}`} fill="url(#chartGradient)" stroke="none" />
+                            <polyline fill="none" stroke="#a78bfa" strokeWidth={2} points={points} strokeLinecap="round" strokeLinejoin="round" />
+                          </>
+                        )
+                      })()}
+                    </svg>
+                  </div>
                 </SimpleCard>
                 <SimpleCard className="p-5 sm:p-6 md:p-7 lg:p-8">
                   <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-4 sm:mb-5 md:mb-6 text-blue-400 font-inter flex items-center gap-2">

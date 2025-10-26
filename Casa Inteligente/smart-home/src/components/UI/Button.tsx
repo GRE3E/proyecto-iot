@@ -1,6 +1,7 @@
+//Boton Universal
 "use client"
 import React from "react"
-import { useThemeByTime } from "../hooks/useThemeByTime"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 
 const SimpleButton = React.memo(({ children, onClick, active = false, className = "" }: any) => {
   const { colors } = useThemeByTime()

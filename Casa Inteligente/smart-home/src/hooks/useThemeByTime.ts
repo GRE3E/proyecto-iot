@@ -1,10 +1,17 @@
+//Cambia de color dependiendo de la hora del día
 "use client"
+import { useState, useEffect, useCallback } from "react"
 
-import { useState, useEffect } from "react"
+/**
+ * Tipo de tema disponible.
+ */
+export type ThemeMode = "day" | "afternoon" | "night"
 
-type Theme = "day" | "afternoon" | "night"
-
-export const futuristicThemes = {
+/**
+ * Paleta de colores futurista basada en el momento del día.
+ * Optimizada para UX/UI con contraste, consistencia y feedback visual.
+ */
+export const futuristicThemes: Record<ThemeMode, Record<string, string>> = {
   day: {
     primary: "from-cyan-400 to-blue-500",
     secondary: "from-emerald-400 to-teal-500",
@@ -37,29 +44,29 @@ export const futuristicThemes = {
   },
 }
 
+/**
+ * Hook que adapta la paleta de colores según la hora local del usuario.
+ * - Actualiza cada minuto automáticamente.
+ * - Devuelve el tema activo y sus colores.
+ */
 export function useThemeByTime() {
-  const [themeByTime, setThemeByTime] = useState<Theme>("night")
+  const [themeMode, setThemeMode] = useState<ThemeMode>("night")
 
-  useEffect(() => {
-    const updateTheme = () => {
-      const hour = new Date().getHours()
-
-      if (hour >= 6 && hour < 12) {
-        setThemeByTime("day")
-      } else if (hour >= 12 && hour < 18) {
-        setThemeByTime("afternoon")
-      } else {
-        setThemeByTime("night")
-      }
-    }
-
-    updateTheme()
-    const interval = setInterval(updateTheme, 60000)
-    return () => clearInterval(interval)
+  const calculateTheme = useCallback((): ThemeMode => {
+    const hour = new Date().getHours()
+    if (hour >= 6 && hour < 12) return "day"
+    if (hour >= 12 && hour < 18) return "afternoon"
+    return "night"
   }, [])
 
+  useEffect(() => {
+    setThemeMode(calculateTheme())
+    const interval = setInterval(() => setThemeMode(calculateTheme()), 60_000)
+    return () => clearInterval(interval)
+  }, [calculateTheme])
+
   return {
-    theme: themeByTime,
-    colors: futuristicThemes[themeByTime],
+    theme: themeMode,
+    colors: futuristicThemes[themeMode],
   }
 }

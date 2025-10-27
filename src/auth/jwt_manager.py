@@ -1,0 +1,45 @@
+"""
+Manejo de tokens JWT para autenticación.
+"""
+from datetime import datetime, timedelta
+from typing import Dict, Optional
+from jose import JWTError, jwt
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
+
+# Configuración de JWT
+SECRET_KEY = "tu_clave_secreta_muy_segura"  # Cambiar en producción y usar variables de entorno
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Crea un token JWT con los datos proporcionados.
+    """
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str) -> Dict:
+    """
+    Verifica y decodifica un token JWT.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
+    """
+    Obtiene el usuario actual a partir del token JWT.
+    """
+    return verify_token(token)

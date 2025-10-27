@@ -13,12 +13,15 @@ from src.api.iot_routes import iot_router
 from src.api.addons_routes import router as addons_router
 from src.api.permissions_routes import router as permissions_router
 from src.api.face_recognition_routes import face_recognition_router
+from src.api.auth_router import router as auth_router
 from src.api import utils
 
 logger = logging.getLogger("APIRoutes")
 
 router = APIRouter()
 
+# Incluir los demás routers
+router.include_router(auth_router, prefix="/auth", tags=["auth"])
 router.include_router(hotword_router, prefix="/hotword", tags=["hotword"])
 router.include_router(tts_router, prefix="/tts", tags=["tts"])
 router.include_router(nlp_router, prefix="/nlp", tags=["nlp"])

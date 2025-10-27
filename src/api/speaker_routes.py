@@ -7,8 +7,6 @@ import logging
 from pathlib import Path
 import tempfile
 from src.db.models import User
-
-# Importar módulos globales desde utils
 from src.api import utils
 
 logger = logging.getLogger("APIRoutes")
@@ -95,7 +93,7 @@ async def identify_speaker(audio_file: UploadFile = File(...), db: AsyncSession 
             future_identified_user = utils._speaker_module.identify_speaker(str(file_location))
             identified_user, _ = future_identified_user.result()
 
-        if identified_user is None:  # Check for None explicitly
+        if identified_user is None:
             raise HTTPException(status_code=500, detail="No se pudo identificar al hablante")
         
         response_obj = SpeakerIdentifyResponse(speaker_name=identified_user.nombre, user_id=identified_user.id, is_owner=identified_user.is_owner)
@@ -142,7 +140,6 @@ async def update_speaker_owner(request: SpeakerUpdateOwnerRequest, db: AsyncSess
             utils._nlp_module._save_config()
             utils._nlp_module.reload()
         else:
-            # If the owner is being removed, check if this was the current owner
             if utils._nlp_module._config.get("owner_name") == user.nombre:
                 utils._nlp_module._config["owner_name"] = None
                 utils._nlp_module._save_config()
@@ -157,3 +154,4 @@ async def update_speaker_owner(request: SpeakerUpdateOwnerRequest, db: AsyncSess
     except Exception as e:
         logger.error(f"Error al actualizar el estado de propietario del hablante para /speaker/update_owner: {e}")
         raise HTTPException(status_code=500, detail="Error al actualizar el estado de propietario del hablante")
+        

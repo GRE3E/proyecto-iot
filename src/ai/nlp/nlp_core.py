@@ -217,7 +217,7 @@ class NLPModule:
         else:
             return re.sub(NAME_CHANGE_REGEX, "", full_response_content).strip()
     
-    async def generate_response(self, prompt: str, user_id: int, db: AsyncSession) -> Optional[dict]:
+    async def generate_response(self, prompt: str, user_id: int) -> Optional[dict]:
         """Genera una respuesta usando Ollama, gestionando memoria, permisos y comandos IoT."""
         logger.info(f"Generando respuesta para el prompt: '{prompt[:100]}...' (Usuario ID: {user_id})")
 
@@ -239,79 +239,80 @@ class NLPModule:
         if user_id is None:
             return {"response": "user_id es requerido para consultas NLP.", "error": "user_id es requerido", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
         
-        user_task = asyncio.create_task(self._validate_user(user_id))
-        iot_commands_task = asyncio.create_task(self._load_iot_commands())
-        
-        await asyncio.gather(user_task, iot_commands_task)
-        
-        db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = user_task.result()
-        formatted_iot_commands, iot_command_names, iot_error = iot_commands_task.result()
-        
-        recent_conversations = await self._user_manager.get_recent_conversation(db, user_id, limit=5)
-        if not db_user:
-                return {"response": "Usuario no autorizado o no encontrado.", "error": "Usuario no autorizado o no encontrado.", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
-
-        if iot_error:
-                return {"response": iot_error, "error": iot_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
-
-        search_results_str = ""
-        reprompt_with_search = False
-        retries = self._config["model"].get("llm_retries", 2)
-        extracted_command = None
-
-        for attempt in range(retries):
-            system_prompt, prompt_text = create_system_prompt(
-                config=self._config,
-                user_name=user_name,
-                is_owner=is_owner,
-                user_permissions_str=user_permissions_str,
-                formatted_iot_commands=formatted_iot_commands,
-                iot_command_names=iot_command_names,
-                search_results_str=search_results_str,
-                user_preferences_dict=user_preferences_dict,
-                prompt=prompt,
-                recent_conversations=recent_conversations
-            )
-
-            full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
-            if llm_error:
-                if attempt == retries - 1:
-                    return {"response": llm_error, "error": llm_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
-                continue
-            if not reprompt_with_search:
-                memory_results, needs_reprompt = await self._process_memory_search(db, user_id, full_response_content)
-                if needs_reprompt:
-                    search_results_str = memory_results
-                    reprompt_with_search = True
-                    if attempt < retries - 1:
-                        continue
-                    else:
-                        logger.warning("Se alcanzó el límite de reintentos para búsqueda en memoria.")
-
-            full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
-            full_response_content = await self._process_name_change(db, full_response_content, user_id)
-            full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
+        async with get_db() as db:
+            user_task = asyncio.create_task(self._validate_user(user_id))
+            iot_commands_task = asyncio.create_task(self._load_iot_commands())
             
-            response_for_memory = full_response_content
-            full_response_content, extracted_command = await self._process_iot_command(db, full_response_content)
+            await asyncio.gather(user_task, iot_commands_task)
             
-            if user_id != 0:
-                try:
-                    await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
-                except Exception as e:
-                    return {"response": f"Error interno al actualizar la memoria: {e}", "error": str(e), "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+            db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = user_task.result()
+            formatted_iot_commands, iot_command_names, iot_error = iot_commands_task.result()
+            
+            recent_conversations = await self._user_manager.get_recent_conversation(db, user_id, limit=5)
+            if not db_user:
+                    return {"response": "Usuario no autorizado o no encontrado.", "error": "Usuario no autorizado o no encontrado.", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
 
-            return {
-                "identified_speaker": user_name or "Desconocido",
-                "response": full_response_content,
-                "command": extracted_command,
-                "user_name": user_name,
-                "preference_key": None,
-                "preference_value": None,
-                "is_owner": is_owner
-            }
-            self._online = False
-            return {"response": "No se pudo procesar tu solicitud. Intenta más tarde.", "error": "Agotados intentos", "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+            if iot_error:
+                    return {"response": iot_error, "error": iot_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+
+            search_results_str = ""
+            reprompt_with_search = False
+            retries = self._config["model"].get("llm_retries", 2)
+            extracted_command = None
+
+            for attempt in range(retries):
+                system_prompt, prompt_text = create_system_prompt(
+                    config=self._config,
+                    user_name=user_name,
+                    is_owner=is_owner,
+                    user_permissions_str=user_permissions_str,
+                    formatted_iot_commands=formatted_iot_commands,
+                    iot_command_names=iot_command_names,
+                    search_results_str=search_results_str,
+                    user_preferences_dict=user_preferences_dict,
+                    prompt=prompt,
+                    recent_conversations=recent_conversations
+                )
+
+                full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
+                if llm_error:
+                    if attempt == retries - 1:
+                        return {"response": llm_error, "error": llm_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+                    continue
+                if not reprompt_with_search:
+                    memory_results, needs_reprompt = await self._process_memory_search(db, user_id, full_response_content)
+                    if needs_reprompt:
+                        search_results_str = memory_results
+                        reprompt_with_search = True
+                        if attempt < retries - 1:
+                            continue
+                        else:
+                            logger.warning("Se alcanzó el límite de reintentos para búsqueda en memoria.")
+
+                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                full_response_content = await self._process_name_change(db, full_response_content, user_id)
+                full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
+                
+                response_for_memory = full_response_content
+                full_response_content, extracted_command = await self._process_iot_command(db, full_response_content)
+                
+                if user_id != 0:
+                    try:
+                        await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
+                    except Exception as e:
+                        return {"response": f"Error interno al actualizar la memoria: {e}", "error": str(e), "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+
+                return {
+                    "identified_speaker": user_name or "Desconocido",
+                    "response": full_response_content,
+                    "command": extracted_command,
+                    "user_name": user_name,
+                    "preference_key": None,
+                    "preference_value": None,
+                    "is_owner": is_owner
+                }
+                self._online = False
+                return {"response": "No se pudo procesar tu solicitud. Intenta más tarde.", "error": "Agotados intentos", "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
 
     async def update_assistant_name(self, new_name: str):
         """Actualiza el nombre del asistente."""

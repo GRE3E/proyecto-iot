@@ -5,8 +5,6 @@ from src.api.stt_schemas import STTResponse
 import logging
 from pathlib import Path
 import tempfile
-
-# Importar módulos globales desde utils
 from src.api import utils
 
 logger = logging.getLogger("APIRoutes")
@@ -19,7 +17,6 @@ async def transcribe_audio(audio_file: UploadFile = File(...), db: AsyncSession 
     if utils._stt_module is None or not utils._stt_module.is_online():
         raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")
     
-    # Guardar el archivo de audio temporalmente en un directorio temporal
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             file_location = Path(tmpdir) / audio_file.filename
@@ -39,3 +36,4 @@ async def transcribe_audio(audio_file: UploadFile = File(...), db: AsyncSession 
     except Exception as e:
         logger.error(f"Error en transcripción STT para /stt/transcribe: {e}")
         raise HTTPException(status_code=500, detail="Error al transcribir el audio")
+        

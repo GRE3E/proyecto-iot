@@ -4,23 +4,17 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
-
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.db.database import get_db
 from src.db.models import User
 from src.api.hotword_schemas import HotwordAudioProcessResponse
 from src.api import utils
-from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
+from src.api.tts_routes import AUDIO_OUTPUT_DIR
 from src.ai.tts.tts_module import handle_tts_generation_and_playback
 
-
 logger = logging.getLogger("APIRoutes")
-
 hotword_router = APIRouter()
-
 
 # ====================== Endpoint principal ======================
 @hotword_router.post("/hotword/process_audio", response_model=HotwordAudioProcessResponse)
@@ -104,7 +98,6 @@ async def process_hotword_audio(
             )
             if identified_user_obj:
                 identified_speaker_name = new_unknown_name
-                is_owner_for_nlp = False
                 user_id_for_nlp = identified_user_obj.id
                 logger.info(f"Nuevo hablante desconocido registrado: {new_unknown_name}")
             else:

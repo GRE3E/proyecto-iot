@@ -3,22 +3,18 @@ import sys
 import cv2
 import logging
 from sqlalchemy.orm import Session
-
+from db.database import SessionLocal
+from db.models import User, Face
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-
-from db.database import SessionLocal
-from db.models import User, Face
-
 logger = logging.getLogger("FaceCapture")
 
 DATASET_DIR = os.path.join(PROJECT_ROOT, "data", "dataset")
 os.makedirs(DATASET_DIR, exist_ok=True)
-
 
 class FaceCapture:
     """
@@ -121,7 +117,6 @@ class FaceCapture:
         img_path = os.path.join(person_dir, img_name)
         cv2.imwrite(img_path, frame)
 
-        # Guardar en base de datos
         db: Session = SessionLocal()
         try:
             user = db.query(User).filter(User.nombre == name).first()

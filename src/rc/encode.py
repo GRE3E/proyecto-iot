@@ -3,22 +3,15 @@ import sys
 import pickle
 import cv2
 import face_recognition
-import numpy as np
 import logging
 from typing import Tuple
-
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-
-from db.database import SessionLocal
-from db.models import Face, User
-
 logger = logging.getLogger("FaceEncoder")
-
 
 class FaceEncoder:
     """
@@ -70,6 +63,3 @@ class FaceEncoder:
             pickle.dump({"encodings": known_encodings, "names": known_names}, f)
         logger.info(f"Encodings guardados en: {self.encodings_path}")
         return len(known_encodings), users_processed
-
-
-

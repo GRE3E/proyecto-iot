@@ -1,4 +1,3 @@
-import os
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import get_db
@@ -7,17 +6,12 @@ import logging
 from pathlib import Path
 import uuid
 import pyaudio
-import logging
 import wave
-
-# Importar módulos globales desde utils
 from src.api import utils
 
 logger = logging.getLogger("APIRoutes")
-
 tts_router = APIRouter()
 
-# Directorio para guardar los audios generados
 AUDIO_OUTPUT_DIR = Path("src/ai/tts/generated_audio")
 AUDIO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -61,11 +55,9 @@ async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=503, detail="El módulo TTS está fuera de línea")
     
     try:
-        # Crear un nombre de archivo único para el audio
         audio_filename = f"tts_audio_{uuid.uuid4()}.wav"
         file_location = AUDIO_OUTPUT_DIR / audio_filename
         
-        # Generar el audio de forma asíncrona y esperar el resultado
         future_audio_generated = utils._tts_module.generate_speech(request.text, str(file_location))
         audio_generated = future_audio_generated.result()
 
@@ -80,3 +72,4 @@ async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get
     except Exception as e:
         logger.error(f"Error en generación de audio TTS para /tts/generate_audio: {e}")
         raise HTTPException(status_code=500, detail="Error al generar el audio")
+        

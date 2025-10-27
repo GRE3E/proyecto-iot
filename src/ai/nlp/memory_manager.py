@@ -3,10 +3,10 @@ import asyncio
 import time
 from typing import Generator, Optional, List
 from sqlalchemy import or_
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from src.db.models import Base, UserMemory, ConversationLog
-from src.db.database import get_db, create_all_tables
+from src.db.models import UserMemory, ConversationLog
+from src.db.database import get_db
 from datetime import datetime
 
 logger = logging.getLogger("MemoryManager")

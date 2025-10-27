@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Any
 from src.ai.nlp.prompt_loader import load_system_prompt_template
-from src.utils.datetime_utils import get_current_datetime, format_datetime, format_date_human_readable, format_time_only, get_country_from_timezone
+from src.utils.datetime_utils import get_current_datetime, format_date_human_readable, format_time_only, get_country_from_timezone
 import re
 
 logger = logging.getLogger("PromptCreator")
@@ -16,14 +16,16 @@ def _safe_format_value(value: Any) -> str:
             import json
             json_str = json.dumps(value, ensure_ascii=False)
             return json_str
-        except:
+        except Exception as e:
+            logger.error(f"Error serializing dict to JSON: {e}")
             return ", ".join([f"{k}: {_safe_format_value(v)}" for k, v in value.items()])
     if isinstance(value, (list, tuple)):
         try:
             import json
             json_str = json.dumps(value, ensure_ascii=False)
             return json_str
-        except:
+        except Exception as e:
+            logger.error(f"Error serializing list/tuple to JSON: {e}")
             return ", ".join([_safe_format_value(item) for item in value])
     if isinstance(value, datetime):
         return value.isoformat()
@@ -37,7 +39,8 @@ def _safe_format_value(value: Any) -> str:
             import json
             json.loads(result)
             return result
-        except:
+        except Exception as e:
+            logger.warning(f"Value looks like JSON but could not be parsed: {e}")
             pass
     
     result = result.replace("{", "{{").replace("}", "}}")
@@ -50,20 +53,18 @@ def create_system_prompt(
     is_owner: bool,
     user_permissions_str: str,
     formatted_iot_commands: str,
-    all_capabilities: list,
+    iot_command_names: list,
     search_results_str: str,
     user_preferences_dict: dict,
     prompt: str,
-    recent_conversations: list = None  # ⭐ NUEVO
+    recent_conversations: list = None
 ) -> tuple[str, str]:
     """
     Crea el system_prompt y el prompt_text para Ollama.
     """
     logger.debug("Construyendo system_prompt para Ollama.")
-
     last_interaction_value = "No hay registro de interacciones previas."
     device_states_value = "No hay estados de dispositivos registrados."
-    
     timezone_str = config.get("timezone", "UTC")
     current_full_datetime = get_current_datetime(timezone_str)
     current_date_formatted = format_date_human_readable(current_full_datetime)
@@ -91,6 +92,7 @@ def create_system_prompt(
 
     system_prompt_template = load_system_prompt_template()
     
+    all_capabilities = config["capabilities"] + iot_command_names
     system_prompt = system_prompt_template.format(
         assistant_name=config["assistant_name"],
         language=config["language"],
@@ -113,3 +115,4 @@ def create_system_prompt(
 
     prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
     return system_prompt, prompt_text
+    

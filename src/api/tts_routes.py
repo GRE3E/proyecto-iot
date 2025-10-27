@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
-from src.db.database import SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import get_db
 from src.api.tts_schemas import TTSTextRequest, TTSAudioResponse
 import logging
 from pathlib import Path
@@ -43,15 +43,8 @@ def play_audio(file_path: str):
     except Exception as e:
         logger.error(f"Error al reproducir audio {file_path} en /tts/generate_audio: {e}")
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 @tts_router.post("/tts/generate_audio", response_model=TTSAudioResponse)
-async def generate_audio(request: TTSTextRequest, db: Session = Depends(get_db)):
+async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get_db)):
     """Genera un archivo de audio a partir de texto usando el módulo TTS.
 
     Args:

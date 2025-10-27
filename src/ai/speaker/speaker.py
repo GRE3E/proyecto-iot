@@ -1,14 +1,12 @@
 import numpy as np
-import os
 import json
-from pathlib import Path
 from typing import Optional, Tuple, List
 from concurrent.futures import ThreadPoolExecutor
 from resemblyzer import VoiceEncoder, preprocess_wav
-from sqlalchemy.orm import Session
-from src.db.database import SessionLocal
+from src.db.database import get_db
 from src.db.models import User
 import logging
+import asyncio
 
 logger = logging.getLogger("SpeakerRecognitionModule")
 
@@ -19,18 +17,24 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
     """
     def __init__(self):
         self._encoder = VoiceEncoder()
-        self._online = True  # Asumimos que está en línea por ahora, resemblyzer es local
+        self._online = True
         self._registered_users: List[User] = []
-        self._executor = ThreadPoolExecutor(max_workers=4)  # Initialize ThreadPoolExecutor
-        self._load_registered_users()
+        self._executor = ThreadPoolExecutor(max_workers=4)
 
-    def _load_registered_users(self) -> None:
+    async def _load_registered_users(self) -> None:
         """
-        Carga los usuarios registrados desde la base de datos en la memoria del módulo.
+        Carga los usuarios registrados desde la base de datos en la memoria del módulo de forma asíncrona.
         """
-        with SessionLocal() as db:
-            self._registered_users = db.query(User).all()
+        async with get_db() as db:
+            users = await db.execute(User.__table__.select())
+            self._registered_users = users.scalars().all()
             logger.info(f"Cargados {len(self._registered_users)} usuarios registrados.")
+
+    async def load_users(self) -> None:
+        """
+        Método asíncrono para cargar los usuarios registrados.
+        """
+        await self._load_registered_users()
 
     def is_online(self) -> bool:
         """
@@ -46,7 +50,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             self._executor.shutdown(wait=True)
             logger.info("ThreadPoolExecutor cerrado.")
 
-    def _register_speaker_sync(self, name: str, audio_path: str, is_owner: bool = False) -> bool:
+    async def _register_speaker_sync(self, name: str, audio_path: str, is_owner: bool = False) -> bool:
         """
         Lógica síncrona para registrar un hablante.
         """
@@ -54,8 +58,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             wav = preprocess_wav(audio_path)
             embedding = self._encoder.embed_utterance(wav)
             
-            with SessionLocal() as db:
-                existing_user = db.query(User).filter(User.nombre == name).first()
+            async with get_db() as db:
+                existing_user = await db.execute(User.__table__.select().where(User.nombre == name))
+                existing_user = existing_user.scalar_one_or_none()
                 if existing_user:
                     logger.info(f"El usuario {name} ya existe. Actualizando embedding.")
                     existing_user.embedding = json.dumps(embedding.tolist())
@@ -63,13 +68,11 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                 else:
                     new_user = User(nombre=name, embedding=json.dumps(embedding.tolist()), is_owner=is_owner)
                     db.add(new_user)
-                db.commit()
-            self._load_registered_users()
+                await db.commit()
+            await self._load_registered_users()
             return True
         except Exception as e:
             logger.error(f"Error al registrar hablante: {e}")
-            if 'db' in locals() and db.is_active:
-                db.rollback()
             return False
 
     def register_speaker(self, name: str, audio_path: str, is_owner: bool = False):
@@ -84,13 +87,13 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         Returns:
             concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
         """
-        return self._executor.submit(self._register_speaker_sync, name, audio_path, is_owner)
+        return self._executor.submit(asyncio.run, self._register_speaker_sync(name, audio_path, is_owner))
 
-    def _identify_speaker_sync(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
+    async def _identify_speaker_sync(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
         """
-        Lógica síncrona para identificar un hablante.
+        Lógica asíncrona para identificar un hablante.
         """
-        self._load_registered_users()
+        await self._load_registered_users()
         if not self.is_online():
             logger.warning("El módulo de reconocimiento de hablante está fuera de línea.")
             return None, None
@@ -136,4 +139,6 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         Returns:
             concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
         """
-        return self._executor.submit(self._identify_speaker_sync, audio_path)
+
+        return self._executor.submit(asyncio.run, self._identify_speaker_sync(audio_path))
+        

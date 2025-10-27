@@ -1,7 +1,6 @@
 import paho.mqtt.client as mqtt
 import logging
 import time
-import random
 import asyncio
 
 logger = logging.getLogger("MQTTClient")
@@ -14,37 +13,41 @@ class MQTTClient:
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.client_id)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
-        self.client.on_disconnect = self._on_disconnect # Añadir callback de desconexión
+        self.client.on_disconnect = self._on_disconnect
         self.is_connected = False
+        self._online_event = asyncio.Event()
         self.subscriptions = {}
-        self.reconnect_delay_sec = 5 # Retardo inicial para la reconexión
-        self.max_reconnect_delay_sec = 60 # Retardo máximo para la reconexión
+        self.reconnect_delay_sec = 5
+        self.max_reconnect_delay_sec = 60
 
     def connect(self):
         if self.is_connected:
             logger.info(f"Ya conectado al broker MQTT en {self.broker}:{self.port}")
+            self._online_event.set()
             return
         try:
             logger.info(f"Intentando conectar al broker MQTT en {self.broker}:{self.port}...")
             self.client.connect(self.broker, self.port, 60)
-            self.client.loop_start() # Iniciar el bucle en un hilo separado
-            # is_connected se establecerá en _on_connect
+            self.client.loop_start()
         except Exception as e:
             logger.warning(f"No se pudo conectar al broker MQTT en {self.broker}:{self.port}: {e}")
             self.is_connected = False
+            self._online_event.clear()
             self._schedule_reconnect()
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             logger.info(f"Conectado al broker MQTT en {self.broker}:{self.port}")
             self.is_connected = True
-            self.reconnect_delay_sec = 5 # Resetear el retardo al conectar exitosamente
+            self._online_event.set()
+            self.reconnect_delay_sec = 5
             for topic, callback in self.subscriptions.items():
                 client.subscribe(topic)
                 logger.info(f"MQTTClient: Resuscrito a {topic}")
         else:
             logger.error(f"Fallo en la conexión, código: {rc}")
             self.is_connected = False
+            self._online_event.clear()
             self._schedule_reconnect()
 
     def _on_message(self, client, userdata, msg):
@@ -52,10 +55,11 @@ class MQTTClient:
         payload = msg.payload.decode()
         logger.info(f"Mensaje recibido - Tema: {topic}, Payload: {payload}")
         if topic in self.subscriptions:
-            self.subscriptions[topic](payload) # Ejecutar el callback registrado
+            self.subscriptions[topic](payload)
 
     def _on_disconnect(self, client, userdata, rc):
         self.is_connected = False
+        self._online_event.clear()
         if rc != 0:
             logger.warning(f"Desconexión inesperada del broker MQTT. Código: {rc}. Intentando reconectar...")
             self._schedule_reconnect()
@@ -66,7 +70,7 @@ class MQTTClient:
         delay = min(self.reconnect_delay_sec, self.max_reconnect_delay_sec)
         logger.info(f"Intentando reconectar en {delay} segundos...")
         time.sleep(delay)
-        self.reconnect_delay_sec = min(self.reconnect_delay_sec * 2, self.max_reconnect_delay_sec) # Aumentar el retardo exponencialmente
+        self.reconnect_delay_sec = min(self.reconnect_delay_sec * 2, self.max_reconnect_delay_sec)
         self.connect()
 
     async def publish(self, topic: str, payload: str) -> bool:

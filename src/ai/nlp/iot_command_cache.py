@@ -1,7 +1,6 @@
 import logging
 import time
-from typing import Dict, List, Tuple, Any, Optional
-from functools import lru_cache
+from typing import Dict, Tuple, Any, Optional
 
 logger = logging.getLogger("IoTCommandCache")
 

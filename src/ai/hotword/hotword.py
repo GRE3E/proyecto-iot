@@ -6,7 +6,6 @@ import asyncio
 import httpx
 import wave
 from datetime import datetime
-import threading
 import webrtcvad
 import logging
 
@@ -22,6 +21,7 @@ class HotwordDetector:
         self.audio_stream = None
         self._is_listening = False
         self._callback = None
+        self._online_event = asyncio.Event()
 
     def is_online(self) -> bool:
         return self.porcupine is not None and self.pa is not None and self.audio_stream is not None and self._is_listening
@@ -44,10 +44,10 @@ class HotwordDetector:
                 input_device_index=self.input_device_index
             )
             self._is_listening = True
+            self._online_event.set()
             logger.info("Escuchando palabras clave...")
 
             while self._is_listening:
-                # Ejecutar operaciones de audio y procesamiento en un hilo separado
                 pcm = await asyncio.to_thread(self.audio_stream.read, self.porcupine.frame_length)
                 pcm = await asyncio.to_thread(struct.unpack_from, "h" * self.porcupine.frame_length, pcm)
 
@@ -55,7 +55,7 @@ class HotwordDetector:
                 if result >= 0:
                     logger.info("Palabra activa detectada, activando asistente...")
                     await self._callback()
-                await asyncio.sleep(0.01) # Pequeña pausa para no bloquear el bucle de eventos
+                await asyncio.sleep(0.01)
 
         except asyncio.CancelledError:
             logger.info("Tarea de escucha cancelada.")
@@ -66,6 +66,7 @@ class HotwordDetector:
 
     def stop(self):
         self._is_listening = False
+        self._online_event.clear()
         if self.audio_stream is not None:
             self.audio_stream.close()
             self.audio_stream = None
@@ -110,7 +111,6 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
             data = stream.read(chunk_size)
             frames.append(data)
             
-            # Verificar actividad de voz
             is_speech = vad.is_speech(data, sample_rate)
             
             if is_speech:
@@ -130,7 +130,6 @@ def record_audio(filename, sample_rate=16000, chunk_size=320, channels=1, silenc
         wf.close()
     except Exception as e:
         logger.error(f"Error durante la grabación de audio: {e}")
-        # Podrías querer relanzar la excepción o manejarla de otra manera
         raise
     finally:
         if stream is not None:
@@ -157,7 +156,7 @@ async def hotword_callback_async():
         except httpx.HTTPStatusError as e:
             logger.error(f"Error de estado HTTP: {e.response.status_code} - {e.response.text}", exc_info=True)
         finally:
-            os.remove(audio_filename) # Limpiar el archivo de audio
+            os.remove(audio_filename)
 
 if __name__ == '__main__':
     from dotenv import load_dotenv

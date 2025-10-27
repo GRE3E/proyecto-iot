@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary
 from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 from .database import Base
 from typing import List
 
-# Tabla de asociación para la relación muchos a muchos entre IoTCommand y Permission
 iot_command_permission_association = Table(
     'iot_command_permission_association',
     Base.metadata,
@@ -92,9 +91,9 @@ class IoTCommand(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text, nullable=True)
-    command_type = Column(String(50), nullable=False) # e.g., "mqtt"
+    command_type = Column(String(50), nullable=False)
     command_payload = Column(Text, nullable=False)
-    mqtt_topic = Column(String(255), nullable=True) # Solo si command_type es "mqtt"
+    mqtt_topic = Column(String(255), nullable=True)
 
     permissions: Mapped[List["Permission"]] = relationship("Permission", secondary=iot_command_permission_association, back_populates="iot_commands")
 
@@ -113,10 +112,10 @@ class User(Base):
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
-    embedding = Column(Text, nullable=False) # Vector serializado
-    is_owner = Column(Boolean, default=False) # Nuevo campo para identificar al propietario
+    embedding = Column(Text, nullable=False)
+    is_owner = Column(Boolean, default=False)
 
-    preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user") # Cambiado a uno a muchos
+    preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user")
     permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user")
     memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
     conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user")
@@ -156,11 +155,11 @@ class Preference(Base):
         user (User): El usuario al que pertenece esta preferencia.
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Clave foránea a User
-    key = Column(String(100), nullable=False) # Nombre de la preferencia (ej. "theme", "light_color")
-    value = Column(Text, nullable=False) # Valor de la preferencia (ej. "dark", "warm")
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    key = Column(String(100), nullable=False)
+    value = Column(Text, nullable=False)
 
-    user: Mapped["User"] = relationship("User", back_populates="preferences") # Relación con User
+    user: Mapped["User"] = relationship("User", back_populates="preferences")
 
 class Permission(Base):
     __tablename__ = "permissions"
@@ -174,7 +173,7 @@ class Permission(Base):
         iot_commands (List[IoTCommand]): Comandos IoT asociados a este permiso.
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50), unique=True, nullable=False) # e.g., "read", "write", "admin"
+    name = Column(String(50), unique=True, nullable=False)
 
     users: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="permission")
     iot_commands: Mapped[List["IoTCommand"]] = relationship("IoTCommand", secondary=iot_command_permission_association, back_populates="permissions")
@@ -219,3 +218,4 @@ class Face(Base):
     image_data = Column(LargeBinary, nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="faces")
+    

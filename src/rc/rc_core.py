@@ -1,15 +1,15 @@
 import os
 import sys
 import logging
-from contextlib import contextmanager
-from sqlalchemy.orm import Session
+from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-from src.db.database import SessionLocal
+from src.db.database import get_db as get_async_db_session
 from src.db.models import User, Face
 from src.rc.capture import FaceCapture
 from src.rc.encode import FaceEncoder
@@ -38,13 +38,10 @@ class FaceRecognitionCore:
         self.encoder = FaceEncoder()
         self.recognizer = FaceRecognizer()
 
-    @contextmanager
-    def _get_db(self):
-        db = SessionLocal()
-        try:
+    @asynccontextmanager
+    async def get_db(self) -> AsyncSession:
+        async with get_async_db_session() as db:
             yield db
-        finally:
-            db.close()
 
   
     def capture_faces(self, name: str, cam_id: int = 0, max_imgs: int = 5):

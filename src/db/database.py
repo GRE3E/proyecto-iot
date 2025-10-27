@@ -1,65 +1,52 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-import os
+import logging
+from pathlib import Path
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
+from contextlib import asynccontextmanager
 
-# --------------------------
-# PROJECT_ROOT -> raíz del proyecto (sube 2 niveles desde src/db)
-# --------------------------
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+logger = logging.getLogger("Database")
 
-# --------------------------
-# Ruta del archivo de la BD (en /data)
-# --------------------------
-DATABASE_DIR = os.path.join(PROJECT_ROOT, "data")
-DATABASE_PATH = os.path.join(DATABASE_DIR, "casa_inteligente.db")
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+DATABASE_DIR = PROJECT_ROOT / "data"
+DATABASE_PATH = DATABASE_DIR / "casa_inteligente.db"
+DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+SQLALCHEMY_DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
 
-# Mostrar la ruta de la base de datos para depuración
-print("Base de datos en:", DATABASE_PATH)
 
-# Asegurar que exista el directorio data
-os.makedirs(DATABASE_DIR, exist_ok=True)
-
-# URL de SQLAlchemy
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
-
-# Crear el engine y la sesión
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+async_engine = create_async_engine(SQLALCHEMY_DATABASE_URL, echo=False)
+SessionLocal = sessionmaker(
+    async_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 Base = declarative_base()
 
-def get_db() -> Session:
+@asynccontextmanager
+async def get_db() -> AsyncSession:
     """
-    Provee una sesión de DB (dependencia).
+    Provee una sesión de DB asíncrona (dependencia).
     """
-    db: Session = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    async with SessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()
 
-def create_all_tables() -> None:
+async def create_all_tables() -> None:
     """
     Crea las tablas definidas por los modelos.
     """
-    Base.metadata.create_all(bind=engine)
-    print("✅ Tablas creadas correctamente en:", DATABASE_PATH)
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info(f"Tablas creadas correctamente en: {DATABASE_PATH}")
 
-# ---------------------------------------------
-# EJECUCIÓN DIRECTA DEL SCRIPT -> crea las tablas
-# ---------------------------------------------
-if __name__ == "__main__":
-    # Importar todos los modelos para que estén registrados en Base.metadata
     try:
         from db.models import (
             User, Face, Preference, Permission,
             UserPermission, UserMemory, ConversationLog,
             APILog, IoTCommand
         )
-    except Exception:
-        # Si no tenés algunos modelos listados, igualmente intentamos crear tablas
-        # para los que existan. Esto evita fallos si tu models.py tiene nombres distintos.
-        from db import models  # importa lo que exista
-    create_all_tables()
-
+    except Exception as e:
+        logger.warning(f"No se pudieron importar todos los modelos: {e}. Intentando importar lo que exista.")
+        from db import models
+    

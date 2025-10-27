@@ -35,10 +35,18 @@ class ConfigManager:
 
     def save_config(self) -> None:
         """Guarda la configuración actual en config.json."""
-        os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
-        with open(self._config_path, "w", encoding="utf-8") as f:
-            json.dump(self._config, f, indent=4, ensure_ascii=False)
-        logger.info(f"Configuración guardada en {self._config_path}")
+        try:
+            os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
+            config_to_save = self._config.copy()
+            if "owner_name" in config_to_save:
+                del config_to_save["owner_name"]
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                json.dump(config_to_save, f, indent=4, ensure_ascii=False)
+            logger.info(f"Configuración guardada en {self._config_path}")
+        except IOError as e:
+            logger.error(f"Error de E/S al guardar la configuración en {self._config_path}: {e}")
+        except PermissionError as e:
+            logger.error(f"Error de permisos al guardar la configuración en {self._config_path}: {e}")
 
     def get_config(self) -> Dict[str, Any]:
         """Devuelve la configuración actual."""
@@ -62,14 +70,20 @@ class ConfigManager:
                 "control_temperatura",
                 "control_dispositivos",
                 "consulta_estado",
+                "administrar_comandos_iot"
             ],
             "model": {
-                "name": "mistral:7b-instruct",
-                "temperature": 0.8,
-                "max_tokens": 150,
+                "name": "qwen2.5:3b-instruct",
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "top_k": 40,
+                "repeat_penalty": 1.1,
+                "num_ctx": 8192,
+                "max_tokens": 1024
             },
-            "memory_size": 10,
+            "memory_size": 50,
             "timezone": "America/Lima",
+            "debug": False
         }
 
     def _validate_timezone(self) -> None:

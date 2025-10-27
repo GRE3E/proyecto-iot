@@ -1,14 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException
 from src.ai.nlp.nlp_core import NLPModule
+from src.ai.nlp.ollama_manager import OllamaManager
 from src.api.addons_schemas import TimezoneUpdate
 import logging
+from src.ai.nlp.config_manager import ConfigManager
+from pathlib import Path
 
 logger = logging.getLogger("APIRoutes")
 
 router = APIRouter()
 
+# Función de dependencia para NLPModule
+def get_nlp_module():
+    project_root = Path(__file__).parent.parent.parent
+    config_path = project_root / "src" / "ai" / "nlp" / "config" / "config.json"
+    config_manager = ConfigManager(config_path)
+    model_config = config_manager.get_config()["model"]
+    ollama_manager = OllamaManager(model_config)
+    return NLPModule(ollama_manager)
+
 @router.put("/timezone")
-async def update_timezone(timezone_update: TimezoneUpdate, nlp_module: NLPModule = Depends(NLPModule)):
+async def update_timezone(timezone_update: TimezoneUpdate, nlp_module: NLPModule = Depends(get_nlp_module)):
     """Actualiza la zona horaria de la configuración del asistente."""
     try:
         nlp_module._config["timezone"] = timezone_update.timezone

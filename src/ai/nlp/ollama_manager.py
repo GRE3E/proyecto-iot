@@ -3,6 +3,7 @@ import time
 import logging
 import os
 import ollama
+from ollama import AsyncClient
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger("OllamaManager")
@@ -11,23 +12,29 @@ class OllamaManager:
     """
     Gestiona el ciclo de vida del servidor Ollama y la conectividad del modelo.
     """
-    def __init__(self, model_config: Dict[str, Any]):
+    def __init__(self, model_config: Dict[str, Any], ollama_host: str = 'http://localhost:11434'):
         """
         Inicializa OllamaManager, intentando iniciar el servidor Ollama y verificar la conexión.
 
         Args:
             model_config (Dict[str, Any]): Configuración del modelo Ollama, incluyendo nombre, temperatura y max_tokens.
+            ollama_host (str): La URL del host de Ollama. Por defecto es 'http://localhost:11434'.
         """
         self._ollama_process: Optional[subprocess.Popen] = None
         self._online: bool = False
         self._model_config: Dict[str, Any] = model_config
         self._model_name: Optional[str] = model_config.get("name")
+        self._ollama_host: str = ollama_host
+        self._async_client: Optional[AsyncClient] = None
         logger.debug("Iniciando Ollama server...")
         self._start_ollama_server()
         logger.debug("Verificando conexión a Ollama...")
         self._online = self._check_connection()
+
         if self._online:
+            self._async_client = AsyncClient(host=self._ollama_host)
             logger.info("OllamaManager inicializado y en línea.")
+
         else:
             logger.warning("OllamaManager inicializado pero no está en línea.")
 
@@ -41,14 +48,17 @@ class OllamaManager:
             delay (int): Retraso en segundos entre intentos.
         """
         logger.debug("Intentando verificar si el servidor Ollama ya está en ejecución.")
+
         try:
-            client = ollama.Client(host='http://localhost:11434')
+            client = ollama.Client(host=self._ollama_host)
             client.list()
             logger.info("El servidor de Ollama ya está en ejecución.")
             self._online = True
             return
+
         except ollama.ResponseError:
             logger.info("El servidor de Ollama no está en ejecución, intentando iniciarlo...")
+
         except Exception as e:
             logger.warning(f"Error al verificar el estado de Ollama: {e}. Intentando iniciar el servidor.")
 
@@ -57,27 +67,43 @@ class OllamaManager:
                 ["ollama", "serve"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                text=True,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
             logger.info("Servidor de Ollama iniciado en segundo plano.")
-            
+            time.sleep(1) 
+
+            if self._ollama_process.poll() is not None:
+                stdout, stderr = self._ollama_process.communicate()
+
+                if stdout:
+                    logger.error(f"Ollama server stdout (early exit): {stdout.strip()}")
+
+                if stderr:
+                    logger.error(f"Ollama server stderr (early exit): {stderr.strip()}")
+                logger.error(f"El proceso de Ollama terminó inesperadamente con código {self._ollama_process.returncode} justo después de iniciar.")
+                self._online = False
+                return
+
             for attempt in range(retries):
+
                 try:
-                    client = ollama.Client(host='http://localhost:11434')
+                    client = ollama.Client(host=self._ollama_host)
                     client.list()
                     logger.info("Conexión con el servidor de Ollama establecida exitosamente.")
                     self._online = True
                     return
+
                 except ollama.ResponseError:
                     logger.debug(f"Intento {attempt + 1}/{retries}: Servidor Ollama aún no disponible. Reintentando en {delay}s...")
                     time.sleep(delay)
-            
             logger.error("Fallo al conectar con el servidor de Ollama después de iniciarlo en el tiempo esperado.")
             self._online = False
 
         except FileNotFoundError:
             logger.error("El comando 'ollama' no se encontró. Asegúrese de que Ollama esté instalado y en el PATH.")
             self._online = False
+
         except Exception as e:
             logger.error(f"Error inesperado al iniciar el servidor de Ollama: {e}")
             self._online = False
@@ -91,19 +117,30 @@ class OllamaManager:
     def close(self):
         """
         Termina explícitamente el proceso del servidor de Ollama si está en ejecución.
+        También lee y registra la salida del proceso para depuración.
         """
         if self._ollama_process and self._ollama_process.poll() is None:
             logger.info("Terminando el proceso del servidor de Ollama...")
+
             try:
                 self._ollama_process.terminate()
                 self._ollama_process.wait(timeout=5)
+                stdout, stderr = self._ollama_process.communicate()
+
+                if stdout:
+                    logger.debug(f"Ollama stdout: {stdout.strip()}")
+
+                if stderr:
+                    logger.error(f"Ollama stderr: {stderr.strip()}")
+
                 if self._ollama_process.poll() is None:
                     logger.warning("El proceso de Ollama no terminó, forzando el cierre...")
                     self._ollama_process.kill()
                     self._ollama_process.wait()
-                
+
                 if self._ollama_process.returncode is not None:
                     logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode}.")
+
                 else:
                     logger.error("El proceso de Ollama no se pudo terminar correctamente.")
 
@@ -111,14 +148,26 @@ class OllamaManager:
                 logger.warning("El proceso de Ollama no terminó a tiempo, forzando el cierre...")
                 self._ollama_process.kill()
                 self._ollama_process.wait()
+                stdout, stderr = self._ollama_process.communicate()
+
+                if stdout:
+                    logger.debug(f"Ollama stdout (después de kill): {stdout.strip()}")
+
+                if stderr:
+                    logger.error(f"Ollama stderr (después de kill): {stderr.strip()}")
+
                 if self._ollama_process.returncode is not None:
                     logger.info(f"Proceso del servidor de Ollama terminado con código {self._ollama_process.returncode} (forzado).")
+                
                 else:
                     logger.error("El proceso de Ollama no se pudo terminar correctamente incluso con kill.")
+            
             except Exception as e:
                 logger.error(f"Error inesperado al intentar terminar el proceso de Ollama: {e}")
+            
             finally:
                 self._ollama_process = None
+        
         elif self._ollama_process and self._ollama_process.poll() is not None:
             logger.info("El proceso de Ollama ya había terminado.")
             self._ollama_process = None
@@ -132,14 +181,15 @@ class OllamaManager:
             bool: True si la conexión es exitosa y el modelo está disponible, False en caso contrario.
         """
         logger.debug("Realizando verificación de conexión y modelo Ollama.")
+        
         try:
-            client = ollama.Client(host='http://localhost:11434')
+            client = ollama.Client(host=self._ollama_host)
             available_models = client.list()
             model_names = [m['name'] for m in available_models.get('models', [])]
             logger.debug(f"Modelos Ollama disponibles: {', '.join(model_names)}")
 
             if not self._model_name or self._model_name not in model_names:
-                logger.error(f"Error: El modelo '{self._model_name}' no está disponible.")
+                logger.error(f"Error: El modelo '{self._model_name}' no está disponible en {self._ollama_host}.")
                 logger.error("Modelos disponibles: " + ", ".join(model_names) if model_names else "Ninguno.")
                 return False
                 
@@ -153,19 +203,43 @@ class OllamaManager:
                 logger.error(f"Error: El valor de 'max_tokens' ({max_tokens}) debe ser un número entero positivo.")
                 return False
             
+            top_p = self._model_config.get("top_p")
+            if top_p is not None and (not isinstance(top_p, (int, float)) or not (0 <= top_p <= 1)):
+                logger.error(f"Error: El valor de 'top_p' ({top_p}) debe ser un número entre 0 y 1.")
+                return False
+
+            top_k = self._model_config.get("top_k")
+            if top_k is not None and (not isinstance(top_k, int) or top_k < 0):
+                logger.error(f"Error: El valor de 'top_k' ({top_k}) debe ser un número entero no negativo.")
+                return False
+
+            repeat_penalty = self._model_config.get("repeat_penalty")
+            if repeat_penalty is not None and (not isinstance(repeat_penalty, (int, float)) or repeat_penalty < 0):
+                logger.error(f"Error: El valor de 'repeat_penalty' ({repeat_penalty}) debe ser un número no negativo.")
+                return False
+
+            num_ctx = self._model_config.get("num_ctx")
+            if num_ctx is not None and (not isinstance(num_ctx, int) or num_ctx <= 0):
+                logger.error(f"Error: El valor de 'num_ctx' ({num_ctx}) debe ser un número entero positivo.")
+                return False
+            
             logger.info(f"Conexión Ollama y modelo '{self._model_name}' verificados exitosamente.")
             return True
+
         except ollama.ResponseError as e:
-            logger.error(f"Error de respuesta de Ollama al verificar la conexión: {e}")
+            logger.error(f"Error de respuesta de Ollama al verificar la conexión en {self._ollama_host}: {e}")
             return False
+
         except ConnectionError as e:
-            logger.error(f"Error de conexión con el servidor Ollama: {e}")
+            logger.error(f"Error de conexión con el servidor Ollama en {self._ollama_host}: {e}")
             return False
+
         except KeyError:
             logger.error("La clave 'models' no se encontró en la respuesta de Ollama.")
             return False
+
         except Exception as e:
-            logger.error(f"Error inesperado al verificar la conexión de Ollama: {e}")
+            logger.error(f"Error inesperado al verificar la conexión de Ollama en {self._ollama_host}: {e}")
             return False
 
     def is_online(self) -> bool:
@@ -188,7 +262,24 @@ class OllamaManager:
         self._model_config = model_config
         self._model_name = model_config.get("name")
         self._online = self._check_connection()
+        
         if self._online:
+            
+            if not self._async_client:
+                self._async_client = AsyncClient(host=self._ollama_host)
             logger.info("Ollama recargado y en línea.")
+        
         else:
             logger.warning("Ollama recargado pero no está en línea. Verifique la configuración y el servidor.")
+
+    def get_async_client(self) -> AsyncClient:
+        """
+        Devuelve la instancia del cliente asíncrono de Ollama.
+        """
+        
+        if not self._async_client:
+            
+            raise RuntimeError("El cliente asíncrono de Ollama no ha sido inicializado. Asegúrate de que el servidor Ollama esté corriendo y la conexión se haya establecido correctamente.")
+        
+        return self._async_client
+        

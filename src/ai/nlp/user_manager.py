@@ -1,9 +1,10 @@
-import asyncio
 import logging
 import re
 from typing import Optional
-from sqlalchemy.orm import Session
 from src.db.models import User, Preference, ConversationLog
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from src.db.models import User, Preference, ConversationLog, UserPermission, Permission
 
 logger = logging.getLogger("UserManager")
 
@@ -28,7 +29,7 @@ class UserManager:
                     logger.warning(f"Error al parsear el elemento de preferencia '{item}': {e}. Se ignorará.")
         return preferences
 
-    async def _get_user_data_common(self, db: Session, db_user: Optional[User], identifier: str) -> tuple[Optional[User], str, dict]:
+    async def _get_user_data_common(self, db: AsyncSession, db_user: Optional[User], identifier: str) -> tuple[Optional[User], str, dict]:
         """
         Método común para procesar los datos del usuario una vez obtenido de la base de datos.
         """
@@ -56,12 +57,12 @@ class UserManager:
         logger.debug(f"Finalizada la recuperación de datos de usuario para {identifier}")
         return db_user, user_permissions_str, user_preferences_dict
 
-    async def _get_user_from_db(self, db: Session, filter_condition, identifier_value, identifier_type: str) -> Optional[User]:
+    async def _get_user_from_db(self, db: AsyncSession, filter_condition, identifier_value, identifier_type: str) -> Optional[User]:
         """
         Método común para obtener un usuario de la base de datos con un filtro específico.
         
         Args:
-            db (Session): Sesión de base de datos
+            db (AsyncSession): Sesión de base de datos
             filter_condition: Condición de filtro para la consulta
             identifier_value: Valor del identificador (nombre o ID)
             identifier_type: Tipo de identificador ('nombre' o 'ID')
@@ -71,16 +72,15 @@ class UserManager:
         """
         try:
             from sqlalchemy.orm import joinedload
-            from src.db.models import UserPermission, Permission
-            db_user = await asyncio.to_thread(
-                lambda: db.query(User)
+            result = await db.execute(
+                select(User)
                 .options(
                     joinedload(User.permissions).joinedload(UserPermission.permission),
                     joinedload(User.preferences)
                 )
                 .filter(filter_condition)
-                .first()
             )
+            db_user = result.scalars().first()
             if db_user:
                 logger.info(f"Usuario {identifier_type} '{identifier_value}' encontrado en la base de datos.")
             else:
@@ -90,7 +90,7 @@ class UserManager:
             logger.error(f"Error al buscar usuario {identifier_type} '{identifier_value}' en la base de datos: {e}")
             return None
 
-    async def get_user_data(self, db: Session, user_name: Optional[str]) -> tuple[Optional[User], str, dict]:
+    async def get_user_data(self, db: AsyncSession, user_name: Optional[str]) -> tuple[Optional[User], str, dict]:
         """
         Recupera los datos del usuario, sus permisos y preferencias por nombre.
         """
@@ -102,7 +102,7 @@ class UserManager:
 
         return await self._get_user_data_common(db, db_user, f"'{user_name}'")
 
-    async def get_user_data_by_id(self, db: Session, user_id: int) -> tuple[Optional[User], str, dict]:
+    async def get_user_data_by_id(self, db: AsyncSession, user_id: int) -> tuple[Optional[User], str, dict]:
         """
         Recupera los datos del usuario, sus permisos y preferencias por ID.
         """
@@ -114,7 +114,7 @@ class UserManager:
 
         return await self._get_user_data_common(db, db_user, f"con ID '{user_id}'")
 
-    async def search_memory(self, db: Session, user_id: int, query: str) -> list[ConversationLog]:
+    async def search_memory(self, db: AsyncSession, user_id: int, query: str) -> list[ConversationLog]:
         """
         Busca en la memoria del usuario por la consulta dada.
         """
@@ -124,7 +124,7 @@ class UserManager:
         memory_manager = MemoryManager()
         return await memory_manager.search_conversation_logs(db, user_id, query, limit=5)
 
-    async def get_recent_conversation(self, db: Session, user_id: int, limit: int = 5) -> list[ConversationLog]:
+    async def get_recent_conversation(self, db: AsyncSession, user_id: int, limit: int = 5) -> list[ConversationLog]:
         """
         Obtiene las conversaciones más recientes del usuario.
         
@@ -138,19 +138,19 @@ class UserManager:
         """
         logger.debug(f"Obteniendo últimas {limit} conversaciones para el usuario {user_id}")
         try:
-            logs = await asyncio.to_thread(
-                lambda: db.query(ConversationLog)
+            result = await db.execute(
+                select(ConversationLog)
                 .filter(ConversationLog.user_id == user_id)
                 .order_by(ConversationLog.timestamp.desc())
                 .limit(limit)
-                .all()
             )
+            logs = result.scalars().all()
             return list(reversed(logs))
         except Exception as e:
             logger.error(f"Error al obtener conversaciones recientes para el usuario {user_id}: {e}")
             return []
 
-    async def update_memory(self, db: Session, user_id: int, prompt: str, response: str):
+    async def update_memory(self, db: AsyncSession, user_id: int, prompt: str, response: str):
         """
         Actualiza la memoria conversacional del usuario.
         """
@@ -161,15 +161,15 @@ class UserManager:
                 prompt=prompt,
                 response= response
             )
-            await asyncio.to_thread(lambda: db.add(conversation))
-            await asyncio.to_thread(lambda: db.commit())
+            db.add(conversation)
+            await db.commit()
             
             logger.info(f"Memoria conversacional actualizada para el usuario {user_id}.")
         except Exception as e:
             logger.error(f"Error al actualizar la memoria conversacional para el usuario {user_id}: {e}")
-            await asyncio.to_thread(lambda: db.rollback())
+            await db.rollback()
 
-    async def handle_preference_setting(self, db: Session, db_user: User, full_response_content: str) -> str:
+    async def handle_preference_setting(self, db: AsyncSession, db_user: User, full_response_content: str) -> str:
         logger.debug(f"Intentando manejar la configuración de preferencias para el usuario: {db_user.nombre if db_user else 'None'}")
         
         matches = list(
@@ -196,37 +196,35 @@ class UserManager:
                 
                 logger.info(f"Preferencia detectada para establecer: clave='{pref_key}', valor='{pref_value}' para el usuario '{db_user.nombre}'.")
                 try:
-                    existing = await asyncio.to_thread(
-                        lambda: db.query(Preference)
+                    result = await db.execute(
+                        select(Preference)
                         .filter(
                             Preference.user_id == db_user.id,
                             Preference.key == pref_key,
                         )
-                        .first()
                     )
+                    existing = result.scalars().first()
                     if existing:
                         existing.value = pref_value
                         logger.info(
                             f"Preferencia '{pref_key}' actualizada para '{db_user.nombre}': {pref_value}"
                         )
                     else:
-                        await asyncio.to_thread(
-                            lambda: db.add(
-                                Preference(
-                                    user_id=db_user.id,
-                                    key=pref_key,
-                                    value=pref_value,
-                                )
+                        db.add(
+                            Preference(
+                                user_id=db_user.id,
+                                key=pref_key,
+                                value=pref_value,
                             )
                         )
                         logger.info(
                             f"Nueva preferencia '{pref_key}' guardada para '{db_user.nombre}': {pref_value}"
                         )
-                    await asyncio.to_thread(lambda: db.commit())
+                    await db.commit()
                     logger.debug(f"Preferencia '{pref_key}' confirmada en la base de datos para el usuario '{db_user.nombre}'.")
                 except Exception as e:
                     logger.error(f"Error al guardar preferencia '{pref_key}' para '{db_user.nombre}': {e}")
-                    await asyncio.to_thread(lambda: db.rollback())
+                    await db.rollback()
 
         cleaned_response = re.sub(
             r"preference_set:\s*([^|]+)\s*\|\s*([^;]+)(;|$)", "", full_response_content
@@ -237,16 +235,17 @@ class UserManager:
         
         return cleaned_response.strip()
 
-    async def handle_name_change(self, db: Session, user_id: int, new_name: str) -> Optional[str]:
+    async def handle_name_change(self, db: AsyncSession, user_id: int, new_name: str) -> Optional[str]:
         logger.debug(f"Intentando manejar el cambio de nombre para el usuario ID '{user_id}' a '{new_name}'.")
         try:
-            existing_user = await asyncio.to_thread(
-                lambda: db.query(User).filter(User.id == user_id).first()
+            result = await db.execute(
+                select(User).filter(User.id == user_id)
             )
+            existing_user = result.scalars().first()
             if existing_user:
                 logger.info(f"Cambiando nombre de '{existing_user.nombre}' a '{new_name}'.")
                 existing_user.nombre = new_name
-                await asyncio.to_thread(lambda: db.commit())
+                await db.commit()
                 logger.info(f"Nombre de usuario cambiado a '{new_name}' y confirmado en la base de datos.")
                 return f"De acuerdo, a partir de ahora te llamaré {new_name}."
             else:
@@ -256,5 +255,5 @@ class UserManager:
                 return None
         except Exception as e:
             logger.error(f"Error al cambiar el nombre: {e}")
-            await asyncio.to_thread(lambda: db.rollback())
+            await db.rollback()
             return None

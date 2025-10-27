@@ -2,8 +2,9 @@ import asyncio
 import logging
 import re
 import src.db.models as models
-from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from src.db.models import IoTCommand
 from src.iot.mqtt_client import MQTTClient
 from src.ai.nlp.iot_command_cache import IoTCommandCache
@@ -17,7 +18,7 @@ class IoTCommandProcessor:
         self._cleanup_task = None
         self._last_parsed_command = None
         
-    async def initialize(self, db: Session):
+    async def initialize(self, db: AsyncSession):
         """Inicializa el procesador de comandos IoT, pre-cargando la caché.
         
         Args:
@@ -25,7 +26,8 @@ class IoTCommandProcessor:
         """
         logger.info("Pre-cargando caché de comandos IoT...")
         try:
-            iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
+            result = await db.execute(select(models.IoTCommand))
+            iot_commands_db = result.scalars().all()
             for cmd in iot_commands_db:
                 cache_key = f"iot_command:{cmd.name}"
                 self._command_cache.set(cache_key, cmd)
@@ -120,8 +122,8 @@ class IoTCommandProcessor:
         return True, "", result
 
     async def process_iot_command(
-        self, db: Session, full_response_content: str
-    ) -> Optional[str]:
+    self, db: AsyncSession, full_response_content: str
+) -> Optional[str]:
         iot_command_match = re.search(r"iot_command:(.+)", full_response_content)
         if iot_command_match:
             full_command_with_args = "iot_command:" + iot_command_match.group(1).strip()
@@ -148,11 +150,10 @@ class IoTCommandProcessor:
             
             if db_command is None:
                 logger.debug(f"Comando '{base_command_name}' no encontrado en caché, buscando en base de datos")
-                db_command = await asyncio.to_thread(
-                    lambda: db.query(IoTCommand)
-                    .filter(IoTCommand.name == base_command_name)
-                    .first()
+                result = await db.execute(
+                    select(IoTCommand).filter_by(name=base_command_name)
                 )
+                db_command = result.scalars().first()
                 
                 if db_command:
                     self._command_cache.set(cache_key, db_command)
@@ -187,10 +188,11 @@ class IoTCommandProcessor:
         logger.debug("No se detectó ningún comando IoT en la respuesta.")
         return None
 
-    async def load_commands_from_db(self, db: Session) -> tuple[str, list[IoTCommand]]:
+    async def load_commands_from_db(self, db: AsyncSession) -> tuple[str, list[IoTCommand]]:
         """Carga y formatea comandos IoT desde la base de datos, devolviendo también la lista de comandos."""
         try:
-            iot_commands_db = await asyncio.to_thread(lambda: db.query(models.IoTCommand).all())
+            result = await db.execute(select(models.IoTCommand))
+            iot_commands_db = result.scalars().all()
             formatted_commands = (
                 "\n".join([f"- {cmd.name}: mqtt_publish:{cmd.mqtt_topic},{cmd.command_payload}" for cmd in iot_commands_db])
                 if iot_commands_db
@@ -201,7 +203,7 @@ class IoTCommandProcessor:
             logger.error(f"Error al cargar comandos IoT de la base de datos: {e}")
             raise
 
-    async def validate_command(self, db: Session, extracted_command: str) -> tuple[bool, str]:
+    async def validate_command(self, db: AsyncSession, extracted_command: str) -> tuple[bool, str]:
         """Valida si un comando IoT existe y es de tipo MQTT, con formato correcto."""
         success, error_msg, command_parts = self._parse_iot_command(extracted_command)
         if not success:
@@ -218,11 +220,10 @@ class IoTCommandProcessor:
             topic = command_parts["topic"]
             payload = command_parts["payload"]
             
-            db_command = await asyncio.to_thread(
-                lambda: db.query(IoTCommand)
-                .filter(IoTCommand.mqtt_topic == topic, IoTCommand.command_payload == payload)
-                .first()
+            result = await db.execute(
+                select(IoTCommand).filter_by(mqtt_topic=topic, command_payload=payload)
             )
+            db_command = result.scalars().first()
             
             if db_command:
                 return True, ""
@@ -230,11 +231,10 @@ class IoTCommandProcessor:
                 return False, f"Lo siento, el comando MQTT '{topic},{payload}' no coincide con ningún comando IoT registrado."
             
         try:
-            db_command = await asyncio.to_thread(
-                lambda: db.query(IoTCommand)
-                .filter(IoTCommand.name == command_name)
-                .first()
+            result = await db.execute(
+                select(IoTCommand).filter_by(name=command_name)
             )
+            db_command = result.scalars().first()
             
             if not db_command:
                 return False, f"Lo siento, no reconozco el comando '{command_name}'."

@@ -1,5 +1,4 @@
 import whisper
-import os
 import numpy as np
 import soundfile as sf
 import subprocess
@@ -12,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 warnings.filterwarnings("ignore", message=".*flash attention.*")
 
-# Configuración básica de logging
 logger = logging.getLogger("STTModule")
 
 class STTModule:
@@ -33,7 +31,7 @@ class STTModule:
         self._online: bool = False
         self.model_name: str = model_name
         self.device: str = "cuda" if torch.cuda.is_available() else "cpu"
-        self._executor = ThreadPoolExecutor(max_workers=2)  # Initialize ThreadPoolExecutor
+        self._executor = ThreadPoolExecutor(max_workers=2)
         self._load_model()
 
     def _check_ffmpeg(self) -> bool:
@@ -61,7 +59,6 @@ class STTModule:
             return
 
         try:
-            # Cargar el modelo Whisper en español
             self._model = whisper.load_model(self.model_name)
             self._online = True
             logger.info("Modelo Whisper cargado exitosamente.")
@@ -97,15 +94,14 @@ class STTModule:
             Optional[str]: El texto transcrito si la operación fue exitosa, None en caso de error.
         """
         try:
-            # Cargar el audio usando soundfile y resamplear si es necesario
             audio, sr = sf.read(audio_path)
             if sr != whisper.audio.SAMPLE_RATE:
                 logger.warning(f"La frecuencia de muestreo del audio es {sr} Hz, se esperaba {whisper.audio.SAMPLE_RATE} Hz. Remuestreando audio.")
                 audio = resampy.resample(audio, sr, whisper.audio.SAMPLE_RATE)
-                sr = whisper.audio.SAMPLE_RATE # Actualizar la frecuencia de muestreo después del remuestreo
+                sr = whisper.audio.SAMPLE_RATE
             if audio.ndim > 1:
-                audio = audio.mean(axis=1) # Convertir a mono
-            audio = audio.astype(np.float32) # Convertir a float32 para compatibilidad con Whisper
+                audio = audio.mean(axis=1)
+            audio = audio.astype(np.float32)
             audio = whisper.pad_or_trim(audio)
             
             mel = whisper.log_mel_spectrogram(audio).to(self.device)
@@ -130,7 +126,6 @@ class STTModule:
         """
         if not self.is_online():
             logger.warning("El módulo STT está fuera de línea. No se puede transcribir el audio.")
-            # Devolver un Future que ya está 'done' con un resultado None
             future = self._executor.submit(lambda: None)
             future.set_result(None)
             return future

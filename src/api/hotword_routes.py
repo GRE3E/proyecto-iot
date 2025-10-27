@@ -1,38 +1,33 @@
-import os
-import logging
 import asyncio
+import logging
+import os
 import tempfile
 import uuid
-from datetime import datetime
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from sqlalchemy.orm import Session
-from contextlib import asynccontextmanager
-from src.db.database import SessionLocal, get_db
+
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.db.database import get_db
 from src.db.models import User
 from src.api.hotword_schemas import HotwordAudioProcessResponse
 from src.api import utils
 from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
 from src.ai.tts.tts_module import handle_tts_generation_and_playback
 
+
 logger = logging.getLogger("APIRoutes")
 
 hotword_router = APIRouter()
 
-# ====================== Context Manager para DB ======================
-@asynccontextmanager
-async def get_db_session():
-    """Context manager para gestionar sesiones de base de datos de forma segura."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 # ====================== Endpoint principal ======================
 @hotword_router.post("/hotword/process_audio", response_model=HotwordAudioProcessResponse)
-async def process_hotword_audio(audio_file: UploadFile = File(...)):
+async def process_hotword_audio(
+    audio_file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Procesa el audio tras la detección de hotword:
     - STT (voz a texto)
@@ -80,41 +75,40 @@ async def process_hotword_audio(audio_file: UploadFile = File(...)):
         logger.info(f"Texto transcrito: {transcribed_text}")
 
         # === 3. Identificación o registro del hablante ===
-        async with get_db_session() as db:
-            if identified_user:
-                identified_user_from_speaker = await asyncio.to_thread(
-                    lambda: db.query(User).filter(User.id == identified_user.id).first()
-                )
-                if identified_user_from_speaker:
-                    db.expire(identified_user_from_speaker)
-                    db.refresh(identified_user_from_speaker)
-                    identified_speaker_name = identified_user_from_speaker.nombre
-                    is_owner_for_nlp = identified_user_from_speaker.is_owner
-                    user_id_for_nlp = identified_user_from_speaker.id
-                    logger.info(f"Hablante identificado: {identified_speaker_name}")
-                else:
-                    is_owner_for_nlp = False
+        if identified_user:
+            identified_user_from_speaker = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.id == identified_user.id).first()
+            )
+            if identified_user_from_speaker:
+                db.expire(identified_user_from_speaker)
+                db.refresh(identified_user_from_speaker)
+                identified_speaker_name = identified_user_from_speaker.nombre
+                is_owner_for_nlp = identified_user_from_speaker.is_owner
+                user_id_for_nlp = identified_user_from_speaker.id
+                logger.info(f"Hablante identificado: {identified_speaker_name}")
             else:
-                next_unknown_id = await asyncio.to_thread(
-                    lambda: db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1
-                )
-                new_unknown_name = f"Desconocido {next_unknown_id}"
+                is_owner_for_nlp = False
+        else:
+            next_unknown_id = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.nombre.like("Desconocido %")).count() + 1
+            )
+            new_unknown_name = f"Desconocido {next_unknown_id}"
 
-                register_future = utils._speaker_module.register_speaker(
-                    new_unknown_name, str(file_location), is_owner=False
-                )
-                await asyncio.to_thread(register_future.result)
+            register_future = utils._speaker_module.register_speaker(
+                new_unknown_name, str(file_location), is_owner=False
+            )
+            await asyncio.to_thread(register_future.result)
 
-                identified_user_obj = await asyncio.to_thread(
-                    lambda: db.query(User).filter(User.nombre == new_unknown_name).first()
-                )
-                if identified_user_obj:
-                    identified_speaker_name = new_unknown_name
-                    is_owner_for_nlp = False
-                    user_id_for_nlp = identified_user_obj.id
-                    logger.info(f"Nuevo hablante desconocido registrado: {new_unknown_name}")
-                else:
-                    raise HTTPException(status_code=500, detail="No se pudo registrar hablante desconocido")
+            identified_user_obj = await asyncio.to_thread(
+                lambda: db.query(User).filter(User.nombre == new_unknown_name).first()
+            )
+            if identified_user_obj:
+                identified_speaker_name = new_unknown_name
+                is_owner_for_nlp = False
+                user_id_for_nlp = identified_user_obj.id
+                logger.info(f"Nuevo hablante desconocido registrado: {new_unknown_name}")
+            else:
+                raise HTTPException(status_code=500, detail="No se pudo registrar hablante desconocido")
 
         # === 4. Procesamiento NLP ===
         nlp_response = await utils._nlp_module.generate_response(
@@ -127,13 +121,13 @@ async def process_hotword_audio(audio_file: UploadFile = File(...)):
 
         logger.info(f"Respuesta NLP: {nlp_response['response']}")
 
-        # === 5. Generación TTS===
+        # === 5. Generación TTS ===
         if utils._tts_module and utils._tts_module.is_online():
             tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}.wav"
             asyncio.create_task(
                 handle_tts_generation_and_playback(
                     utils._tts_module,
-                    nlp_response['response'], 
+                    nlp_response['response'],
                     tts_audio_output_path
                 )
             )
@@ -148,14 +142,13 @@ async def process_hotword_audio(audio_file: UploadFile = File(...)):
         )
 
         # Guardar log en una nueva sesión
-        async with get_db_session() as db:
-            utils._save_api_log(
-                "/hotword/process_audio", 
-                {"filename": audio_file.filename}, 
-                response_data.dict(), 
-                db
-            )
-        
+        utils._save_api_log(
+            "/hotword/process_audio",
+            {"filename": audio_file.filename},
+            response_data.dict(),
+            db
+        )
+
         return response_data
 
     except HTTPException:

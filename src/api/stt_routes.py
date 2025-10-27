@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from sqlalchemy.orm import Session
-from src.db.database import SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import get_db
 from src.api.stt_schemas import STTResponse
 import logging
 from pathlib import Path
@@ -13,15 +13,8 @@ logger = logging.getLogger("APIRoutes")
 
 stt_router = APIRouter()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 @stt_router.post("/stt/transcribe", response_model=STTResponse)
-async def transcribe_audio(audio_file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def transcribe_audio(audio_file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     """Convierte voz a texto usando el módulo STT."""
     if utils._stt_module is None or not utils._stt_module.is_online():
         raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")

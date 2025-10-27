@@ -268,7 +268,7 @@ async def shutdown_hotword_module() -> None:
             logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
         _hotword_task = None
     if _hotword_module:
-        _hotword_module.shutdown()
+        _hotword_module.stop()
         logger.info("HotwordDetector cerrado.")
         _hotword_module = None
 

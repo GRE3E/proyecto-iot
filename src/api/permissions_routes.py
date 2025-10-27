@@ -109,3 +109,4 @@ async def remove_permission_from_user(user_id: int, permission_id: int, db: Asyn
     except Exception as e:
         logger.error(f"Error al eliminar permiso con ID {permission_id} del usuario con ID {user_id} para /users/{{user_id}}/permissions/: {e}")
         raise HTTPException(status_code=500, detail=f"Error al eliminar permiso: {e}")
+        

@@ -6,16 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 from pathlib import Path
 import uuid
-
-BUFFER_SIZE = 2
-
 from src.api.tts_routes import AUDIO_OUTPUT_DIR, play_audio
 from src.ai.tts.text_splitter import _split_text_into_sentences
 
-logger = logging.getLogger("TTSModule")
-
+BUFFER_SIZE = 2
 MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 SPEAKER = "Sofia Hellen"
+
+logger = logging.getLogger("TTSModule")
 
 class TTSModule:
     """
@@ -112,8 +110,6 @@ class TTSModule:
             return future
         
         return self._executor.submit(self._generate_speech_sync, text, file_path)
-
-
 
 async def handle_tts_generation_and_playback(
     tts_module_instance: 'TTSModule',

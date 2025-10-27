@@ -3,18 +3,14 @@ import sys
 import logging
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-
-
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
-
 from src.db.database import get_db as get_async_db_session
-from src.db.models import User, Face
 from src.rc.capture import FaceCapture
 from src.rc.encode import FaceEncoder
 from src.rc.recognize import FaceRecognizer
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
 
 DATASET_DIR = os.path.join(PROJECT_ROOT, "data", "dataset")
 ENCODINGS_DIR = os.path.join(PROJECT_ROOT, "src", "rc", "encodings")
@@ -24,7 +20,6 @@ os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(ENCODINGS_DIR, exist_ok=True)
 
 logger = logging.getLogger("FaceRecognitionCore")
-
 
 class FaceRecognitionCore:
     """
@@ -37,6 +32,7 @@ class FaceRecognitionCore:
         self.capture = FaceCapture(dataset_dir=DATASET_DIR)
         self.encoder = FaceEncoder()
         self.recognizer = FaceRecognizer()
+        self.is_online_status: bool = True
 
     @asynccontextmanager
     async def get_db(self) -> AsyncSession:
@@ -72,11 +68,11 @@ class FaceRecognitionCore:
         """Reconoce un rostro en tiempo real usando cámara."""
         return self.recognizer.recognize_from_cam(cam_id)
 
-    def get_status(self):
-        """Devuelve información resumida del sistema."""
-        users = self.capture.list_registered_users()
-        return {
-            "active": True,
-            "registered_users_count": len(users),
-            "user_list": users
-        }
+    def get_status(self) -> bool:
+        """
+        Verifica si el módulo de reconocimiento facial está en línea y activo.
+
+        Returns:
+            bool: True si el módulo está en línea, False en caso contrario.
+        """
+        return self.is_online_status

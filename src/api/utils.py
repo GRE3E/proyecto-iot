@@ -42,7 +42,7 @@ def get_module_status() -> StatusResponse:
     hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
     mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
     tts_status = "ONLINE" if _tts_module and _tts_module.is_online() else "OFFLINE"
-    face_recognition_status = "ONLINE" if _face_recognition_module else "OFFLINE"
+    face_recognition_status = "ONLINE" if _face_recognition_module and _face_recognition_module.get_status() else "OFFLINE"
     utils_status = "ONLINE" if _nlp_module else "OFFLINE"
     
     return StatusResponse(

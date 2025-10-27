@@ -3,8 +3,8 @@ import sys
 import cv2
 import logging
 from sqlalchemy.orm import Session
-from db.database import SessionLocal
-from db.models import User, Face
+from src.db.database import SessionLocal
+from src.db.models import User, Face
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")

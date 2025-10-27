@@ -6,21 +6,11 @@ import warnings
 from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
-from fastapi.middleware.wsgi import WSGIMiddleware
 from src.api.routes import router
 from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _mqtt_client, _ollama_manager
-from src.api import utils
-from .db.database import Base, async_engine, create_all_tables
-from .db import models
-import httpx
-import json
-import pyaudio
-import wave
-from datetime import datetime
-import numpy as np
+from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
 from src.ai.nlp.config_manager import ConfigManager
-from src.api.face_recognition_routes import face_recognition_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RC_DIR = os.path.join(BASE_DIR, "src", "rc")
@@ -92,7 +82,6 @@ async def shutdown_event() -> None:
         )
         logger.info("Cerrando OllamaManager...")
 
-    # Cerrar el motor de la base de datos
     if async_engine:
         await ErrorHandler.safe_execute_async(
             async_engine.dispose,

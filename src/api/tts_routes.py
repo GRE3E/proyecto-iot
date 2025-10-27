@@ -10,6 +10,7 @@ import wave
 from src.api import utils
 
 logger = logging.getLogger("APIRoutes")
+
 tts_router = APIRouter()
 
 AUDIO_OUTPUT_DIR = Path("src/ai/tts/generated_audio")
@@ -72,4 +73,3 @@ async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get
     except Exception as e:
         logger.error(f"Error en generación de audio TTS para /tts/generate_audio: {e}")
         raise HTTPException(status_code=500, detail="Error al generar el audio")
-        

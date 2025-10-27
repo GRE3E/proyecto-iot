@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 class PermissionBase(BaseModel):
     name: str
@@ -21,7 +21,7 @@ class UserPermissionCreate(UserPermissionBase):
     pass
 
 class UserPermission(UserPermissionBase):
-    id: Optional[int] = None # UserPermission no tiene su propio ID, pero es útil para Pydantic
+    id: Optional[int] = None
     permission: Permission
 
     class Config:

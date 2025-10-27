@@ -67,7 +67,8 @@ async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get
         
         response_obj = TTSAudioResponse(audio_file_path=str(file_location))
         logger.info(f"Audio TTS generado exitosamente para /tts/generate_audio: {file_location}")
-        utils._save_api_log("/tts/generate_audio", request.dict(), response_obj.dict(), db)
+        async with get_db() as db:
+            await utils._save_api_log("/tts/generate_audio", request.dict(), response_obj.dict(), db)
         return response_obj
         
     except Exception as e:

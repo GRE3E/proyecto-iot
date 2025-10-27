@@ -94,45 +94,69 @@ async def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_da
         raise
 
 @ErrorHandler.handle_async_exceptions
-async def initialize_nlp(ollama_host: str, config: Dict[str, Any]) -> None:
+async def initialize_all_modules(ollama_host: str, config: Dict[str, Any]) -> None:
     """
     Inicializa los módulos NLP, STT, Speaker, Hotword, SerialManager y MQTTClient.
     Utiliza ErrorHandler para manejo unificado de excepciones.
     Args:
         ollama_host (str): La URL del host de Ollama.
     """
-    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client, _hotword_task, _tts_module, _ollama_manager
+    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client, _hotword_task, _tts_module, _face_recognition_module, _ollama_manager
     
     logger.info("Inicializando módulos...")
 
-    ollama_model_config = config.get("model", {})
+    await initialize_nlp_module_only(config, ollama_host)
+    await _initialize_stt_module()
+    await _initialize_speaker_module()
+    await _initialize_tts_module()
+    await _initialize_face_recognition_module()
+    await _initialize_hotword_module()
+    await _initialize_mqtt_client()
+    await _set_nlp_iot_managers()
+        
+    logger.info("Todos los módulos inicializados correctamente.")
 
+async def initialize_nlp_module_only(config: Dict[str, Any], ollama_host: str) -> None:
+    global _ollama_manager, _nlp_module
+    await _initialize_ollama_manager(config, ollama_host)
+    await _initialize_nlp_module(config)
+
+async def _initialize_ollama_manager(config: Dict[str, Any], ollama_host: str) -> None:
+    global _ollama_manager
+    ollama_model_config = config.get("model", {})
     _ollama_manager = await ErrorHandler.safe_execute_async(
         lambda: OllamaManager(model_config=ollama_model_config, ollama_host=ollama_host),
         default_return=None,
         context="initialize_nlp.ollama_manager"
     )
-
     if _ollama_manager and _ollama_manager.is_online():
         logger.info("OllamaManager inicializado y en línea.")
     else:
         logger.error("Fallo al inicializar OllamaManager. El módulo NLP no estará disponible.")
-        return
 
-    _nlp_module = await ErrorHandler.safe_execute_async(
-        lambda: NLPModule(ollama_manager=_ollama_manager, config=config),
-        default_return=None,
-        context="initialize_nlp.nlp_module"
-    )
-    logger.info(f"NLPModule inicializado. Online: {_nlp_module.is_online() if _nlp_module else False}")
-    
+async def _initialize_nlp_module(config: Dict[str, Any]) -> None:
+    global _nlp_module
+    if _ollama_manager and _ollama_manager.is_online():
+        _nlp_module = await ErrorHandler.safe_execute_async(
+            lambda: NLPModule(ollama_manager=_ollama_manager, config=config),
+            default_return=None,
+            context="initialize_nlp.nlp_module"
+        )
+        logger.info(f"NLPModule inicializado. Online: {_nlp_module.is_online() if _nlp_module else False}")
+    else:
+        logger.warning("OllamaManager no está en línea, no se puede inicializar NLPModule.")
+
+async def _initialize_stt_module() -> None:
+    global _stt_module
     _stt_module = await ErrorHandler.safe_execute_async(
         lambda: STTModule(),
         default_return=None,
         context="initialize_nlp.stt_module"
     )
     logger.info(f"STTModule inicializado. Online: {_stt_module.is_online() if _stt_module else False}")
-    
+
+async def _initialize_speaker_module() -> None:
+    global _speaker_module
     _speaker_module = await ErrorHandler.safe_execute_async(
         lambda: SpeakerRecognitionModule(),
         default_return=None,
@@ -144,21 +168,27 @@ async def initialize_nlp(ollama_host: str, config: Dict[str, Any]) -> None:
             context="initialize_nlp.load_speaker_users"
         )
     logger.info(f"SpeakerRecognitionModule inicializado. Online: {_speaker_module.is_online() if _speaker_module else False}")
-    
+
+async def _initialize_tts_module() -> None:
+    global _tts_module
     _tts_module = await ErrorHandler.safe_execute_async(
         lambda: TTSModule(),
         default_return=None,
         context="initialize_nlp.tts_module"
     )
     logger.info(f"TTSModule inicializado. Online: {_tts_module.is_online() if _tts_module else False}")
-    
+
+async def _initialize_face_recognition_module() -> None:
+    global _face_recognition_module
     _face_recognition_module = await ErrorHandler.safe_execute_async(
         lambda: FaceRecognitionCore(),
         default_return=None,
         context="initialize_nlp.face_recognition_module"
     )
     logger.info(f"FaceRecognitionCore inicializado. Online: {True if _face_recognition_module else False}")
-    
+
+async def _initialize_hotword_module() -> None:
+    global _hotword_module, _hotword_task
     access_key = os.getenv("PICOVOICE_ACCESS_KEY")
     hotword_path = "src/ai/hotword/models/Okey-Murphy_en_windows_v3_0_0.ppn"
     
@@ -179,6 +209,8 @@ async def initialize_nlp(ollama_host: str, config: Dict[str, Any]) -> None:
         else:
             logger.error("Error al inicializar HotwordDetector")
 
+async def _initialize_mqtt_client() -> None:
+    global _mqtt_client
     mqtt_broker = os.getenv("MQTT_BROKER")
     mqtt_port = os.getenv("MQTT_PORT")
     if mqtt_broker and mqtt_port:
@@ -198,9 +230,10 @@ async def initialize_nlp(ollama_host: str, config: Dict[str, Any]) -> None:
     else:
         logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")
 
+async def _set_nlp_iot_managers() -> None:
     if _nlp_module:
         from src.db.database import get_db
-
+    
         async with get_db() as db:
             try:
                 await ErrorHandler.safe_execute_async(
@@ -210,5 +243,77 @@ async def initialize_nlp(ollama_host: str, config: Dict[str, Any]) -> None:
                 logger.info("Instancias de MQTTClient pasadas al módulo NLP y caché inicializado.")
             finally:
                 pass
-        
-    logger.info("Todos los módulos inicializados correctamente.")
+
+async def shutdown_ollama_manager() -> None:
+    global _ollama_manager
+    if _ollama_manager:
+        await ErrorHandler.safe_execute_async(
+            _ollama_manager.close,
+            default_return=None,
+            context="shutdown_ollama_manager"
+        )
+        logger.info("OllamaManager cerrado.")
+        _ollama_manager = None
+
+async def shutdown_hotword_module() -> None:
+    global _hotword_module, _hotword_task
+    if _hotword_task:
+        logger.info("Cancelando tarea de HotwordDetector...")
+        _hotword_task.cancel()
+        try:
+            await _hotword_task
+        except asyncio.CancelledError:
+            logger.info("Tarea de HotwordDetector cancelada correctamente")
+        except Exception as e:
+            logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
+        _hotword_task = None
+    if _hotword_module:
+        _hotword_module.shutdown()
+        logger.info("HotwordDetector cerrado.")
+        _hotword_module = None
+
+async def shutdown_mqtt_client() -> None:
+    global _mqtt_client
+    if _mqtt_client:
+        await ErrorHandler.safe_execute_async(
+            _mqtt_client.disconnect,
+            default_return=None,
+            context="shutdown_mqtt_client"
+        )
+        logger.info("Desconectando cliente MQTT...")
+        _mqtt_client = None
+
+async def shutdown_speaker_module() -> None:
+    global _speaker_module
+    if _speaker_module:
+        _speaker_module.shutdown()
+        logger.info("SpeakerRecognitionModule cerrado.")
+        _speaker_module = None
+
+async def shutdown_nlp_module() -> None:
+    global _nlp_module
+    if _nlp_module:
+        # No hay un método de apagado explícito para NLPModule, solo lo desreferenciamos
+        _nlp_module = None
+        logger.info("NLPModule desreferenciado.")
+
+async def shutdown_stt_module() -> None:
+    global _stt_module
+    if _stt_module:
+        # No hay un método de apagado explícito para STTModule, solo lo desreferenciamos
+        _stt_module = None
+        logger.info("STTModule desreferenciado.")
+
+async def shutdown_tts_module() -> None:
+    global _tts_module
+    if _tts_module:
+        # No hay un método de apagado explícito para TTSModule, solo lo desreferenciamos
+        _tts_module = None
+        logger.info("TTSModule desreferenciado.")
+
+async def shutdown_face_recognition_module() -> None:
+    global _face_recognition_module
+    if _face_recognition_module:
+        # No hay un método de apagado explícito para FaceRecognitionCore, solo lo desreferenciamos
+        _face_recognition_module = None
+        logger.info("FaceRecognitionCore desreferenciado.")

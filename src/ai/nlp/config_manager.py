@@ -63,28 +63,28 @@ class ConfigManager:
         """Establece la configuración por defecto."""
         logger.info("Estableciendo configuración por defecto.")
         self._config = {
-            "assistant_name": "Murphy",
-            "language": "es",
-            "capabilities": [
-                "control_luces",
-                "control_temperatura",
-                "control_dispositivos",
-                "consulta_estado",
-                "administrar_comandos_iot"
-            ],
-            "model": {
-                "name": "qwen2.5:3b-instruct",
-                "temperature": 0.3,
-                "top_p": 0.9,
-                "top_k": 40,
-                "repeat_penalty": 1.1,
-                "num_ctx": 8192,
-                "max_tokens": 1024
-            },
-            "memory_size": 50,
-            "timezone": "America/Lima",
-            "debug": False
-        }
+        "assistant_name": "Murphy",
+        "language": "es",
+        "model": {
+          "name": "qwen2.5:3b-instruct",
+          "temperature": 0.3,
+          "top_p": 0.9,
+          "top_k": 40,
+          "repeat_penalty": 1.1,
+          "num_ctx": 8192,
+          "max_tokens": 1024
+        },
+        "capabilities": [
+           "control_luces",
+           "control_temperatura",
+           "control_dispositivos",
+           "consulta_estado",
+           "administrar_comandos_iot"
+        ],
+        "memory_size": 50,
+        "timezone": "America/Lima",
+        "debug": False
+    }
 
     def _validate_timezone(self) -> None:
         """Valida la configuración de la zona horaria y establece un valor por defecto si es inválido."""

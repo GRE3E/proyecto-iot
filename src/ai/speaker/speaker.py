@@ -7,6 +7,7 @@ from src.db.database import get_db
 from src.db.models import User
 import logging
 import asyncio
+from sqlalchemy import select
 
 logger = logging.getLogger("SpeakerRecognitionModule")
 
@@ -26,7 +27,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         Carga los usuarios registrados desde la base de datos en la memoria del módulo de forma asíncrona.
         """
         async with get_db() as db:
-            users = await db.execute(User.__table__.select())
+            users = await db.execute(select(User))
             self._registered_users = users.scalars().all()
             logger.info(f"Cargados {len(self._registered_users)} usuarios registrados.")
 
@@ -59,8 +60,8 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             embedding = self._encoder.embed_utterance(wav)
             
             async with get_db() as db:
-                existing_user = await db.execute(User.__table__.select().where(User.nombre == name))
-                existing_user = existing_user.scalar_one_or_none()
+                result = await db.execute(select(User).where(User.nombre == name))
+                existing_user = result.scalar_one_or_none()
                 if existing_user:
                     logger.info(f"El usuario {name} ya existe. Actualizando embedding.")
                     existing_user.embedding = json.dumps(embedding.tolist())

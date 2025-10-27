@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
 from src.api.routes import router
-from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _mqtt_client, _ollama_manager
+from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client, shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client, shutdown_speaker_module, shutdown_nlp_module, shutdown_stt_module, shutdown_tts_module, shutdown_face_recognition_module
 from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
 from src.ai.nlp.config_manager import ConfigManager
@@ -41,7 +41,7 @@ async def startup_event() -> None:
     await create_all_tables()
 
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    await initialize_nlp(ollama_host=ollama_host, config=config)
+    await initialize_all_modules(ollama_host=ollama_host, config=config)
 
     app.state.mqtt_client = _mqtt_client
     app.state.iot_data = {}
@@ -56,31 +56,14 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     logger.info("Cerrando aplicación...")
 
-    if _hotword_task:
-        logger.info("Cancelando tarea de HotwordDetector...")
-        _hotword_task.cancel()
-        try:
-            await _hotword_task
-        except asyncio.CancelledError:
-            logger.info("Tarea de HotwordDetector cancelada correctamente")
-        except Exception as e:
-            logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
-
-    if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
-        await ErrorHandler.safe_execute_async(
-            app.state.mqtt_client.disconnect,
-            default_return=None,
-            context="shutdown_event.mqtt_disconnect"
-        )
-        logger.info("Desconectando cliente MQTT...")
-
-    if _ollama_manager:
-        await ErrorHandler.safe_execute_async(
-            _ollama_manager.close,
-            default_return=None,
-            context="shutdown_event.ollama_manager_close"
-        )
-        logger.info("Cerrando OllamaManager...")
+    await shutdown_hotword_module()
+    await shutdown_mqtt_client()
+    await shutdown_ollama_manager()
+    await shutdown_speaker_module()
+    await shutdown_nlp_module()
+    await shutdown_stt_module()
+    await shutdown_tts_module()
+    await shutdown_face_recognition_module()
 
     if async_engine:
         await ErrorHandler.safe_execute_async(

@@ -30,7 +30,8 @@ async def transcribe_audio(audio_file: UploadFile = File(...), db: AsyncSession 
             raise HTTPException(status_code=500, detail="No se pudo transcribir el audio")
         
         response_obj = STTResponse(text=transcribed_text)
-        utils._save_api_log("/stt/transcribe", {"filename": audio_file.filename}, response_obj.dict(), db)
+        async with get_db() as db:
+            await utils._save_api_log("/stt/transcribe", {"filename": audio_file.filename}, response_obj.dict(), db)
         return response_obj
         
     except Exception as e:

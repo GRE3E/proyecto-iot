@@ -40,7 +40,7 @@ async def main():
     recognizer = FaceRecognizer()
     await recognizer.load_known_faces()
 
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(1)  # cámara principal
     if not cap.isOpened():
         print(" No se pudo abrir la cámara")
         return
@@ -51,10 +51,12 @@ async def main():
         if not ret:
             break
 
-        results = recognizer.recognize_faces(frame)
-        for user, (top, right, bottom, left) in results:
+        # Reconocer usando el nuevo método
+        results = await recognizer.recognize_frame(frame)
+
+        for name, (top, right, bottom, left) in results:
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, user.nombre, (left, top-10),
+            cv2.putText(frame, name, (left, top - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
         cv2.imshow("Reconocimiento Facial", frame)

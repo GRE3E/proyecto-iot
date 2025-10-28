@@ -76,6 +76,41 @@ class BaseResponse(BaseModel):
     success: bool
     message: str
 
+class UserResponse(BaseModel):
+    """
+    Esquema para la información de un usuario.
+    """
+    id: int
+    name: str
+    photos_count: int
+    created_at: str
+    updated_at: str
+
+class UserRegistrationResponse(BaseResponse):
+    """
+    Esquema para la respuesta de registro de usuario.
+    """
+    user: Optional[UserResponse] = None
+    photos_taken: Optional[int] = None
+
+class UserDeletionResponse(BaseResponse):
+    """
+    Esquema para la respuesta de eliminación de usuario.
+    """
+    user_name: str
+
+class UserRecognitionResponse(BaseResponse):
+    """
+    Esquema para la respuesta de reconocimiento facial.
+    """
+    user: Optional[UserResponse] = None
+    confidence: Optional[float] = Field(
+        None,
+        description="Nivel de confianza del reconocimiento (0-1)",
+        ge=0.0,
+        le=1.0
+    )
+
 class UserIdentificationResponse(BaseResponse):
     """
     Esquema para la respuesta de identificación de usuario.

@@ -5,7 +5,7 @@ import face_recognition
 import logging
 from typing import Tuple, List
 from sqlalchemy import select
-from src.db.database import get_async_db_session
+from src.db.database import get_db
 from src.db.models import User
 import numpy as np
 
@@ -144,7 +144,7 @@ class FaceEncoder:
         total_encodings = 0
         users_processed = 0
 
-        async with get_async_db_session() as db:
+        async with get_db() as db:
             for user_name in sorted(os.listdir(self.dataset_dir)):
                 user_path = os.path.join(self.dataset_dir, user_name)
                 if not os.path.isdir(user_path):
@@ -195,11 +195,11 @@ class FaceEncoder:
         Returns:
             np.ndarray: Encoding facial del usuario
         """
-        async with get_async_db_session() as db:
+        async with get_db() as db:
             result = await db.execute(select(User).filter(User.id == user_id))
             user = result.scalars().first()
             
             if not user or not user.face_encoding:
-                raise ValueError(f"No existe encoding facial para el usuario ID {user_id}")
+                raise ValueError(f"No se encontró encoding facial para el usuario {user_id}")
                 
             return np.frombuffer(user.face_encoding, dtype=np.float64)

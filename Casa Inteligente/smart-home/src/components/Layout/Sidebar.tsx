@@ -1,7 +1,7 @@
-//Menu Hamburguesa
+// Menu Hamburguesa
 "use client"
 import { useEffect, useRef } from "react"
-import { Home, LogOut, X } from "lucide-react"
+import { Home, LogOut } from "lucide-react"
 import SimpleButton from "../UI/Button"
 
 interface HamburgerMenuProps {
@@ -25,7 +25,6 @@ export default function HamburgerMenu({
 }: HamburgerMenuProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
 
-  // 🔹 Detectar clic fuera del menú
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -49,7 +48,6 @@ export default function HamburgerMenu({
 
   return (
     <>
-      {/* Fondo semitransparente (overlay) */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-500"
@@ -57,27 +55,26 @@ export default function HamburgerMenu({
         />
       )}
 
-      {/* === SIDEBAR === */}
       <aside
         ref={sidebarRef}
         className={`fixed left-0 top-0 h-full ${
-          isSidebarOpen ? "w-72" : "w-20"
+          isSidebarOpen ? "w-80" : "w-24"
         } ${colors.cardBg} backdrop-blur-xl 
           border-r-2 border-cyan-500/20 shadow-[6px_0_20px_rgba(0,0,0,0.5)]
-          flex flex-col items-center justify-between py-6
+          flex flex-col items-center justify-between py-8 px-6
           transition-all duration-500 ease-in-out z-50`}
         style={{
           boxShadow:
             "8px 0 25px rgba(0,0,0,0.4), inset -1px 0 0 rgba(0,255,255,0.1)",
         }}
       >
-        {/* Sección superior (botón hamburguesa o cerrar) */}
+        {/* === Sección superior === */}
         <div className="flex flex-col items-center gap-8 w-full relative">
-          {/* Botón hamburguesa — visible solo si está cerrado */}
+          {/* Botón hamburguesa (menú cerrado) */}
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className={`w-12 h-12 flex flex-col justify-center items-center rounded-xl
+              className={`w-11/12 h-12 flex flex-col justify-center items-center rounded-xl
                 bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
                 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
             >
@@ -87,22 +84,18 @@ export default function HamburgerMenu({
             </button>
           )}
 
-          {/* Botón “X” cerrar — visible solo si está abierto */}
+          {/* Botón de la casita + texto SmartHome */}
           {isSidebarOpen && (
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="absolute right-4 top-2 p-2 rounded-lg hover:bg-white/10 transition-all duration-200"
-            >
-              <X className="w-5 h-5 text-white" />
-            </button>
-          )}
-
-          {/* Logo y título (solo visible si el menú está abierto) */}
-          {isSidebarOpen && (
-            <div className="flex items-center justify-center gap-3 mt-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center">
+            <div className="flex items-center justify-start gap-3 px-4 w-full">
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl
+                  bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
+                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+              >
                 <Home className="w-6 h-6 text-white" />
-              </div>
+              </button>
+
               <h1
                 className={`text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent tracking-tight`}
               >

@@ -5,7 +5,7 @@ import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget";
 import SimpleCard from "../components/UI/Card";
 
 // utils (solo lógica)
-import { generateSparklinePoints, donutParams} from "../utils/chatutils";
+import { generateSparklinePoints, donutParams} from "../utils/chatUtils";
 import { initialNotifications } from "../utils/notificationsUtils";
 import { getDeviceType } from "../utils/deviceUtils";
 

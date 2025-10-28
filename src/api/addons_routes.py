@@ -13,19 +13,18 @@ router = APIRouter()
 # Función de dependencia para NLPModule
 def get_nlp_module():
     project_root = Path(__file__).parent.parent.parent
-    config_path = project_root / "src" / "ai" / "nlp" / "config" / "config.json"
+    config_path = project_root / "src" / "ai" / "config" / "config.json"
     config_manager = ConfigManager(config_path)
     model_config = config_manager.get_config()["model"]
     ollama_manager = OllamaManager(model_config)
-    return NLPModule(ollama_manager)
+    return NLPModule(ollama_manager, config_manager)
 
 @router.put("/timezone")
 async def update_timezone(timezone_update: TimezoneUpdate, nlp_module: NLPModule = Depends(get_nlp_module)):
     """Actualiza la zona horaria de la configuración del asistente."""
     try:
-        nlp_module._config["timezone"] = timezone_update.timezone
-        nlp_module._save_config()
-        nlp_module.reload()
+        nlp_module._config_manager.update_config({"timezone": timezone_update.timezone})
+        await nlp_module.reload()
         logger.info(f"Zona horaria actualizada exitosamente a {timezone_update.timezone} para /addons/timezone.")
         return {"message": f"Zona horaria actualizada a {timezone_update.timezone}"}
     except Exception as e:

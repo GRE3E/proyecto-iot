@@ -1,8 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 import logging
-from sqlalchemy.orm import Session
-
-from src.db.database import SessionLocal
 from src.api.schemas import StatusResponse
 from src.api.hotword_routes import hotword_router
 from src.api.tts_routes import tts_router
@@ -32,19 +29,8 @@ router.include_router(addons_router, prefix="/addons", tags=["addons"])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"])
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
 
-def get_db():
-    """
-    Dependencia que proporciona una sesión de base de datos.
-    Cada solicitud obtendrá su propia sesión de base de datos que se cerrará después.
-    """
-    db: Session = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 @router.get("/status", response_model=StatusResponse)
-async def get_status(db: Session = Depends(get_db)):
+async def get_status():
     """Devuelve el estado actual de los módulos."""
     try:
         status = utils.get_module_status()

@@ -1,103 +1,96 @@
 import cv2
 import face_recognition
-import pickle
-import os
+import numpy as np
 import logging
+from sqlalchemy import select
+from src.db.database import get_db
+from src.db.models import User, Face
+from datetime import datetime
+
+logger = logging.getLogger("FaceRecognizer")
 
 class FaceRecognizer:
     """
-    Clase encargada de realizar el reconocimiento facial, ya sea desde cámara o desde archivos.
-    Usa los encodings generados por FaceEncoder y almacenados en:
-    src/rc/encodings/encodings.pickle
+    Clase responsable del reconocimiento facial en tiempo real.
+    Compara rostros detectados contra los encodings almacenados.
     """
-
-    logger = logging.getLogger("FaceRecognizer")
-
-    def __init__(self, encodings_path: str = None):
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        default_encodings_path = os.path.join(self.base_dir, "encodings", "encodings.pickle")
-        self.encodings_path = encodings_path or default_encodings_path
-        if os.path.exists(self.encodings_path):
-            with open(self.encodings_path, "rb") as f:
-                self.data = pickle.load(f)
-        else:
-            self.data = {"encodings": [], "names": []}
-
-        FaceRecognizer.logger.info("FaceRecognizer inicializado.")
-
-    def recognize_from_cam(self, cam_id: int = 0) -> str:
+    
+    def __init__(self):
         """
-        Reconoce un rostro usando la cámara activa.
-        Retorna el nombre reconocido o 'Desconocido'.
+        Inicializa el reconocedor facial.
         """
-        FaceRecognizer.logger.info("Iniciando reconocimiento facial desde cámara...")
-        cap = cv2.VideoCapture(cam_id)
-        acceso = False
-        name = "Desconocido"
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            boxes = face_recognition.face_locations(rgb)
-            encs = face_recognition.face_encodings(rgb, boxes)
-
-            for enc in encs:
-                matches = face_recognition.compare_faces(self.data["encodings"], enc)
-                name = "Desconocido"
-
-                if True in matches:
-                    matched_idxs = [i for i, m in enumerate(matches) if m]
-                    counts = {}
-                    for i in matched_idxs:
-                        n = self.data["names"][i]
-                        counts[n] = counts.get(n, 0) + 1
-                    name = max(counts, key=counts.get)
-                    acceso = True
-
-                FaceRecognizer.logger.info(f"Rostro detectado: {name}")
-
-            cv2.imshow("Reconocimiento facial", frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q') or acceso:
-                break
-        cap.release()
-        cv2.destroyAllWindows()
-        if acceso:
-            FaceRecognizer.logger.info(f"Acceso concedido a: {name}")
-        else:
-            FaceRecognizer.logger.info("Acceso denegado")
-        return name
-    def recognize_from_file(self, image_path: str) -> str:
+        self.model = "hog"  # Usar 'cnn' si hay GPU disponible
+        self.tolerance = 0.6
+        self.min_face_size = 30
+        self.known_face_encodings = []
+        self.known_face_users = []
+        
+    async def load_known_faces(self):
         """
-        Reconoce un rostro desde un archivo de imagen.
-        Devuelve el nombre reconocido o 'Desconocido'.
+        Carga los encodings faciales conocidos desde la base de datos.
         """
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"No se encontró la imagen: {image_path}")
-
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError("No se pudo leer la imagen correctamente.")
-
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        boxes = face_recognition.face_locations(rgb)
-        encs = face_recognition.face_encodings(rgb, boxes)
-
-        if not encs:
-            return "Desconocido"
-
-        for enc in encs:
-            matches = face_recognition.compare_faces(self.data["encodings"], enc)
-            name = "Desconocido"
-
+        self.known_face_encodings = []
+        self.known_face_users = []
+        
+        async with get_db() as db:
+            result = await db.execute(select(User).filter(User.face_encoding != None))
+            users = result.scalars().all()
+            
+            for user in users:
+                encoding = np.frombuffer(user.face_encoding, dtype=np.float64)
+                self.known_face_encodings.append(encoding)
+                self.known_face_users.append(user)
+                
+        logger.info(f"Encodings cargados: {len(self.known_face_encodings)}")
+        
+    def recognize_faces(self, frame: np.ndarray) -> list:
+        """
+        Detecta y reconoce rostros en un frame de video.
+        
+        Args:
+            frame (np.ndarray): Frame de video a procesar
+            
+        Returns:
+            list: Lista de tuplas (usuario, ubicación) para cada rostro reconocido
+        """
+        # Convertir BGR a RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Detectar rostros
+        face_locations = face_recognition.face_locations(rgb_frame, model=self.model)
+        if not face_locations:
+            return []
+            
+        # Obtener encodings
+        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        
+        results = []
+        for face_encoding, face_location in zip(face_encodings, face_locations):
+            # Verificar tamaño mínimo del rostro
+            top, right, bottom, left = face_location
+            face_height = bottom - top
+            face_width = right - left
+            
+            if min(face_height, face_width) < self.min_face_size:
+                continue
+                
+            # Comparar con rostros conocidos
+            matches = face_recognition.compare_faces(
+                self.known_face_encodings, 
+                face_encoding,
+                tolerance=self.tolerance
+            )
+            
             if True in matches:
-                matched_idxs = [i for i, m in enumerate(matches) if m]
-                counts = {}
-                for i in matched_idxs:
-                    n = self.data["names"][i]
-                    counts[n] = counts.get(n, 0) + 1
-                name = max(counts, key=counts.get)
-                return name
-        return "Desconocido"
+                # Encontrar el mejor match
+                face_distances = face_recognition.face_distance(
+                    self.known_face_encodings,
+                    face_encoding
+                )
+                best_match_index = np.argmin(face_distances)
+                
+                if matches[best_match_index]:
+                    user = self.known_face_users[best_match_index]
+                    results.append((user, face_location))
+                    
+        return results

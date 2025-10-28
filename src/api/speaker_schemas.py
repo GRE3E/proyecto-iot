@@ -3,11 +3,11 @@ from pydantic import BaseModel
 class SpeakerRegisterRequest(BaseModel):
     """Modelo para la solicitud de registro de hablante."""
     name: str
-    audio_file: str # Esto se manejará como UploadFile en el endpoint, pero se define como str para el esquema
+    audio_file: str
 
 class SpeakerIdentifyRequest(BaseModel):
     """Modelo para la solicitud de identificación de hablante."""
-    audio_file: str # Esto se manejará como UploadFile en el endpoint, pero se define como str para el esquema
+    audio_file: str
 
 class SpeakerIdentifyResponse(BaseModel):
     """Modelo para la respuesta de identificación de hablante."""
@@ -30,3 +30,4 @@ class SpeakerUpdateOwnerRequest(BaseModel):
     """Modelo para la solicitud de actualización de propietario de hablante."""
     user_id: int
     is_owner: bool
+    

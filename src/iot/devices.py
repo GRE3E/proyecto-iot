@@ -15,8 +15,8 @@ class Light(Device):
     def __init__(self, device_id: str, name: str, location: str):
         super().__init__(device_id, name)
         self.location = location
-        self.state = "off" # "on" o "off"
-        self.brightness = 100 # 0-100
+        self.state = "off"
+        self.brightness = 100
 
     def execute(self, command: str, **kwargs) -> str:
         if command == "turn_on":
@@ -44,7 +44,7 @@ class Door(Device):
     def __init__(self, device_id: str, name: str, location: str):
         super().__init__(device_id, name)
         self.location = location
-        self.state = "closed" # "open" o "closed"
+        self.state = "closed"
 
     def execute(self, command: str, **kwargs) -> str:
         if command == "open":
@@ -68,7 +68,6 @@ class Sensor(Device):
 
     def execute(self, command: str, **kwargs) -> str:
         if command == "read_value":
-            # Simular lectura de un sensor
             self.value = kwargs.get("value", "N/A")
             logger.info(f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}")
             return f"Sensor {self.name} ({self.sensor_type}) en {self.location} leyó: {self.value}"

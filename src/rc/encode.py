@@ -1,75 +1,205 @@
 import os
 import sys
-import pickle
 import cv2
 import face_recognition
-import numpy as np
 import logging
-from typing import Tuple
-
+from typing import Tuple, List
+from sqlalchemy import select
+from src.db.database import get_db
+from src.db.models import User
+import numpy as np
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.append(SRC_DIR)
 
-
-from db.database import SessionLocal
-from db.models import Face, User
-
 logger = logging.getLogger("FaceEncoder")
-
 
 class FaceEncoder:
     """
-    Lee imágenes desde: data/dataset/<usuario>/*.jpg
-    Genera encodings y guarda el archivo: src/rc/encodings/encodings.pickle
+    Clase responsable de generar y gestionar los encodings faciales.
+    Procesa imágenes del dataset y almacena los encodings en la base de datos.
     """
 
-    def __init__(self, encodings_path: str = None):
+    def __init__(self):
+        """
+        Inicializa el codificador facial.
+        """
         self.dataset_dir = os.path.join(PROJECT_ROOT, "data", "dataset")
-        self.encodings_dir = os.path.join(os.path.dirname(__file__), "encodings")
-        os.makedirs(self.encodings_dir, exist_ok=True)
-        self.encodings_path = encodings_path or os.path.join(self.encodings_dir, "encodings.pickle")
+        self.model = "hog"  # Usar 'cnn' si hay GPU disponible
+        self.encoding_batch_size = 32
+        self.min_quality_score = 0.7
 
-    def generate_encodings(self, dataset_dir: str = None, model: str = "hog") -> Tuple[int, int]:
+    def _calculate_face_quality(self, image: np.ndarray, face_location: tuple) -> float:
         """
-        Recorre data/dataset, genera encodings y guarda el archivo pickle.
-        Retorna una tupla: (cantidad_encodings, cantidad_usuarios_procesados)
+        Calcula un puntaje de calidad para una imagen facial.
+        
+        Args:
+            image (np.ndarray): Imagen a evaluar
+            face_location (tuple): Ubicación del rostro en la imagen
+            
+        Returns:
+            float: Puntaje de calidad entre 0 y 1
         """
-        dataset_dir = dataset_dir or self.dataset_dir
+        try:
+            top, right, bottom, left = face_location
+            face_height = bottom - top
+            face_width = right - left
+            
+            # Verificar tamaño mínimo
+            min_size = min(face_height, face_width)
+            if min_size < 100:
+                return 0.0
+            
+            # Verificar proporción del rostro
+            aspect_ratio = face_width / face_height
+            if not (0.7 <= aspect_ratio <= 1.3):
+                return 0.0
+            
+            # Verificar centrado
+            frame_height, frame_width = image.shape[:2]
+            face_center_x = (left + right) / 2
+            face_center_y = (top + bottom) / 2
+            
+            center_score = 1.0 - (
+                abs(face_center_x - frame_width/2) / frame_width + 
+                abs(face_center_y - frame_height/2) / frame_height
+            ) / 2
+            
+            # Verificar iluminación
+            face_roi = image[top:bottom, left:right]
+            brightness = np.mean(face_roi)
+            brightness_score = 1.0 - abs(128 - brightness) / 128
+            
+            # Verificar nitidez
+            gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_RGB2GRAY)
+            laplacian_var = cv2.Laplacian(gray_roi, cv2.CV_64F).var()
+            sharpness_score = min(laplacian_var / 500.0, 1.0)
+            
+            # Combinar scores
+            quality_score = (center_score + brightness_score + sharpness_score) / 3
+            return quality_score
+            
+        except Exception as e:
+            logger.error(f"Error al calcular calidad facial: {e}")
+            return 0.0
 
-        if not os.path.exists(dataset_dir):
-            raise FileNotFoundError(f"No existe el dataset en: {dataset_dir}")
-
-        known_encodings = []
-        known_names = []
-        users_processed = 0
-
-        for user_name in sorted(os.listdir(dataset_dir)):
-            user_path = os.path.join(dataset_dir, user_name)
-            if not os.path.isdir(user_path):
-                continue
-            users_processed += 1
-            for fname in sorted(os.listdir(user_path)):
+    async def _process_user_images(self, user_path: str) -> List[np.ndarray]:
+        """
+        Procesa las imágenes de un usuario y genera sus encodings.
+        
+        Args:
+            user_path (str): Ruta al directorio de imágenes del usuario
+            
+        Returns:
+            List[np.ndarray]: Lista de encodings faciales
+        """
+        encodings = []
+        for fname in sorted(os.listdir(user_path)):
+            try:
                 fpath = os.path.join(user_path, fname)
                 img = cv2.imread(fpath)
                 if img is None:
+                    logger.warning(f"No se pudo cargar la imagen: {fpath}")
                     continue
+                    
                 rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                boxes = face_recognition.face_locations(rgb, model=model)
-                if not boxes:
+                face_locations = face_recognition.face_locations(rgb, model=self.model)
+                
+                if not face_locations:
+                    logger.warning(f"No se detectaron rostros en: {fpath}")
                     continue
-                encs = face_recognition.face_encodings(rgb, boxes)
-                for e in encs:
-                    known_encodings.append(e.tolist())
-                    known_names.append(user_name)
+                
+                # Seleccionar el rostro de mejor calidad
+                best_quality = -1
+                best_encoding = None
+                
+                for face_location in face_locations:
+                    quality = self._calculate_face_quality(rgb, face_location)
+                    if quality > best_quality and quality >= self.min_quality_score:
+                        face_encoding = face_recognition.face_encodings(rgb, [face_location])[0]
+                        best_quality = quality
+                        best_encoding = face_encoding
+                
+                if best_encoding is not None:
+                    encodings.append(best_encoding)
+                    
+            except Exception as e:
+                logger.error(f"Error procesando {fname}: {e}")
+                continue
+                
+        return encodings
 
-       
-        with open(self.encodings_path, "wb") as f:
-            pickle.dump({"encodings": known_encodings, "names": known_names}, f)
-        logger.info(f"Encodings guardados en: {self.encodings_path}")
-        return len(known_encodings), users_processed
+    async def generate_encodings(self) -> Tuple[int, int]:
+        """
+        Genera encodings faciales para todos los usuarios en el dataset.
+        
+        Returns:
+            Tuple[int, int]: (total_encodings, usuarios_procesados)
+        """
+        if not os.path.exists(self.dataset_dir):
+            raise FileNotFoundError(f"No existe el directorio del dataset: {self.dataset_dir}")
 
+        total_encodings = 0
+        users_processed = 0
 
+        async with get_db() as db:
+            for user_name in sorted(os.listdir(self.dataset_dir)):
+                user_path = os.path.join(self.dataset_dir, user_name)
+                if not os.path.isdir(user_path):
+                    continue
 
+                try:
+                    # Procesar imágenes del usuario
+                    user_encodings = await self._process_user_images(user_path)
+                    
+                    if not user_encodings:
+                        logger.warning(f"No se generaron encodings válidos para: {user_name}")
+                        continue
+                    
+                    # Actualizar o crear usuario en la base de datos
+                    result = await db.execute(select(User).filter(User.nombre == user_name))
+                    user = result.scalars().first()
+                    
+                    if not user:
+                        user = User(nombre=user_name)
+                        db.add(user)
+                        await db.flush()
+                    
+                    # Calcular encoding promedio
+                    avg_encoding = np.mean(user_encodings, axis=0)
+                    user.face_encoding = avg_encoding.tobytes()
+                    
+                    total_encodings += len(user_encodings)
+                    users_processed += 1
+                    
+                    logger.info(f"Encodings generados para {user_name}: {len(user_encodings)}")
+                    
+                except Exception as e:
+                    logger.error(f"Error procesando usuario {user_name}: {e}")
+                    continue
+
+            await db.commit()
+            
+        logger.info(f"Proceso completado. Encodings: {total_encodings}, Usuarios: {users_processed}")
+        return total_encodings, users_processed
+
+    async def get_user_encoding(self, user_id: int) -> np.ndarray:
+        """
+        Obtiene el encoding facial de un usuario específico.
+        
+        Args:
+            user_id (int): ID del usuario
+            
+        Returns:
+            np.ndarray: Encoding facial del usuario
+        """
+        async with get_db() as db:
+            result = await db.execute(select(User).filter(User.id == user_id))
+            user = result.scalars().first()
+            
+            if not user or not user.face_encoding:
+                raise ValueError(f"No se encontró encoding facial para el usuario {user_id}")
+                
+            return np.frombuffer(user.face_encoding, dtype=np.float64)

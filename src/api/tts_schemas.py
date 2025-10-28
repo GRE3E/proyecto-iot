@@ -13,3 +13,4 @@ class TTSAudioResponse(BaseModel):
         audio_file_path (str): La ruta al archivo de audio generado.
     """
     audio_file_path: str
+    

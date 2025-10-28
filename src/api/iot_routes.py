@@ -6,11 +6,7 @@ from src.db.database import get_db
 from src.db import models
 import logging
 
-# Importar módulos globales desde utils
-from src.api import utils
-
 logger = logging.getLogger("APIRoutes")
-
 iot_router = APIRouter()
 
 
@@ -111,3 +107,4 @@ def delete_iot_command(command_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error al eliminar comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
         raise HTTPException(status_code=500, detail=f"Error al eliminar comando IoT: {e}")
+        

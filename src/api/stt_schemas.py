@@ -7,3 +7,4 @@ class STTRequest(BaseModel):
 class STTResponse(BaseModel):
     """Modelo para la respuesta de transcripción de audio."""
     text: str
+    

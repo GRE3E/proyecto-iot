@@ -6,21 +6,16 @@ import warnings
 from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
-from fastapi.middleware.wsgi import WSGIMiddleware
 from src.api.routes import router
-from src.api.utils import initialize_nlp, _hotword_module, _hotword_task, _mqtt_client, _ollama_manager
-from src.api import utils
-from .db.database import Base, async_engine, create_all_tables
-from .db import models
-import httpx
-import json
-import pyaudio
-import wave
-from datetime import datetime
-import numpy as np
+from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
+from src.api.utils import (
+    shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client,
+    shutdown_speaker_module, shutdown_nlp_module, shutdown_stt_module,
+    shutdown_tts_module, shutdown_face_recognition_module
+)
+from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
 from src.ai.nlp.config_manager import ConfigManager
-from src.api.face_recognition_routes import face_recognition_router
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RC_DIR = os.path.join(BASE_DIR, "src", "rc")
@@ -51,7 +46,7 @@ async def startup_event() -> None:
     await create_all_tables()
 
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    await initialize_nlp(ollama_host=ollama_host, config=config)
+    await initialize_all_modules(config_manager=config_manager, ollama_host=ollama_host)
 
     app.state.mqtt_client = _mqtt_client
     app.state.iot_data = {}
@@ -66,33 +61,15 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     logger.info("Cerrando aplicación...")
 
-    if _hotword_task:
-        logger.info("Cancelando tarea de HotwordDetector...")
-        _hotword_task.cancel()
-        try:
-            await _hotword_task
-        except asyncio.CancelledError:
-            logger.info("Tarea de HotwordDetector cancelada correctamente")
-        except Exception as e:
-            logger.error(f"Error al esperar la tarea de HotwordDetector: {e}")
+    await shutdown_hotword_module()
+    await shutdown_mqtt_client()
+    await shutdown_ollama_manager()
+    await shutdown_speaker_module()
+    await shutdown_nlp_module()
+    await shutdown_stt_module()
+    await shutdown_tts_module()
+    await shutdown_face_recognition_module()
 
-    if hasattr(app.state, 'mqtt_client') and app.state.mqtt_client:
-        await ErrorHandler.safe_execute_async(
-            app.state.mqtt_client.disconnect,
-            default_return=None,
-            context="shutdown_event.mqtt_disconnect"
-        )
-        logger.info("Desconectando cliente MQTT...")
-
-    if _ollama_manager:
-        await ErrorHandler.safe_execute_async(
-            _ollama_manager.close,
-            default_return=None,
-            context="shutdown_event.ollama_manager_close"
-        )
-        logger.info("Cerrando OllamaManager...")
-
-    # Cerrar el motor de la base de datos
     if async_engine:
         await ErrorHandler.safe_execute_async(
             async_engine.dispose,

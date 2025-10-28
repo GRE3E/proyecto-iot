@@ -1,126 +1,139 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-import os
-import uuid
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import get_db
+from src.db.models import User
 from src.rc.rc_core import FaceRecognitionCore
+from src.api.face_recognition_schemas import (
+    UserRegistrationResponse,
+    UserDeletionResponse,
+    UserRecognitionResponse,
+    UserListResponse,
+    UserResponse
+)
+from typing import List
+import logging
 
+logger = logging.getLogger("FaceRecognitionAPI")
 
-face_recognition_router = APIRouter(tags=["rc"])
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-core = FaceRecognitionCore()
+face_recognition_router = APIRouter(
+    prefix="/face-recognition",
+    tags=["face-recognition"]
+)
 
+face_core = FaceRecognitionCore()
 
-
-@face_recognition_router.get("/status", status_code=200)
-def get_status():
+@face_recognition_router.post("/register/{user_name}", response_model=UserRegistrationResponse)
+async def register_user(
+    user_name: str,
+    num_photos: int = 5,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Devuelve el estado actual del módulo de reconocimiento facial.
-    """
-    try:
-        status = core.get_status()
-        return {"status": "ok", "module": "rc", "info": status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener estado: {str(e)}")
-
-
-@face_recognition_router.post("/capture", status_code=200)
-def capture_faces(name: str = Form(...)):
-    """
-    Captura rostros en vivo desde la cámara (usa el FaceCapture del core).
-    """
-    try:
-        count = core.capture_faces(name=name)
-        return {"message": f"Se capturaron {count} imágenes de {name}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al capturar rostros: {str(e)}")
-
-
-@face_recognition_router.post("/add", status_code=200)
-async def add_faces(name: str = Form(...), files: List[UploadFile] = File(...)):
-    """
-    Agrega imágenes al dataset desde archivos subidos.
-    """
-    temp_paths = []
-    try:
-        for file in files:
-            temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
-            with open(temp_path, "wb") as f:
-                f.write(await file.read())
-            temp_paths.append(temp_path)
-
-        count = core.add_faces_from_files(name=name, file_paths=temp_paths)
-        return {"message": f"Se agregaron {count} imágenes para '{name}'"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al agregar rostros: {str(e)}")
-
-    finally:
-        for path in temp_paths:
-            if os.path.exists(path):
-                os.remove(path)
-
-
-@face_recognition_router.get("/list", status_code=200)
-def list_faces():
-    """
-    Devuelve la lista de usuarios registrados (dataset).
+    Registra un nuevo usuario tomando fotos desde la cámara.
+    
+    Args:
+        user_name (str): Nombre del usuario a registrar
+        num_photos (int): Número de fotos a tomar
+        db (AsyncSession): Sesión de base de datos
+        
+    Returns:
+        UserRegistrationResponse: Resultado del registro
     """
     try:
-        status = core.get_status()
-        return {
-            "count": status["registered_users_count"],
-            "users": status["user_list"]
-        }
+        result = await face_core.register_user(user_name, num_photos)
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al listar rostros: {str(e)}")
+        logger.error(f"Error en registro de usuario: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@face_recognition_router.post("/encode", status_code=200)
-def encode_faces():
+@face_recognition_router.delete("/users/{user_name}", response_model=UserDeletionResponse)
+async def delete_user(
+    user_name: str,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Genera los encodings faciales a partir del dataset.
+    Elimina un usuario y sus datos asociados.
+    
+    Args:
+        user_name (str): Nombre del usuario a eliminar
+        db (AsyncSession): Sesión de base de datos
+        
+    Returns:
+        UserDeletionResponse: Resultado de la eliminación
     """
     try:
-        enc_count, users = core.encode_faces()
-        return {"message": f"Encodings generados: {enc_count} | Usuarios procesados: {users}"}
+        result = await face_core.delete_user(user_name)
+        if not result["success"]:
+            raise HTTPException(status_code=404, detail=result["message"])
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al generar encodings: {str(e)}")
+        logger.error(f"Error eliminando usuario: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@face_recognition_router.post("/recognize", status_code=200)
-async def recognize_face(file: UploadFile = File(...)):
+@face_recognition_router.post("/recognize", response_model=UserRecognitionResponse)
+async def recognize_face(
+    source: str = "camera",
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Reconoce un rostro desde una imagen subida (sin cámara).
-    """
-    temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
-    try:
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-
-        recognized_name = core.recognize_face_from_file(temp_path)
-        return {
-            "recognized": recognized_name != "Desconocido",
-            "name": recognized_name
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al reconocer rostro: {str(e)}")
-
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-
-@face_recognition_router.get("/recognize/cam", status_code=200)
-def recognize_from_cam():
-    """
-    Reconoce un rostro usando la cámara activa en tiempo real.
+    Realiza reconocimiento facial desde cámara o archivo.
+    
+    Args:
+        source (str): "camera" o ruta a imagen
+        db (AsyncSession): Sesión de base de datos
+        
+    Returns:
+        UserRecognitionResponse: Resultado del reconocimiento
     """
     try:
-        recognized_name = core.recognize_faces_from_cam()
-        return {
-            "recognized": recognized_name != "Desconocido",
-            "name": recognized_name
-        }
+        result = await face_core.recognize_face(source)
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en reconocimiento por cámara: {str(e)}")
+        logger.error(f"Error en reconocimiento facial: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@face_recognition_router.get("/users", response_model=List[UserResponse])
+async def list_users(db: AsyncSession = Depends(get_db)):
+    """
+    Lista todos los usuarios registrados.
+    
+    Args:
+        db (AsyncSession): Sesión de base de datos
+        
+    Returns:
+        List[UserResponse]: Lista de usuarios
+    """
+    try:
+        users = await face_core.list_users()
+        return users
+    except Exception as e:
+        logger.error(f"Error listando usuarios: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@face_recognition_router.post("/users/{user_name}/photo", response_model=UserRegistrationResponse)
+async def upload_user_photo(
+    user_name: str,
+    photo: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Sube una foto para un usuario existente.
+    
+    Args:
+        user_name (str): Nombre del usuario
+        photo (UploadFile): Archivo de imagen
+        db (AsyncSession): Sesión de base de datos
+        
+    Returns:
+        UserRegistrationResponse: Resultado de la subida
+    """
+    try:
+        # TODO: Implementar lógica para procesar y guardar la foto
+        raise HTTPException(status_code=501, detail="Funcionalidad no implementada")
+    except Exception as e:
+        logger.error(f"Error subiendo foto: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

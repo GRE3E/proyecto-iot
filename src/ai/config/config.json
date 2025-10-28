@@ -17,6 +17,15 @@
     "consulta_estado",
     "administrar_comandos_iot"
   ],
+  "modules": {
+    "nlp": true,
+    "stt": true,
+    "speaker": true,
+    "hotword": true,
+    "mqtt": true,
+    "tts": true,
+    "face_recognition": true
+  },
   "memory_size": 50,
   "timezone": "America/Lima",
   "debug": false

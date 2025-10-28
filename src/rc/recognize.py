@@ -87,7 +87,7 @@ class FaceRecognizer:
         Reconoce rostros desde la cámara en tiempo real.
         """
         recognized_users = []
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(0)
 
         if not cap.isOpened():
             logger.error("No se pudo abrir la cámara.")

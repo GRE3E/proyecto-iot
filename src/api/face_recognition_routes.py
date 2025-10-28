@@ -25,6 +25,7 @@ face_recognition_router = APIRouter(
 )
 
 
+# === REGISTRO DE USUARIO ===
 @face_recognition_router.post("/register/{user_name}", response_model=UserRegistrationResponse)
 async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20)):
     """
@@ -43,10 +44,11 @@ async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20))
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === ELIMINAR USUARIO (DATASET + BASE DE DATOS) ===
 @face_recognition_router.delete("/users/{user_name}", response_model=UserDeletionResponse)
 async def delete_user(user_name: str):
     """
-    Elimina usuario (usa FaceCapture.delete_user_photos / core.delete_user).
+    Elimina usuario tanto del dataset como de la base de datos.
     """
     try:
         result = await face_core.delete_user(user_name)
@@ -60,20 +62,30 @@ async def delete_user(user_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === LISTAR USUARIOS REGISTRADOS (BASE DE DATOS) ===
 @face_recognition_router.get("/users", response_model=List[UserResponse])
 async def list_users():
     """
-    Lista usuarios registrados (invoca core.list_users).
+    Lista todos los usuarios registrados (dataset + base de datos).
     """
     try:
         users = await face_core.list_users()
-        # core.list_users ya devuelve lista de dicts compatibles; Pydantic hará la validación
-        return users
+        if not users:
+            return []
+        # Normaliza estructura para Pydantic
+        formatted = []
+        for u in users:
+            if isinstance(u, dict):
+                formatted.append(u)
+            else:
+                formatted.append({"nombre": str(u)})
+        return formatted
     except Exception as e:
         logger.exception("Error en list_users")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# === RECONOCIMIENTO FACIAL ===
 @face_recognition_router.post("/recognize", response_model=UserRecognitionResponse)
 async def recognize_face(
     source: Optional[str] = Query("camera", description='Use "camera" or provide file (multipart)'),
@@ -101,9 +113,8 @@ async def recognize_face(
         if not result.get("success", False):
             raise HTTPException(status_code=400, detail=result.get("message", "Reconocimiento falló"))
 
-        # Asegurarse que recognized_users sea lista de strings
+        # Normalizar lista de usuarios reconocidos
         users = result.get("recognized_users") or []
-        # Si core devuelve objetos, normalizar a nombres (intención es que core devuelva strings)
         normalized = []
         for u in users:
             if isinstance(u, str):
@@ -111,7 +122,6 @@ async def recognize_face(
             elif isinstance(u, dict) and "nombre" in u:
                 normalized.append(u["nombre"])
             else:
-                # fallback: str(...)
                 normalized.append(str(u))
 
         return {"success": True, "recognized_users": normalized}

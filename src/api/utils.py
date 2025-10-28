@@ -16,6 +16,7 @@ from src.api.schemas import StatusResponse
 from typing import Optional, Dict, Any
 from src.utils.error_handler import ErrorHandler
 from src.ai.nlp.ollama_manager import OllamaManager
+from src.ai.nlp.config_manager import ConfigManager
 
 logger = logging.getLogger("APIUtils")
 
@@ -28,32 +29,45 @@ _hotword_task: Optional[asyncio.Task] = None
 _tts_module: Optional[TTSModule] = None
 _face_recognition_module: Optional[FaceRecognitionCore] = None 
 _ollama_manager: Optional[OllamaManager] = None
+_config_manager: Optional[ConfigManager] = None
 
 def get_module_status() -> StatusResponse:
     """
     Devuelve el estado actual de los módulos.
 
     Returns:
-        StatusResponse: Objeto con el estado de cada módulo (ONLINE/OFFLINE).
+        StatusResponse: Objeto con el estado de cada módulo (ONLINE/OFFLINE/DISABLED).
     """
-    nlp_status = "ONLINE" if _nlp_module and _nlp_module.is_online() else "OFFLINE"
-    stt_status = "ONLINE" if _stt_module and _stt_module.is_online() else "OFFLINE"
-    speaker_status = "ONLINE" if _speaker_module and _speaker_module.is_online() else "OFFLINE"
-    hotword_status = "ONLINE" if _hotword_module and _hotword_module.is_online() else "OFFLINE"
-    mqtt_status = "ONLINE" if _mqtt_client and _mqtt_client.is_connected else "OFFLINE"
-    tts_status = "ONLINE" if _tts_module and _tts_module.is_online() else "OFFLINE"
-    face_recognition_status = "ONLINE" if _face_recognition_module and _face_recognition_module.get_status() else "OFFLINE"
-    utils_status = "ONLINE" if _nlp_module else "OFFLINE"
-    
+    if not _config_manager:
+        return StatusResponse(
+            nlp="OFFLINE",
+            stt="OFFLINE",
+            speaker="OFFLINE",
+            hotword="OFFLINE",
+            mqtt="OFFLINE",
+            tts="OFFLINE",
+            face_recognition="OFFLINE",
+            utils="OFFLINE"
+        )
+
+    def get_status(module: Optional[Any], module_name: str) -> str:
+        if not _config_manager.is_module_enabled(module_name):
+            return "DISABLED"
+        return "ONLINE" if module and (
+            hasattr(module, 'is_online') and module.is_online() or
+            hasattr(module, 'is_connected') and module.is_connected or
+            hasattr(module, 'get_status') and module.get_status()
+        ) else "OFFLINE"
+
     return StatusResponse(
-        nlp=nlp_status,
-        stt=stt_status,
-        speaker=speaker_status,
-        hotword=hotword_status,
-        mqtt=mqtt_status,
-        tts=tts_status,
-        face_recognition=face_recognition_status,
-        utils=utils_status
+        nlp=get_status(_nlp_module, "nlp"),
+        stt=get_status(_stt_module, "stt"),
+        speaker=get_status(_speaker_module, "speaker"),
+        hotword=get_status(_hotword_module, "hotword"),
+        mqtt=get_status(_mqtt_client, "mqtt"),
+        tts=get_status(_tts_module, "tts"),
+        face_recognition=get_status(_face_recognition_module, "face_recognition") if _face_recognition_module else "OFFLINE",
+        utils="ONLINE" if _nlp_module else "OFFLINE"
     )
 
 def _sanitize_data(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -94,27 +108,45 @@ async def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_da
         raise
 
 @ErrorHandler.handle_async_exceptions
-async def initialize_all_modules(ollama_host: str, config: Dict[str, Any]) -> None:
+async def initialize_all_modules(config_manager: ConfigManager, ollama_host: str) -> None:
     """
-    Inicializa los módulos NLP, STT, Speaker, Hotword, SerialManager y MQTTClient.
-    Utiliza ErrorHandler para manejo unificado de excepciones.
-    Args:
-        ollama_host (str): La URL del host de Ollama.
-    """
-    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client, _hotword_task, _tts_module, _face_recognition_module, _ollama_manager
+    Inicializa los módulos según la configuración.
     
+    Args:
+        config_manager (ConfigManager): Gestor de configuración
+        ollama_host (str): La URL del host de Ollama
+    """
+    global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client
+    global _hotword_task, _tts_module, _face_recognition_module, _ollama_manager, _config_manager
+    
+    _config_manager = config_manager
     logger.info("Inicializando módulos...")
 
-    await initialize_nlp_module_only(config, ollama_host)
-    await _initialize_stt_module()
-    await _initialize_speaker_module()
-    await _initialize_tts_module()
-    await _initialize_face_recognition_module()
-    await _initialize_hotword_module()
-    await _initialize_mqtt_client()
-    await _set_nlp_iot_managers()
+    if _config_manager.is_module_enabled("nlp"):
+        await initialize_nlp_module_only(config_manager.get_config(), ollama_host)
+    
+    if _config_manager.is_module_enabled("stt"):
+        await _initialize_stt_module()
+    
+    if _config_manager.is_module_enabled("speaker"):
+        await _initialize_speaker_module()
+    
+    if _config_manager.is_module_enabled("tts"):
+        await _initialize_tts_module()
+    
+    if _config_manager.is_module_enabled("face_recognition"):
+        await _initialize_face_recognition_module()
+    
+    if _config_manager.is_module_enabled("hotword"):
+        await _initialize_hotword_module()
+    
+    if _config_manager.is_module_enabled("mqtt"):
+        await _initialize_mqtt_client()
+    
+    if _nlp_module:
+        await _set_nlp_iot_managers()
         
-    logger.info("Todos los módulos inicializados correctamente.")
+    logger.info("Módulos inicializados según la configuración.")
 
 async def initialize_nlp_module_only(config: Dict[str, Any], ollama_host: str) -> None:
     global _ollama_manager, _nlp_module
@@ -185,7 +217,7 @@ async def _initialize_face_recognition_module() -> None:
         default_return=None,
         context="initialize_nlp.face_recognition_module"
     )
-    logger.info(f"FaceRecognitionCore inicializado. Online: {True if _face_recognition_module else False}")
+    logger.info(f"FaceRecognitionCore inicializado. Online: {_face_recognition_module.is_online() if _face_recognition_module else False}")
 
 async def _initialize_hotword_module() -> None:
     global _hotword_module, _hotword_task

@@ -181,3 +181,9 @@ class FaceRecognitionCore:
             logger.error(f"Error listando usuarios: {e}")
             return []
     
+    def is_online(self) -> bool:
+        """
+        Verifica si el módulo de reconocimiento facial está en línea.
+        """
+        return all([self.capture, self.encoder, self.recognizer])
+    

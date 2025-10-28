@@ -7,7 +7,12 @@ from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
 from src.api.routes import router
-from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client, shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client, shutdown_speaker_module, shutdown_nlp_module, shutdown_stt_module, shutdown_tts_module, shutdown_face_recognition_module
+from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
+from src.api.utils import (
+    shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client,
+    shutdown_speaker_module, shutdown_nlp_module, shutdown_stt_module,
+    shutdown_tts_module, shutdown_face_recognition_module
+)
 from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
 from src.ai.nlp.config_manager import ConfigManager
@@ -41,7 +46,7 @@ async def startup_event() -> None:
     await create_all_tables()
 
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    await initialize_all_modules(ollama_host=ollama_host, config=config)
+    await initialize_all_modules(config_manager=config_manager, ollama_host=ollama_host)
 
     app.state.mqtt_client = _mqtt_client
     app.state.iot_data = {}

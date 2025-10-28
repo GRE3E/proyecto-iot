@@ -22,6 +22,12 @@ class ConfigManager:
             with open(self._config_path, "r", encoding="utf-8") as f:
                 self._config = json.load(f)
             logger.info(f"Configuración cargada desde {self._config_path}")
+            
+            # Verificar y añadir configuración de módulos si no existe
+            if "modules" not in self._config:
+                self._config["modules"] = self._get_default_modules_config()
+                self.save_config()
+                
         except FileNotFoundError:
             logger.warning(f"Archivo de configuración no encontrado en {self._config_path}. Creando configuración por defecto.")
             self._set_default_config()
@@ -41,7 +47,7 @@ class ConfigManager:
             if "owner_name" in config_to_save:
                 del config_to_save["owner_name"]
             with open(self._config_path, "w", encoding="utf-8") as f:
-                json.dump(config_to_save, f, indent=4, ensure_ascii=False)
+                json.dump(config_to_save, f, indent=2, ensure_ascii=False)
             logger.info(f"Configuración guardada en {self._config_path}")
         except IOError as e:
             logger.error(f"Error de E/S al guardar la configuración en {self._config_path}: {e}")
@@ -59,32 +65,45 @@ class ConfigManager:
         self._config.update(new_config)
         self.save_config()
 
+    def _get_default_modules_config(self) -> Dict[str, bool]:
+        """Devuelve la configuración por defecto de los módulos."""
+        return {
+            "nlp": True,
+            "stt": True,
+            "speaker": True,
+            "hotword": True,
+            "mqtt": True,
+            "tts": True,
+            "face_recognition": True
+        }
+
     def _set_default_config(self) -> None:
         """Establece la configuración por defecto."""
         logger.info("Estableciendo configuración por defecto.")
         self._config = {
-        "assistant_name": "Murphy",
-        "language": "es",
-        "model": {
-          "name": "qwen2.5:3b-instruct",
-          "temperature": 0.3,
-          "top_p": 0.9,
-          "top_k": 40,
-          "repeat_penalty": 1.1,
-          "num_ctx": 8192,
-          "max_tokens": 1024
-        },
-        "capabilities": [
-           "control_luces",
-           "control_temperatura",
-           "control_dispositivos",
-           "consulta_estado",
-           "administrar_comandos_iot"
-        ],
-        "memory_size": 50,
-        "timezone": "America/Lima",
-        "debug": False
-    }
+            "assistant_name": "Murphy",
+            "language": "es",
+            "model": {
+                "name": "qwen2.5:3b-instruct",
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "top_k": 40,
+                "repeat_penalty": 1.1,
+                "num_ctx": 8192,
+                "max_tokens": 1024
+            },
+            "capabilities": [
+                "control_luces",
+                "control_temperatura",
+                "control_dispositivos",
+                "consulta_estado",
+                "administrar_comandos_iot"
+            ],
+            "modules": self._get_default_modules_config(),
+            "memory_size": 50,
+            "timezone": "America/Lima",
+            "debug": False
+        }
 
     def _validate_timezone(self) -> None:
         """Valida la configuración de la zona horaria y establece un valor por defecto si es inválido."""
@@ -102,3 +121,15 @@ class ConfigManager:
             logger.warning("No se encontró la configuración de zona horaria. Estableciendo 'UTC' como predeterminada.")
             self._config["timezone"] = "UTC"
             self.save_config()
+
+    def is_module_enabled(self, module_name: str) -> bool:
+        """
+        Verifica si un módulo específico está habilitado en la configuración.
+        
+        Args:
+            module_name (str): Nombre del módulo a verificar
+            
+        Returns:
+            bool: True si el módulo está habilitado, False en caso contrario
+        """
+        return self._config.get("modules", {}).get(module_name, True)

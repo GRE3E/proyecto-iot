@@ -1,126 +1,146 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-import os
-import uuid
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import get_async_db_session
 from src.rc.rc_core import FaceRecognitionCore
+from src.api.face_recognition_schemas import (
+    UserRegistrationRequest,
+    UserIdentificationRequest,
+    AddFaceToUserRequest,
+    FaceQualityRequest,
+    BaseResponse,
+    UserIdentificationResponse,
+    UserListResponse,
+    FaceQualityResponse
+)
+import logging
 
+router = APIRouter(prefix="/rc", tags=["Reconocimiento Facial"])
+logger = logging.getLogger(__name__)
 
-face_recognition_router = APIRouter(tags=["rc"])
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-core = FaceRecognitionCore()
-
-
-
-@face_recognition_router.get("/status", status_code=200)
-def get_status():
+@router.post("/register", response_model=BaseResponse)
+async def register_user(
+    request: UserRegistrationRequest,
+    db: AsyncSession = Depends(get_async_db_session)
+):
     """
-    Devuelve el estado actual del módulo de reconocimiento facial.
-    """
-    try:
-        status = core.get_status()
-        return {"status": "ok", "module": "rc", "info": status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener estado: {str(e)}")
-
-
-@face_recognition_router.post("/capture", status_code=200)
-def capture_faces(name: str = Form(...)):
-    """
-    Captura rostros en vivo desde la cámara (usa el FaceCapture del core).
-    """
-    try:
-        count = core.capture_faces(name=name)
-        return {"message": f"Se capturaron {count} imágenes de {name}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al capturar rostros: {str(e)}")
-
-
-@face_recognition_router.post("/add", status_code=200)
-async def add_faces(name: str = Form(...), files: List[UploadFile] = File(...)):
-    """
-    Agrega imágenes al dataset desde archivos subidos.
-    """
-    temp_paths = []
-    try:
-        for file in files:
-            temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
-            with open(temp_path, "wb") as f:
-                f.write(await file.read())
-            temp_paths.append(temp_path)
-
-        count = core.add_faces_from_files(name=name, file_paths=temp_paths)
-        return {"message": f"Se agregaron {count} imágenes para '{name}'"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al agregar rostros: {str(e)}")
-
-    finally:
-        for path in temp_paths:
-            if os.path.exists(path):
-                os.remove(path)
-
-
-@face_recognition_router.get("/list", status_code=200)
-def list_faces():
-    """
-    Devuelve la lista de usuarios registrados (dataset).
+    Registra un nuevo usuario mediante reconocimiento facial automático.
+    La captura se realiza automáticamente cuando se detecta un rostro de calidad adecuada.
     """
     try:
-        status = core.get_status()
-        return {
-            "count": status["registered_users_count"],
-            "users": status["user_list"]
-        }
+        face_core = FaceRecognitionCore()
+        result = await face_core.register_user_auto(
+            request.name,
+            request.video_source
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+        return result
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al listar rostros: {str(e)}")
+        logger.error(f"Error en registro de usuario: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error en registro de usuario: {str(e)}"
+        )
 
-
-@face_recognition_router.post("/encode", status_code=200)
-def encode_faces():
+@router.post("/identify", response_model=UserIdentificationResponse)
+async def identify_user(
+    request: UserIdentificationRequest,
+    db: AsyncSession = Depends(get_async_db_session)
+):
     """
-    Genera los encodings faciales a partir del dataset.
+    Identifica al usuario que se encuentra frente a la cámara.
+    Realiza reconocimiento facial en tiempo real hasta encontrar una coincidencia.
     """
     try:
-        enc_count, users = core.encode_faces()
-        return {"message": f"Encodings generados: {enc_count} | Usuarios procesados: {users}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al generar encodings: {str(e)}")
-
-
-@face_recognition_router.post("/recognize", status_code=200)
-async def recognize_face(file: UploadFile = File(...)):
-    """
-    Reconoce un rostro desde una imagen subida (sin cámara).
-    """
-    temp_path = os.path.join(BASE_DIR, f"temp_{uuid.uuid4().hex}.jpg")
-    try:
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-
-        recognized_name = core.recognize_face_from_file(temp_path)
-        return {
-            "recognized": recognized_name != "Desconocido",
-            "name": recognized_name
-        }
+        face_core = FaceRecognitionCore()
+        result = await face_core.identify_user(request.video_source)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+        return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al reconocer rostro: {str(e)}")
+        logger.error(f"Error en identificación de usuario: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error en identificación: {str(e)}"
+        )
 
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-
-@face_recognition_router.get("/recognize/cam", status_code=200)
-def recognize_from_cam():
+@router.post("/add-face", response_model=BaseResponse)
+async def add_face_to_user(
+    request: AddFaceToUserRequest,
+    db: AsyncSession = Depends(get_async_db_session)
+):
     """
-    Reconoce un rostro usando la cámara activa en tiempo real.
+    Añade reconocimiento facial a un usuario existente identificado por su ID.
+    Captura automáticamente imágenes del rostro y genera los encodings correspondientes.
     """
     try:
-        recognized_name = core.recognize_faces_from_cam()
-        return {
-            "recognized": recognized_name != "Desconocido",
-            "name": recognized_name
-        }
+        face_core = FaceRecognitionCore()
+        result = await face_core.add_face_to_user(
+            request.user_id,
+            request.video_source
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+        return result
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en reconocimiento por cámara: {str(e)}")
+        logger.error(f"Error añadiendo reconocimiento facial: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error añadiendo reconocimiento facial: {str(e)}"
+        )
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(db: AsyncSession = Depends(get_async_db_session)):
+    """
+    Lista todos los usuarios registrados con reconocimiento facial.
+    Incluye información sobre sus encodings y fechas de registro/actualización.
+    """
+    try:
+        face_core = FaceRecognitionCore()
+        result = await face_core.list_registered_users()
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+        return result
+
+    except Exception as e:
+        logger.error(f"Error listando usuarios: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error listando usuarios: {str(e)}"
+        )
+
+@router.post("/verify-quality", response_model=FaceQualityResponse)
+async def verify_face_quality(
+    request: FaceQualityRequest,
+    db: AsyncSession = Depends(get_async_db_session)
+):
+    """
+    Verifica la calidad de una imagen facial.
+    Evalúa aspectos como iluminación, nitidez y posición del rostro.
+    """
+    try:
+        face_core = FaceRecognitionCore()
+        result = await face_core.verify_face_quality(request.image_path)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+            
+        return result
+
+    except Exception as e:
+        logger.error(f"Error verificando calidad facial: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error verificando calidad facial: {str(e)}"
+        )

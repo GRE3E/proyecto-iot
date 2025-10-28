@@ -34,30 +34,20 @@ class FaceEncoder:
     def _calculate_face_quality(self, image: np.ndarray, face_location: tuple) -> float:
         """
         Calcula un puntaje de calidad para una imagen facial.
-        
-        Args:
-            image (np.ndarray): Imagen a evaluar
-            face_location (tuple): Ubicación del rostro en la imagen
-            
-        Returns:
-            float: Puntaje de calidad entre 0 y 1
         """
         try:
             top, right, bottom, left = face_location
             face_height = bottom - top
             face_width = right - left
             
-            # Verificar tamaño mínimo
             min_size = min(face_height, face_width)
             if min_size < 100:
                 return 0.0
             
-            # Verificar proporción del rostro
             aspect_ratio = face_width / face_height
             if not (0.7 <= aspect_ratio <= 1.3):
                 return 0.0
             
-            # Verificar centrado
             frame_height, frame_width = image.shape[:2]
             face_center_x = (left + right) / 2
             face_center_y = (top + bottom) / 2
@@ -67,17 +57,14 @@ class FaceEncoder:
                 abs(face_center_y - frame_height/2) / frame_height
             ) / 2
             
-            # Verificar iluminación
             face_roi = image[top:bottom, left:right]
             brightness = np.mean(face_roi)
             brightness_score = 1.0 - abs(128 - brightness) / 128
             
-            # Verificar nitidez
             gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_RGB2GRAY)
             laplacian_var = cv2.Laplacian(gray_roi, cv2.CV_64F).var()
             sharpness_score = min(laplacian_var / 500.0, 1.0)
             
-            # Combinar scores
             quality_score = (center_score + brightness_score + sharpness_score) / 3
             return quality_score
             
@@ -88,12 +75,6 @@ class FaceEncoder:
     async def _process_user_images(self, user_path: str) -> List[np.ndarray]:
         """
         Procesa las imágenes de un usuario y genera sus encodings.
-        
-        Args:
-            user_path (str): Ruta al directorio de imágenes del usuario
-            
-        Returns:
-            List[np.ndarray]: Lista de encodings faciales
         """
         encodings = []
         for fname in sorted(os.listdir(user_path)):
@@ -111,7 +92,6 @@ class FaceEncoder:
                     logger.warning(f"No se detectaron rostros en: {fpath}")
                     continue
                 
-                # Seleccionar el rostro de mejor calidad
                 best_quality = -1
                 best_encoding = None
                 
@@ -134,9 +114,6 @@ class FaceEncoder:
     async def generate_encodings(self) -> Tuple[int, int]:
         """
         Genera encodings faciales para todos los usuarios en el dataset.
-        
-        Returns:
-            Tuple[int, int]: (total_encodings, usuarios_procesados)
         """
         if not os.path.exists(self.dataset_dir):
             raise FileNotFoundError(f"No existe el directorio del dataset: {self.dataset_dir}")
@@ -151,14 +128,12 @@ class FaceEncoder:
                     continue
 
                 try:
-                    # Procesar imágenes del usuario
                     user_encodings = await self._process_user_images(user_path)
                     
                     if not user_encodings:
                         logger.warning(f"No se generaron encodings válidos para: {user_name}")
                         continue
                     
-                    # Actualizar o crear usuario en la base de datos
                     result = await db.execute(select(User).filter(User.nombre == user_name))
                     user = result.scalars().first()
                     
@@ -167,9 +142,9 @@ class FaceEncoder:
                         db.add(user)
                         await db.flush()
                     
-                    # Calcular encoding promedio
                     avg_encoding = np.mean(user_encodings, axis=0)
-                    user.face_encoding = avg_encoding.tobytes()
+                    #  Aquí se cambia face_encoding por embedding
+                    user.embedding = avg_encoding.tobytes()
                     
                     total_encodings += len(user_encodings)
                     users_processed += 1
@@ -188,18 +163,13 @@ class FaceEncoder:
     async def get_user_encoding(self, user_id: int) -> np.ndarray:
         """
         Obtiene el encoding facial de un usuario específico.
-        
-        Args:
-            user_id (int): ID del usuario
-            
-        Returns:
-            np.ndarray: Encoding facial del usuario
         """
         async with get_db() as db:
             result = await db.execute(select(User).filter(User.id == user_id))
             user = result.scalars().first()
             
-            if not user or not user.face_encoding:
+            #  Cambiar face_encoding por embedding
+            if not user or not user.embedding:
                 raise ValueError(f"No se encontró encoding facial para el usuario {user_id}")
                 
-            return np.frombuffer(user.face_encoding, dtype=np.float64)
+            return np.frombuffer(user.embedding, dtype=np.float64)

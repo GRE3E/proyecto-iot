@@ -112,7 +112,7 @@ class User(Base):
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
-    embedding = Column(Text, nullable=False)
+    embedding = Column(LargeBinary, nullable=True)
     is_owner = Column(Boolean, default=False)
 
     preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user")

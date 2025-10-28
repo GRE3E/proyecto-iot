@@ -1,139 +1,139 @@
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from typing import List, Optional
+import tempfile
+import os
+import uuid
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.db.database import get_db
-from src.db.models import User
 from src.rc.rc_core import FaceRecognitionCore
 from src.api.face_recognition_schemas import (
     UserRegistrationResponse,
     UserDeletionResponse,
     UserRecognitionResponse,
     UserListResponse,
-    UserResponse
+    UserResponse,
 )
-from typing import List
-import logging
 
 logger = logging.getLogger("FaceRecognitionAPI")
-
-face_recognition_router = APIRouter(
-    prefix="/face-recognition",
-    tags=["face-recognition"]
-)
-
 face_core = FaceRecognitionCore()
 
+face_recognition_router = APIRouter(
+    prefix="/rc",
+    tags=["rc"]
+)
+
+
+# === REGISTRO DE USUARIO ===
 @face_recognition_router.post("/register/{user_name}", response_model=UserRegistrationResponse)
-async def register_user(
-    user_name: str,
-    num_photos: int = 5,
-    db: AsyncSession = Depends(get_db)
-):
+async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20)):
     """
-    Registra un nuevo usuario tomando fotos desde la cámara.
-    
-    Args:
-        user_name (str): Nombre del usuario a registrar
-        num_photos (int): Número de fotos a tomar
-        db (AsyncSession): Sesión de base de datos
-        
-    Returns:
-        UserRegistrationResponse: Resultado del registro
+    Registra un usuario: toma fotos (desde la cámara) y genera encodings.
+    Sólo orquesta llamadas al core.
     """
     try:
         result = await face_core.register_user(user_name, num_photos)
-        if not result["success"]:
-            raise HTTPException(status_code=400, detail=result["message"])
+        if not result.get("success", False):
+            raise HTTPException(status_code=400, detail=result.get("message", "Registro fallido"))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error en registro de usuario: {e}")
+        logger.exception("Error en register_user")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# === ELIMINAR USUARIO (DATASET + BASE DE DATOS) ===
 @face_recognition_router.delete("/users/{user_name}", response_model=UserDeletionResponse)
-async def delete_user(
-    user_name: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_user(user_name: str):
     """
-    Elimina un usuario y sus datos asociados.
-    
-    Args:
-        user_name (str): Nombre del usuario a eliminar
-        db (AsyncSession): Sesión de base de datos
-        
-    Returns:
-        UserDeletionResponse: Resultado de la eliminación
+    Elimina usuario tanto del dataset como de la base de datos.
     """
     try:
         result = await face_core.delete_user(user_name)
-        if not result["success"]:
-            raise HTTPException(status_code=404, detail=result["message"])
+        if not result.get("success", False):
+            raise HTTPException(status_code=404, detail=result.get("message", "No encontrado"))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error eliminando usuario: {e}")
+        logger.exception("Error en delete_user")
         raise HTTPException(status_code=500, detail=str(e))
 
-@face_recognition_router.post("/recognize", response_model=UserRecognitionResponse)
-async def recognize_face(
-    source: str = "camera",
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Realiza reconocimiento facial desde cámara o archivo.
-    
-    Args:
-        source (str): "camera" o ruta a imagen
-        db (AsyncSession): Sesión de base de datos
-        
-    Returns:
-        UserRecognitionResponse: Resultado del reconocimiento
-    """
-    try:
-        result = await face_core.recognize_face(source)
-        if not result["success"]:
-            raise HTTPException(status_code=400, detail=result["message"])
-        return result
-    except Exception as e:
-        logger.error(f"Error en reconocimiento facial: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
+# === LISTAR USUARIOS REGISTRADOS (BASE DE DATOS) ===
 @face_recognition_router.get("/users", response_model=List[UserResponse])
-async def list_users(db: AsyncSession = Depends(get_db)):
+async def list_users():
     """
-    Lista todos los usuarios registrados.
-    
-    Args:
-        db (AsyncSession): Sesión de base de datos
-        
-    Returns:
-        List[UserResponse]: Lista de usuarios
+    Lista todos los usuarios registrados (dataset + base de datos).
     """
     try:
         users = await face_core.list_users()
-        return users
+        if not users:
+            return []
+        # Normaliza estructura para Pydantic
+        formatted = []
+        for u in users:
+            if isinstance(u, dict):
+                formatted.append(u)
+            else:
+                formatted.append({"nombre": str(u)})
+        return formatted
     except Exception as e:
-        logger.error(f"Error listando usuarios: {e}")
+        logger.exception("Error en list_users")
         raise HTTPException(status_code=500, detail=str(e))
 
-@face_recognition_router.post("/users/{user_name}/photo", response_model=UserRegistrationResponse)
-async def upload_user_photo(
-    user_name: str,
-    photo: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+
+# === RECONOCIMIENTO FACIAL ===
+@face_recognition_router.post("/recognize", response_model=UserRecognitionResponse)
+async def recognize_face(
+    source: Optional[str] = Query("camera", description='Use "camera" or provide file (multipart)'),
+    file: Optional[UploadFile] = File(None),
 ):
     """
-    Sube una foto para un usuario existente.
-    
-    Args:
-        user_name (str): Nombre del usuario
-        photo (UploadFile): Archivo de imagen
-        db (AsyncSession): Sesión de base de datos
-        
-    Returns:
-        UserRegistrationResponse: Resultado de la subida
+    Reconoce rostros — si se envía un archivo lo usa como fuente, sino usa la cámara.
+    Endpoint ligero: guarda temporalmente la imagen (si hay), llama a core.recognize_face y borra temp.
     """
+    temp_path = None
     try:
-        # TODO: Implementar lógica para procesar y guardar la foto
-        raise HTTPException(status_code=501, detail="Funcionalidad no implementada")
+        if file:
+            # Guardar archivo temporalmente para pasarlo a core
+            suffix = os.path.splitext(file.filename or "")[1] or ".jpg"
+            temp_name = f"rc_upload_{uuid.uuid4().hex}{suffix}"
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, temp_name)
+            with open(temp_path, "wb") as f:
+                f.write(await file.read())
+            source_param = temp_path
+        else:
+            source_param = "camera"
+
+        result = await face_core.recognize_face(source=source_param)
+        if not result.get("success", False):
+            raise HTTPException(status_code=400, detail=result.get("message", "Reconocimiento falló"))
+
+        # Normalizar lista de usuarios reconocidos
+        users = result.get("recognized_users") or []
+        normalized = []
+        for u in users:
+            if isinstance(u, str):
+                normalized.append(u)
+            elif isinstance(u, dict) and "nombre" in u:
+                normalized.append(u["nombre"])
+            else:
+                normalized.append(str(u))
+
+        return {"success": True, "recognized_users": normalized}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error subiendo foto: {e}")
+        logger.exception("Error en recognize_face")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                logger.warning("No se pudo borrar archivo temporal %s", temp_path)

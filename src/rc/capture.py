@@ -3,7 +3,7 @@ import cv2
 import logging
 import numpy as np
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from datetime import datetime
 from sqlalchemy import select
 from src.db.database import get_db
@@ -36,12 +36,6 @@ class FaceCapture:
     def _ensure_user_dir(self, user_name: str) -> Path:
         """
         Asegura que exista el directorio para las fotos del usuario.
-        
-        Args:
-            user_name (str): Nombre del usuario
-            
-        Returns:
-            Path: Ruta al directorio del usuario
         """
         user_dir = self.dataset_dir / user_name
         user_dir.mkdir(exist_ok=True)
@@ -50,33 +44,17 @@ class FaceCapture:
     def _calculate_image_quality(self, image: np.ndarray) -> float:
         """
         Calcula un puntaje de calidad para la imagen.
-        
-        Args:
-            image (np.ndarray): Imagen a evaluar
-            
-        Returns:
-            float: Puntaje de calidad entre 0 y 1
         """
         try:
-            # Convertir a escala de grises
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Calcular nitidez
             laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
             sharpness_score = min(laplacian_var / 500.0, 1.0)
-            
-            # Calcular contraste
             contrast = gray.std()
             contrast_score = min(contrast / 128.0, 1.0)
-            
-            # Calcular brillo
             brightness = np.mean(gray)
             brightness_score = 1.0 - abs(128 - brightness) / 128
-            
-            # Combinar scores
             quality_score = (sharpness_score + contrast_score + brightness_score) / 3
             return quality_score
-            
         except Exception as e:
             logger.error(f"Error calculando calidad de imagen: {e}")
             return 0.0
@@ -84,27 +62,26 @@ class FaceCapture:
     async def capture_user(self, user_name: str, num_photos: int = 5) -> Dict[str, Any]:
         """
         Captura fotos de un usuario desde la cámara.
-        
-        Args:
-            user_name (str): Nombre del usuario
-            num_photos (int): Número de fotos a capturar
-            
-        Returns:
-            Dict[str, Any]: Resultado de la captura
         """
         try:
             user_dir = self._ensure_user_dir(user_name)
             cap = cv2.VideoCapture(0)
             
             if not cap.isOpened():
-                return {
-                    "success": False,
-                    "message": "No se pudo acceder a la cámara"
-                }
+                return {"success": False, "message": "No se pudo acceder a la cámara"}
                 
             photos_taken = 0
             frame_count = 0
             
+            async with get_db() as db:
+                # Asegurarse de registrar usuario en DB
+                result = await db.execute(select(User).filter(User.nombre == user_name))
+                user = result.scalars().first()
+                if not user:
+                    user = User(nombre=user_name)
+                    db.add(user)
+                    await db.flush()
+
             while photos_taken < num_photos:
                 ret, frame = cap.read()
                 if not ret:
@@ -114,7 +91,6 @@ class FaceCapture:
                 if frame_count % self.frame_interval != 0:
                     continue
                     
-                # Detectar rostros
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 faces = self.face_cascade.detectMultiScale(
                     gray,
@@ -124,21 +100,30 @@ class FaceCapture:
                 )
                 
                 for (x, y, w, h) in faces:
-                    # Extraer y evaluar calidad del rostro
                     face_img = frame[y:y+h, x:x+w]
                     quality = self._calculate_image_quality(face_img)
                     
                     if quality >= self.quality_threshold:
-                        # Guardar imagen
+                        # Guardar el **frame completo** en vez de solo la cara
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         img_path = user_dir / f"{user_name}_{timestamp}.jpg"
-                        cv2.imwrite(str(img_path), face_img)
-                        
+                        cv2.imwrite(str(img_path), frame)  # <-- CAMBIO AQUÍ
                         photos_taken += 1
                         logger.info(f"Foto {photos_taken} capturada para {user_name}")
+
+                        # Guardar la foto en la DB como bytes
+                        async with get_db() as db:
+                            with open(img_path, "rb") as f:
+                                img_bytes = f.read()
+                            face_record = Face(
+                                user_id=user.id,
+                                image_data=img_bytes
+                            )
+                            db.add(face_record)
+                            await db.commit()
+
                         break
                     
-                # Mostrar frame con rectángulos
                 for (x, y, w, h) in faces:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 
@@ -150,84 +135,47 @@ class FaceCapture:
             cv2.destroyAllWindows()
             
             if photos_taken == 0:
-                return {
-                    "success": False,
-                    "message": "No se pudieron capturar fotos de calidad suficiente"
-                }
+                return {"success": False, "message": "No se pudieron capturar fotos de calidad suficiente"}
                 
-            # Registrar usuario en la base de datos
-            async with get_db() as db:
-                user = User(
-                    nombre=user_name,
-                    fecha_registro=datetime.now()
-                )
-                db.add(user)
-                await db.commit()
-                
-            return {
-                "success": True,
-                "message": f"Se capturaron {photos_taken} fotos para {user_name}"
-            }
+            return {"success": True, "message": f"Se capturaron {photos_taken} fotos para {user_name}"}
             
         except Exception as e:
             logger.error(f"Error en captura de fotos: {e}")
-            return {
-                "success": False,
-                "message": f"Error en captura: {str(e)}"
-            }
+            return {"success": False, "message": f"Error en captura: {str(e)}"}
             
     async def delete_user_photos(self, user_name: str) -> Dict[str, Any]:
         """
         Elimina todas las fotos de un usuario.
-        
-        Args:
-            user_name (str): Nombre del usuario
-            
-        Returns:
-            Dict[str, Any]: Resultado de la eliminación
         """
         try:
             user_dir = self.dataset_dir / user_name
             if not user_dir.exists():
-                return {
-                    "success": False,
-                    "message": f"No se encontraron fotos para {user_name}"
-                }
+                return {"success": False, "message": f"No se encontraron fotos para {user_name}"}
                 
-            # Eliminar todas las fotos
             for photo in user_dir.glob("*.jpg"):
                 photo.unlink()
             user_dir.rmdir()
             
-            # Eliminar registro de la base de datos
             async with get_db() as db:
-                result = await db.execute(
-                    select(User).filter(User.nombre == user_name)
-                )
+                result = await db.execute(select(User).filter(User.nombre == user_name))
                 user = result.scalars().first()
-                
                 if user:
+                    # También eliminamos todas las faces asociadas
+                    await db.execute(
+                        select(Face).filter(Face.user_id == user.id).delete()
+                    )
                     await db.delete(user)
                     await db.commit()
                     
-            return {
-                "success": True,
-                "message": f"Fotos eliminadas para {user_name}"
-            }
+            return {"success": True, "message": f"Fotos eliminadas para {user_name}"}
             
         except Exception as e:
             logger.error(f"Error eliminando fotos: {e}")
-            return {
-                "success": False,
-                "message": f"Error en eliminación: {str(e)}"
-            }
+            return {"success": False, "message": f"Error en eliminación: {str(e)}"}
             
     async def list_users(self) -> List[Dict[str, Any]]:
         """
         Lista todos los usuarios con fotos registradas.
-        
-        Returns:
-            List[Dict[str, Any]]: Lista de usuarios y sus datos
         """
         try:
             users = []

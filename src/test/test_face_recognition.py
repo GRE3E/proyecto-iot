@@ -1,30 +1,52 @@
-import pytest
-from src.rc.rc_core import FaceRecognitionCore
-
-def test_recognize_face_from_cam():
-    """
-    Test para reconocer un rostro usando la cámara activa.
-    Valida que cualquier usuario registrado en la BD/dataset sea reconocido
-    e imprime su nombre.
-    """
-    core = FaceRecognitionCore()
-
-    print("\n🔹 Iniciando test de reconocimiento facial por cámara...")
-    print("Por favor, posiciona tu rostro frente a la cámara y espera a que se reconozca.")
-
-    
-    recognized_name = core.recognize_faces_from_cam()
-
-    
-    if recognized_name:
-        print(f"✅ Rostro reconocido correctamente: {recognized_name}")
-    else:
-        print("❌ No se reconoció ningún rostro")
-
-   
-    assert recognized_name is not None and recognized_name != "" and recognized_name != "Desconocido", \
-        "❌ No se reconoció ningún rostro registrado"
-    
+import asyncio
+import cv2
+from src.rc.recognize import FaceRecognizer
 
 
-#Comando de ejecucion    python -m pytest -s src/test/test_face_recognition.py
+async def main():
+    print("===  Prueba de Reconocimiento Facial ===\n")
+    print("Cargando encodings conocidos...\n")
+
+    recognizer = FaceRecognizer()
+    await recognizer.load_known_faces()
+
+    if not recognizer.known_face_encodings:
+        print(" No hay rostros registrados en la base de datos.")
+        return
+
+    print(" Encodings cargados correctamente.")
+    print("Iniciando cámara...\n")
+    print("Presiona 'q' para salir.\n")
+
+    cap = cv2.VideoCapture(1)
+
+    if not cap.isOpened():
+        print(" No se pudo acceder a la cámara.")
+        return
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Reconocer en este frame
+        recognized = await recognizer.recognize_frame(frame)
+
+        # Dibujar los nombres en el frame
+        for name, (top, right, bottom, left) in recognized:
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+            cv2.putText(frame, name, (left, top - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        cv2.imshow("Reconocimiento Facial (solo prueba)", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    print("\n Prueba finalizada.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

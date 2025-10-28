@@ -8,11 +8,11 @@ import logging
 from src.db.database import get_db
 from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
-from .auth_schemas import UserRegister, UserLogin
+from .auth_schemas import UserRegister, UserLogin, TokenRefresh
 
 logger = logging.getLogger("Auth")
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user: UserRegister):
@@ -43,9 +43,21 @@ async def login(user: UserLogin):
                 password=user.password
             )
         logger.info(f"Usuario {user.username} ha iniciado sesión exitosamente")
-        return result
+        return token
     except Exception as e:
         logger.error(f"Error en el inicio de sesión: {e}")
+        raise
+
+@router.post("/refresh-token")
+async def refresh_token(token_refresh: TokenRefresh):
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            new_tokens = await auth_service.refresh_access_token(token_refresh.refresh_token)
+        logger.info("Token de acceso refrescado exitosamente")
+        return new_tokens
+    except Exception as e:
+        logger.error(f"Error al refrescar token: {e}")
         raise
 
 @router.get("/me")

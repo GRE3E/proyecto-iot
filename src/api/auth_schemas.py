@@ -8,3 +8,6 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+class TokenRefresh(BaseModel):
+    refresh_token: str

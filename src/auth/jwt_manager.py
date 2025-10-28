@@ -6,11 +6,20 @@ from typing import Dict, Optional
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuración de JWT
-SECRET_KEY = "tu_clave_secreta_muy_segura"  # Cambiar en producción y usar variables de entorno
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = os.getenv("SECRET_KEY_JWT")
+ALGORITHM = os.getenv("ALGORITHM_JWT", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 2))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
+# Asegurarse de que SECRET_KEY esté configurada
+if not SECRET_KEY:
+    raise ValueError("La variable de entorno SECRET_KEY_JWT no está configurada.")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 

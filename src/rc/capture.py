@@ -65,7 +65,7 @@ class FaceCapture:
         """
         try:
             user_dir = self._ensure_user_dir(user_name)
-            cap = cv2.VideoCapture(1)
+            cap = cv2.VideoCapture(0)
             
             if not cap.isOpened():
                 return {"success": False, "message": "No se pudo acceder a la cámara"}

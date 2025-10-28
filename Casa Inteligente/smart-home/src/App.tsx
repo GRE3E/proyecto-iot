@@ -25,11 +25,10 @@ export default function App() {
     console.log("✅ Login completado → iniciando transición al Dashboard...");
     setPhase("loading");
 
-    // Asegura desmontaje limpio del Login
     setTimeout(() => {
       console.log("🟢 Mostrando Dashboard");
       setPhase("dashboard");
-    }, 800); // suficiente para que termine la animación de cierre
+    }, 800);
   };
 
   const menuItems = [
@@ -54,7 +53,8 @@ export default function App() {
 
       {/* === DASHBOARD === */}
       {phase === "dashboard" && (
-        <div className="relative flex flex-1 min-h-screen">
+        <div className="flex flex-row min-h-screen w-full">
+          {/* SIDEBAR */}
           <HamburgerMenu
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
@@ -68,14 +68,19 @@ export default function App() {
             colors={colors}
           />
 
-          <div className={`flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll transition-all duration-300 ${isSidebarOpen ? "ml-7" : "ml-1"}`}>
+          {/* CONTENIDO PRINCIPAL */}
+          <main
+            className={`transition-all duration-500 ease-in-out flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll
+              ${isSidebarOpen ? "ml-72" : "ml-20"}
+            `}
+          >
             {selectedMenu === "Inicio" && <Inicio />}
             {selectedMenu === "Casa 3D" && <Casa3d />}
             {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
             {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
-            {selectedMenu === "Chat" && <Chat />}
             {selectedMenu === "Configuración" && <Configuracion />}
-          </div>
+            {selectedMenu === "Chat" && <Chat />}
+          </main>
         </div>
       )}
     </div>

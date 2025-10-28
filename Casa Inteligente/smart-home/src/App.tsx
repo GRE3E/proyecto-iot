@@ -54,7 +54,7 @@ export default function App() {
 
       {/* === DASHBOARD === */}
       {phase === "dashboard" && (
-        <div className="relative flex flex-1 flex-col min-h-screen">
+        <div className="relative flex flex-1 min-h-screen">
           <HamburgerMenu
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
@@ -68,13 +68,13 @@ export default function App() {
             colors={colors}
           />
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll">
+          <div className={`flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll transition-all duration-300 ${isSidebarOpen ? "ml-7" : "ml-1"}`}>
             {selectedMenu === "Inicio" && <Inicio />}
             {selectedMenu === "Casa 3D" && <Casa3d />}
             {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
             {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
-            {selectedMenu === "Configuración" && <Configuracion />}
             {selectedMenu === "Chat" && <Chat />}
+            {selectedMenu === "Configuración" && <Configuracion />}
           </div>
         </div>
       )}

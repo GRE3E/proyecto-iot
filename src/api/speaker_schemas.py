@@ -30,4 +30,7 @@ class SpeakerUpdateOwnerRequest(BaseModel):
     """Modelo para la solicitud de actualización de propietario de hablante."""
     user_id: int
     is_owner: bool
+
+class AddVoiceToUserRequest(BaseModel):
+    user_id: int
     

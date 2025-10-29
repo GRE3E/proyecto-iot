@@ -13,7 +13,8 @@ from src.api.face_recognition_schemas import (
 )
 from src.auth.jwt_manager import get_current_user
 
-logger = logging.getLogger("FaceRecognitionAPI")
+logger = logging.getLogger("APIRoutes")
+
 face_core = FaceRecognitionCore()
 
 face_recognition_router = APIRouter(

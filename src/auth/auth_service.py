@@ -8,6 +8,9 @@ from fastapi.security import OAuth2PasswordBearer
 from src.db.database import get_db
 from src.db.models import User
 from src.auth import jwt_manager
+import logging
+
+logger = logging.getLogger("AuthService")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -17,14 +20,16 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def register_user(self, username: str, password: str, is_owner: bool = False) -> User:
+    async def register_user(self, username: str, password: str, is_owner: bool = False, embedding: str = "[]") -> User:
         """
         Registra un nuevo usuario en el sistema.
         """
+        logger.info(f"Intentando registrar nuevo usuario: {username}")
         result = await self.db.execute(select(User).filter(User.nombre == username))
         if result.first():
+            logger.warning(f"Intento de registro fallido: el usuario {username} ya existe.")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail="El nombre de usuario ya está en uso"
             )
         truncated_password_bytes = password.encode('utf-8')[:72]
@@ -34,27 +39,31 @@ class AuthService:
             nombre=username,
             hashed_password=hashed_password,
             is_owner=is_owner,
-            embedding="[]"
+            embedding=embedding
         )
 
         self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)
+        logger.info(f"Usuario {username} registrado exitosamente con ID: {user.id}")
         return user
 
     async def authenticate_user(self, username: str, password: str) -> dict:
         """
         Autentica un usuario y genera un token JWT.
         """
+        logger.info(f"Intentando autenticar usuario: {username}")
         result = await self.db.execute(select(User).filter(User.nombre == username))
         user = result.scalar_one_or_none()
         if not user or not user.hashed_password:
+            logger.warning(f"Intento de autenticación fallido para {username}: usuario no encontrado o sin contraseña.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciales inválidas"
             )
 
         if not pwd_context.verify(password, user.hashed_password):
+            logger.warning(f"Intento de autenticación fallido para {username}: contraseña incorrecta.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciales inválidas"
@@ -75,6 +84,7 @@ class AuthService:
         user.refresh_token = refresh_token
         await self.db.commit()
         await self.db.refresh(user)
+        logger.info(f"Usuario {username} autenticado exitosamente. Tokens generados.")
 
         return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
 
@@ -82,9 +92,11 @@ class AuthService:
         """
         Refresca el token de acceso utilizando un refresh token válido.
         """
+        logger.info("Intentando refrescar token de acceso.")
         try:
             payload = jwt_manager.verify_token(refresh_token)
-        except HTTPException:
+        except HTTPException as e:
+            logger.warning(f"Fallo al refrescar token: {e.detail}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token inválido o expirado"
@@ -92,6 +104,7 @@ class AuthService:
 
         user_id = payload.get("user_id")
         if not user_id:
+            logger.warning("Fallo al refrescar token: user_id no encontrado en el payload.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token inválido"
@@ -101,6 +114,7 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user or user.refresh_token != refresh_token:
+            logger.warning(f"Fallo al refrescar token para user_id {user_id}: token inválido o no coincide.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token inválido o no coincide"
@@ -128,6 +142,7 @@ class AuthService:
         self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)
+        logger.info(f"Tokens refrescados exitosamente para user_id: {user_id}")
 
         return {
             "access_token": new_access_token,
@@ -135,18 +150,53 @@ class AuthService:
             "token_type": "bearer"
         }
 
+    async def authenticate_user_by_id(self, user_id: int) -> dict:
+        """
+        Autentica un usuario por su ID y genera un token JWT.
+        """
+        logger.info(f"Intentando autenticar usuario por ID: {user_id}")
+        result = await self.db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            logger.warning(f"Fallo al autenticar por ID: usuario {user_id} no encontrado.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario no encontrado"
+            )
+
+        access_token_expires = timedelta(minutes=jwt_manager.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=jwt_manager.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        access_token = jwt_manager.create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+        refresh_token = jwt_manager.create_refresh_token(
+            data={"sub": str(user.id)},
+            expires_delta=refresh_token_expires
+        )
+
+        user.refresh_token = refresh_token
+        await self.db.commit()
+        await self.db.refresh(user)
+        logger.info(f"Usuario con ID {user_id} autenticado exitosamente por ID.")
+
+        return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+
     async def get_user_profile(self, user_id: int) -> dict:
         """
         Obtiene el perfil de un usuario.
         """
+        logger.info(f"Intentando obtener perfil de usuario para ID: {user_id}")
         result = await self.db.execute(select(User).filter(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
+            logger.warning(f"Fallo al obtener perfil: usuario {user_id} no encontrado.")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Usuario no encontrado"
             )
-
+        logger.info(f"Perfil de usuario para ID {user_id} obtenido exitosamente.")
         return {
             "id": user.id,
             "username": user.nombre,
@@ -155,6 +205,7 @@ class AuthService:
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    logger.debug("Intentando obtener usuario actual desde el token.")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudieron validar las credenciales",
@@ -164,8 +215,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         payload = jwt_manager.verify_token(token)
         user_id: str = payload.get("sub")
         if user_id is None:
+            logger.warning("Fallo al obtener usuario actual: user_id no encontrado en el payload.")
             raise credentials_exception
     except JWTError:
+        logger.error("Fallo al obtener usuario actual: JWTError al verificar el token.")
         raise credentials_exception
     
     async with db as session:
@@ -173,6 +226,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         user = result.scalars().first()
     
     if user is None:
+        logger.warning(f"Fallo al obtener usuario actual: usuario con ID {user_id} no encontrado en la DB.")
         raise credentials_exception
+    logger.info(f"Usuario actual con ID {user_id} obtenido exitosamente.")
     return user
     

@@ -45,5 +45,7 @@ ollama==0.1.5
 pydantic==2.6.1
 aiosqlite==0.19.0
 
+# ====== AUTENTICACIÓN / SEGURIDAD JWT /  OAUTH2  ======
 python-jose==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1

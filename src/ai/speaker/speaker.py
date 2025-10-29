@@ -51,44 +51,85 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             self._executor.shutdown(wait=True)
             logger.info("ThreadPoolExecutor cerrado.")
 
-    async def _register_speaker_sync(self, name: str, audio_path: str, is_owner: bool = False) -> bool:
+    async def _register_speaker_sync(self, name: str, audio_path: str, is_owner: bool = False) -> Optional[str]:
         """
         Lógica síncrona para registrar un hablante.
         """
         try:
             wav = preprocess_wav(audio_path)
-            embedding = self._encoder.embed_utterance(wav)
+            new_embedding = self._encoder.embed_utterance(wav)
+            new_embedding_str = json.dumps(new_embedding.tolist())
+            logger.debug(f"Nuevo embedding generado para {name}: {new_embedding_str}")
             
             async with get_db() as db:
-                result = await db.execute(select(User).where(User.nombre == name))
-                existing_user = result.scalar_one_or_none()
-                if existing_user:
-                    logger.info(f"El usuario {name} ya existe. Actualizando embedding.")
-                    existing_user.embedding = json.dumps(embedding.tolist())
-                    existing_user.is_owner = is_owner
-                else:
-                    new_user = User(nombre=name, embedding=json.dumps(embedding.tolist()), is_owner=is_owner)
-                    db.add(new_user)
-                await db.commit()
-            await self._load_registered_users()
-            return True
+                await self._load_registered_users()
+
+                existing_user_by_name = await db.execute(select(User).filter(User.nombre == name))
+                if existing_user_by_name.scalar_one_or_none():
+                    logger.warning(f"El usuario '{name}' ya está registrado por nombre. No se puede registrar con la misma voz.")
+                    return None
+
+                logger.debug(f"Comprobando embeddings duplicados. Usuarios registrados actualmente: {[u.nombre for u in self._registered_users]}")
+                for user in self._registered_users:
+                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.embedding}")
+                    registered_embedding = np.array(json.loads(user.embedding))
+                    similarity = np.dot(new_embedding, registered_embedding) / \
+                                 (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    distance = 1 - similarity
+                    logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
+                    
+                    if distance < 0.5:
+                        logger.warning(f"La voz proporcionada ya está registrada por el usuario {user.nombre}. No se puede registrar {name}.")
+                        return None
+
+                return new_embedding_str
         except Exception as e:
             logger.error(f"Error al registrar hablante: {e}")
-            return False
+            return None
 
-    def register_speaker(self, name: str, audio_path: str, is_owner: bool = False):
+    async def register_speaker(self, name: str, audio_path: str, is_owner: bool = False) -> Optional[str]:
         """
-        Registra un nuevo hablante o actualiza el embedding de un hablante existente de manera asíncrona.
-        
-        Args:
-            name (str): El nombre del hablante a registrar.
-            audio_path (str): La ruta al archivo de audio para generar el embedding.
-            is_owner (bool): Indica si el hablante es el propietario del sistema.
-        
-        Returns:
-            concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
+        Registra un nuevo hablante en el sistema.
+        Genera un embedding de voz y lo guarda en la base de datos.
         """
-        return self._executor.submit(asyncio.run, self._register_speaker_sync(name, audio_path, is_owner))
+        logger.info(f"Registrando hablante: {name}")
+        return await self._register_speaker_sync(name, audio_path, is_owner)
+
+    async def update_speaker_voice(self, user_id: int, audio_path: str) -> Optional[str]:
+        """
+        Actualiza la voz de un hablante existente en el sistema.
+        Genera un embedding de voz y lo devuelve si no hay duplicados con otros usuarios.
+        """
+        logger.info(f"Actualizando voz para el usuario ID: {user_id}")
+        try:
+            wav = preprocess_wav(audio_path)
+            new_embedding = self._encoder.embed_utterance(wav)
+            new_embedding_str = json.dumps(new_embedding.tolist())
+            logger.debug(f"Nuevo embedding generado para el usuario ID {user_id}: {new_embedding_str}")
+            
+            async with get_db():
+                await self._load_registered_users()
+
+                logger.debug(f"Comprobando embeddings duplicados para el usuario ID {user_id}. Usuarios registrados actualmente: {[u.nombre for u in self._registered_users]}")
+                for user in self._registered_users:
+                    if user.id == user_id:
+                        continue
+
+                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.embedding}")
+                    registered_embedding = np.array(json.loads(user.embedding))
+                    similarity = np.dot(new_embedding, registered_embedding) / \
+                                 (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    distance = 1 - similarity
+                    logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
+
+                    if distance < 0.5:
+                        logger.warning(f"La voz proporcionada ya está registrada por el usuario {user.nombre}. No se puede actualizar la voz para el usuario ID {user_id}.")
+                        return None
+
+                return new_embedding_str
+        except Exception as e:
+            logger.error(f"Error al actualizar la voz del hablante para el usuario ID {user_id}: {e}")
+            return None
 
     async def _identify_speaker_sync(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
         """

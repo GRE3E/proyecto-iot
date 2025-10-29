@@ -6,7 +6,7 @@ from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
 from .auth_schemas import UserRegister, TokenRefresh
 
-logger = logging.getLogger("Auth")
+logger = logging.getLogger("APIRoutes")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

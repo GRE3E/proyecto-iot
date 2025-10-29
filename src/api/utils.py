@@ -17,6 +17,8 @@ from typing import Optional, Dict, Any
 from src.utils.error_handler import ErrorHandler
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.config_manager import ConfigManager
+import random
+import string
 
 logger = logging.getLogger("APIUtils")
 
@@ -349,3 +351,10 @@ async def shutdown_face_recognition_module() -> None:
             context="shutdown_face_recognition_module"
         )
         _face_recognition_module = None
+
+
+def generate_random_password(length: int = 12) -> str:
+    """Generates a random password with a specified length."""
+    characters = string.ascii_letters + string.digits + string.punctuation
+    password = ''.join(random.choice(characters) for i in range(length))
+    return password

@@ -2,6 +2,7 @@
 Router de autenticación para el sistema.
 """
 from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
@@ -34,15 +35,15 @@ async def register(user: UserRegister):
         raise
 
 @router.post("/login")
-async def login(user: UserLogin):
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
             token = await auth_service.authenticate_user(
-                username=user.username,
-                password=user.password
+                username=form_data.username,
+                password=form_data.password
             )
-        logger.info(f"Usuario {user.username} ha iniciado sesión exitosamente")
+        logger.info(f"Usuario {form_data.username} ha iniciado sesión exitosamente")
         return token
     except Exception as e:
         logger.error(f"Error en el inicio de sesión: {e}")

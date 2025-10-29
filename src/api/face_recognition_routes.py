@@ -15,6 +15,7 @@ from src.api.face_recognition_schemas import (
     UserListResponse,
     UserResponse,
 )
+from src.auth.jwt_manager import get_current_user
 
 logger = logging.getLogger("FaceRecognitionAPI")
 face_core = FaceRecognitionCore()
@@ -27,7 +28,7 @@ face_recognition_router = APIRouter(
 
 # === REGISTRO DE USUARIO ===
 @face_recognition_router.post("/register/{user_name}", response_model=UserRegistrationResponse)
-async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20)):
+async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20), current_user: dict = Depends(get_current_user)):
     """
     Registra un usuario: toma fotos (desde la cámara) y genera encodings.
     Sólo orquesta llamadas al core.
@@ -46,7 +47,7 @@ async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20))
 
 # === ELIMINAR USUARIO (DATASET + BASE DE DATOS) ===
 @face_recognition_router.delete("/users/{user_name}", response_model=UserDeletionResponse)
-async def delete_user(user_name: str):
+async def delete_user(user_name: str, current_user: dict = Depends(get_current_user)):
     """
     Elimina usuario tanto del dataset como de la base de datos.
     """
@@ -64,7 +65,7 @@ async def delete_user(user_name: str):
 
 # === LISTAR USUARIOS REGISTRADOS (BASE DE DATOS) ===
 @face_recognition_router.get("/users", response_model=List[UserResponse])
-async def list_users():
+async def list_users(current_user: dict = Depends(get_current_user)):
     """
     Lista todos los usuarios registrados (dataset + base de datos).
     """
@@ -90,6 +91,7 @@ async def list_users():
 async def recognize_face(
     source: Optional[str] = Query("camera", description='Use "camera" or provide file (multipart)'),
     file: Optional[UploadFile] = File(None),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Reconoce rostros — si se envía un archivo lo usa como fuente, sino usa la cámara.

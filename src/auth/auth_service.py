@@ -4,13 +4,22 @@ Servicios de autenticación para el sistema.
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import timedelta
-from fastapi import HTTPException, status
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError
+from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 
+from src.db.database import get_db
 from src.db.models import User
-from .jwt_manager import create_access_token, REFRESH_TOKEN_EXPIRE_DAYS, verify_token
+from src.auth import jwt_manager
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/auth/login")
 
 class AuthService:
     def __init__(self, db: AsyncSession):
@@ -64,41 +73,23 @@ class AuthService:
             )
 
         # Generar token JWT de acceso
-        access_token = create_access_token(
-            {
-                "user_id": user.id,
-                "username": user.nombre,
-                "is_owner": user.is_owner
-            },
-            expires_delta=timedelta(minutes=2)
+        access_token_expires = timedelta(minutes=jwt_manager.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=jwt_manager.REFRESH_TOKEN_EXPIRE_DAYS)
+
+        access_token = jwt_manager.create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+        refresh_token = jwt_manager.create_refresh_token(
+            data={"sub": str(user.id)},
+            expires_delta=refresh_token_expires
         )
 
-        # Generar refresh token
-        refresh_token = create_access_token(
-            {
-                "user_id": user.id,
-                "username": user.nombre,
-                "is_owner": user.is_owner
-            },
-            expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-        )
-
-        # Almacenar refresh token en la base de datos
         user.refresh_token = refresh_token
-        self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)
 
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "username": user.nombre,
-                "is_owner": user.is_owner
-            }
-        }
+        return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
 
     async def refresh_access_token(self, refresh_token: str) -> dict:
         """
@@ -176,3 +167,26 @@ class AuthService:
             "username": user.nombre,
             "is_owner": user.is_owner
         }
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudieron validar las credenciales",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt_manager.verify_token(token)
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    async with db as session:
+        result = await session.execute(select(User).filter(User.id == user_id))
+        user = result.scalars().first()
+    
+    if user is None:
+        raise credentials_exception
+    return user

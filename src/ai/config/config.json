@@ -22,8 +22,8 @@
     "stt": false,
     "speaker": false,
     "hotword": false,
-    "mqtt": true,
-    "tts": false,
+    "mqtt": false,
+    "tts": true,
     "face_recognition": false
   },
   "memory_size": 50,

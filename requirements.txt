@@ -44,3 +44,6 @@ ollama==0.1.5
 # ====== VALIDACIÓN / CONFIGURACIÓN / UTILIDADES ======
 pydantic==2.6.1
 aiosqlite==0.19.0
+
+python-jose==3.3.0
+passlib[bcrypt] == 1.7.4

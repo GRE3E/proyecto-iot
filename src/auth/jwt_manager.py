@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuración de JWT
-SECRET_KEY = os.getenv("SECRET_KEY_JWT")
-ALGORITHM = os.getenv("ALGORITHM_JWT", "HS256")
+SECRET_KEY = os.getenv("SECRET_KEY_JWT").strip()
+ALGORITHM = os.getenv("ALGORITHM_JWT", "HS256").strip()
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 2))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
@@ -25,10 +25,22 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
     """
-    Crea un token JWT con los datos proporcionados.
+    Crea un token JWT de acceso con los datos proporcionados.
     """
+    print(f"[DEBUG] create_access_token - SECRET_KEY: {SECRET_KEY}, ALGORITHM: {ALGORITHM}")
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def create_refresh_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Crea un token JWT de refresco con los datos proporcionados.
+    """
+    print(f"[DEBUG] create_refresh_token - SECRET_KEY: {SECRET_KEY}, ALGORITHM: {ALGORITHM}")
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -37,10 +49,12 @@ def verify_token(token: str) -> Dict:
     """
     Verifica y decodifica un token JWT.
     """
+    print(f"[DEBUG] verify_token - SECRET_KEY: {SECRET_KEY}, ALGORITHM: {ALGORITHM}")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"[DEBUG] JWTError during token verification: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido",

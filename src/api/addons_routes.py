@@ -10,7 +10,6 @@ logger = logging.getLogger("APIRoutes")
 
 router = APIRouter()
 
-# Función de dependencia para NLPModule
 def get_nlp_module():
     project_root = Path(__file__).parent.parent.parent
     config_path = project_root / "src" / "ai" / "config" / "config.json"
@@ -30,3 +29,4 @@ async def update_timezone(timezone_update: TimezoneUpdate, nlp_module: NLPModule
     except Exception as e:
         logger.error(f"Error al actualizar la zona horaria para /addons/timezone: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar la zona horaria: {e}")
+        

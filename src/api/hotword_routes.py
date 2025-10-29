@@ -14,6 +14,7 @@ from src.api.tts_routes import AUDIO_OUTPUT_DIR
 from src.ai.tts.tts_module import handle_tts_generation_and_playback
 
 logger = logging.getLogger("APIRoutes")
+
 hotword_router = APIRouter()
 
 @hotword_router.post("/hotword/process_audio", response_model=HotwordAudioProcessResponse)

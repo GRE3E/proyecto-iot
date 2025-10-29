@@ -50,9 +50,7 @@ class NLPModule:
         """Cierra explícitamente los recursos del NLPModule."""
         logger.info("Cerrando NLPModule.")
         if self._ollama_manager:
-            await self._ollama_manager.close()
-        if self.mqtt_client:
-            await self.mqtt_client.disconnect()
+            self._ollama_manager.close()
         self._is_closing = True
 
     async def set_iot_managers(self, mqtt_client: MQTTClient, db: AsyncSession) -> None:

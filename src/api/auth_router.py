@@ -1,15 +1,10 @@
-"""
-Router de autenticación para el sistema.
-"""
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-
 from src.db.database import get_db
 from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
-from .auth_schemas import UserRegister, UserLogin, TokenRefresh
+from .auth_schemas import UserRegister, TokenRefresh
 
 logger = logging.getLogger("Auth")
 
@@ -75,3 +70,4 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Error al obtener perfil de usuario: {e}")
         raise
+    

@@ -1,6 +1,3 @@
-"""
-Manejo de tokens JWT para autenticación.
-"""
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 from jose import JWTError, jwt
@@ -11,13 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuración de JWT
 SECRET_KEY = os.getenv("SECRET_KEY_JWT").strip()
 ALGORITHM = os.getenv("ALGORITHM_JWT", "HS256").strip()
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 2))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
-# Asegurarse de que SECRET_KEY esté configurada
 if not SECRET_KEY:
     raise ValueError("La variable de entorno SECRET_KEY_JWT no está configurada.")
 
@@ -66,3 +61,4 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
     Obtiene el usuario actual a partir del token JWT.
     """
     return verify_token(token)
+    

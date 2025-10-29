@@ -4,15 +4,11 @@ import tempfile
 import os
 import uuid
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.db.database import get_db
 from src.rc.rc_core import FaceRecognitionCore
 from src.api.face_recognition_schemas import (
     UserRegistrationResponse,
     UserDeletionResponse,
     UserRecognitionResponse,
-    UserListResponse,
     UserResponse,
 )
 from src.auth.jwt_manager import get_current_user
@@ -25,8 +21,6 @@ face_recognition_router = APIRouter(
     tags=["rc"]
 )
 
-
-# === REGISTRO DE USUARIO ===
 @face_recognition_router.post("/register/{user_name}", response_model=UserRegistrationResponse)
 async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20), current_user: dict = Depends(get_current_user)):
     """
@@ -44,8 +38,6 @@ async def register_user(user_name: str, num_photos: int = Query(5, ge=1, le=20),
         logger.exception("Error en register_user")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# === ELIMINAR USUARIO (DATASET + BASE DE DATOS) ===
 @face_recognition_router.delete("/users/{user_name}", response_model=UserDeletionResponse)
 async def delete_user(user_name: str, current_user: dict = Depends(get_current_user)):
     """
@@ -62,8 +54,6 @@ async def delete_user(user_name: str, current_user: dict = Depends(get_current_u
         logger.exception("Error en delete_user")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# === LISTAR USUARIOS REGISTRADOS (BASE DE DATOS) ===
 @face_recognition_router.get("/users", response_model=List[UserResponse])
 async def list_users(current_user: dict = Depends(get_current_user)):
     """
@@ -73,7 +63,6 @@ async def list_users(current_user: dict = Depends(get_current_user)):
         users = await face_core.list_users()
         if not users:
             return []
-        # Normaliza estructura para Pydantic
         formatted = []
         for u in users:
             if isinstance(u, dict):
@@ -85,8 +74,6 @@ async def list_users(current_user: dict = Depends(get_current_user)):
         logger.exception("Error en list_users")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# === RECONOCIMIENTO FACIAL ===
 @face_recognition_router.post("/recognize", response_model=UserRecognitionResponse)
 async def recognize_face(
     source: Optional[str] = Query("camera", description='Use "camera" or provide file (multipart)'),
@@ -100,7 +87,6 @@ async def recognize_face(
     temp_path = None
     try:
         if file:
-            # Guardar archivo temporalmente para pasarlo a core
             suffix = os.path.splitext(file.filename or "")[1] or ".jpg"
             temp_name = f"rc_upload_{uuid.uuid4().hex}{suffix}"
             temp_dir = tempfile.gettempdir()
@@ -115,7 +101,6 @@ async def recognize_face(
         if not result.get("success", False):
             raise HTTPException(status_code=400, detail=result.get("message", "Reconocimiento falló"))
 
-        # Normalizar lista de usuarios reconocidos
         users = result.get("recognized_users") or []
         normalized = []
         for u in users:

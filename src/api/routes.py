@@ -18,7 +18,6 @@ logger = logging.getLogger("APIRoutes")
 
 router = APIRouter()
 
-# Incluir los demás routers
 router.include_router(auth_router, prefix="/auth", tags=["auth"])
 router.include_router(hotword_router, prefix="/hotword", tags=["hotword"], dependencies=[Depends(get_current_user)])
 router.include_router(tts_router, prefix="/tts", tags=["tts"], dependencies=[Depends(get_current_user)])

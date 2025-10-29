@@ -1,18 +1,10 @@
-"""
-Servicios de autenticación para el sistema.
-"""
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import timedelta
 from jose import JWTError
-from passlib.context import CryptContext
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-
 from src.db.database import get_db
 from src.db.models import User
 from src.auth import jwt_manager
@@ -29,24 +21,20 @@ class AuthService:
         """
         Registra un nuevo usuario en el sistema.
         """
-        # Verificar si el usuario ya existe
         result = await self.db.execute(select(User).filter(User.nombre == username))
         if result.first():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El nombre de usuario ya está en uso"
             )
-
-        # Hash de la contraseña
         truncated_password_bytes = password.encode('utf-8')[:72]
         hashed_password = pwd_context.hash(truncated_password_bytes)
 
-        # Crear nuevo usuario
         user = User(
             nombre=username,
             hashed_password=hashed_password,
             is_owner=is_owner,
-            embedding="[]"  # Vector vacío por defecto
+            embedding="[]"
         )
 
         self.db.add(user)
@@ -72,7 +60,6 @@ class AuthService:
                 detail="Credenciales inválidas"
             )
 
-        # Generar token JWT de acceso
         access_token_expires = timedelta(minutes=jwt_manager.ACCESS_TOKEN_EXPIRE_MINUTES)
         refresh_token_expires = timedelta(days=jwt_manager.REFRESH_TOKEN_EXPIRE_DAYS)
 
@@ -96,7 +83,7 @@ class AuthService:
         Refresca el token de acceso utilizando un refresh token válido.
         """
         try:
-            payload = verify_token(refresh_token)
+            payload = jwt_manager.verify_token(refresh_token)
         except HTTPException:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -119,8 +106,7 @@ class AuthService:
                 detail="Refresh token inválido o no coincide"
             )
 
-        # Generar nuevo access token
-        new_access_token = create_access_token(
+        new_access_token = jwt_manager.create_access_token(
             {
                 "user_id": user.id,
                 "username": user.nombre,
@@ -129,14 +115,13 @@ class AuthService:
             expires_delta=timedelta(minutes=2)
         )
 
-        # Generar nuevo refresh token y actualizar en la base de datos
-        new_refresh_token = create_access_token(
+        new_refresh_token = jwt_manager.create_refresh_token(
             {
                 "user_id": user.id,
                 "username": user.nombre,
                 "is_owner": user.is_owner
             },
-            expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+            expires_delta=timedelta(days=jwt_manager.REFRESH_TOKEN_EXPIRE_DAYS)
         )
 
         user.refresh_token = new_refresh_token
@@ -190,3 +175,4 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     if user is None:
         raise credentials_exception
     return user
+    

@@ -18,13 +18,13 @@
     "administrar_comandos_iot"
   ],
   "modules": {
-    "nlp": false,
-    "stt": false,
-    "speaker": false,
-    "hotword": false,
-    "mqtt": false,
+    "nlp": true,
+    "stt": true,
+    "speaker": true,
+    "hotword": true,
+    "mqtt": true,
     "tts": true,
-    "face_recognition": false
+    "face_recognition": true
   },
   "memory_size": 50,
   "timezone": "America/Lima",

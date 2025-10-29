@@ -7,8 +7,8 @@ from src.db import models
 import logging
 
 logger = logging.getLogger("APIRoutes")
-iot_router = APIRouter()
 
+iot_router = APIRouter()
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
 async def get_iot_dashboard_data(request: Request):

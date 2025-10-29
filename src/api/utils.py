@@ -279,11 +279,7 @@ async def _set_nlp_iot_managers() -> None:
 async def shutdown_ollama_manager() -> None:
     global _ollama_manager
     if _ollama_manager:
-        await ErrorHandler.safe_execute_async(
-            _ollama_manager.close,
-            default_return=None,
-            context="shutdown_ollama_manager"
-        )
+        _ollama_manager.close()
         logger.info("OllamaManager cerrado.")
         _ollama_manager = None
 
@@ -318,34 +314,38 @@ async def shutdown_mqtt_client() -> None:
 async def shutdown_speaker_module() -> None:
     global _speaker_module
     if _speaker_module:
-        _speaker_module.shutdown()
+        await asyncio.to_thread(_speaker_module.shutdown)
         logger.info("SpeakerRecognitionModule cerrado.")
         _speaker_module = None
 
 async def shutdown_nlp_module() -> None:
     global _nlp_module
     if _nlp_module:
-        # No hay un método de apagado explícito para NLPModule, solo lo desreferenciamos
+        await _nlp_module.close()
         _nlp_module = None
-        logger.info("NLPModule desreferenciado.")
+        logger.info("NLPModule apagado.")
 
 async def shutdown_stt_module() -> None:
     global _stt_module
     if _stt_module:
-        # No hay un método de apagado explícito para STTModule, solo lo desreferenciamos
+        await asyncio.to_thread(_stt_module.shutdown)
         _stt_module = None
-        logger.info("STTModule desreferenciado.")
+        logger.info("STTModule apagado.")
 
 async def shutdown_tts_module() -> None:
     global _tts_module
     if _tts_module:
-        # No hay un método de apagado explícito para TTSModule, solo lo desreferenciamos
+        await asyncio.to_thread(_tts_module.shutdown)
         _tts_module = None
-        logger.info("TTSModule desreferenciado.")
+        logger.info("TTSModule apagado.")
 
 async def shutdown_face_recognition_module() -> None:
     global _face_recognition_module
     if _face_recognition_module:
-        # No hay un método de apagado explícito para FaceRecognitionCore, solo lo desreferenciamos
+        logger.info("FaceRecognitionCore module shut down and dereferenced.")
+        await ErrorHandler.safe_execute_async(
+            _face_recognition_module.shutdown,
+            default_return=None,
+            context="shutdown_face_recognition_module"
+        )
         _face_recognition_module = None
-        logger.info("FaceRecognitionCore desreferenciado.")

@@ -2,16 +2,13 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any
 from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.db.database import get_db
-from src.db.models import User, Face  # 👈 agregamos Face para borrar las caras
+from src.db.models import User, Face
 from src.rc.capture import FaceCapture
 from src.rc.encode import FaceEncoder
 from src.rc.recognize import FaceRecognizer
 
 logger = logging.getLogger("FaceRecognitionCore")
-
 
 class FaceRecognitionCore:
     """
@@ -24,9 +21,6 @@ class FaceRecognitionCore:
         self.encoder = FaceEncoder()
         self.recognizer = FaceRecognizer()
 
-    # ==========================================================
-    # 🧩 REGISTRAR USUARIO (ya funcionaba - sin cambios)
-    # ==========================================================
     async def register_user(self, user_name: str, num_photos: int = 5) -> Dict[str, Any]:
         try:
             async with get_db() as db:
@@ -49,9 +43,6 @@ class FaceRecognitionCore:
             logger.error(f"Error en registro de usuario: {e}")
             return {"success": False, "message": f"Error en registro: {str(e)}"}
 
-    # ==========================================================
-    # 🗑️ ELIMINAR USUARIO (corregido para evitar IntegrityError)
-    # ==========================================================
     async def delete_user(self, user_name: str) -> Dict[str, Any]:
         """
         Elimina un usuario tanto del dataset como de la base de datos.
@@ -59,32 +50,24 @@ class FaceRecognitionCore:
         """
         try:
             async with get_db() as db:
-                # Buscar usuario
                 result = await db.execute(select(User).filter(User.nombre == user_name))
                 user = result.scalars().first()
                 if not user:
                     return {"success": False, "message": f"Usuario {user_name} no encontrado"}
 
-                # 1️⃣ Eliminar las caras asociadas al usuario
                 await db.execute(delete(Face).where(Face.user_id == user.id))
 
-                # 2️⃣ Eliminar el usuario
                 await db.delete(user)
                 await db.commit()
                 logger.info(f"Usuario {user_name} eliminado de la base de datos.")
 
-            # 3️⃣ Eliminar fotos del dataset
             result = await self.capture.delete_user_photos(user_name)
-
             return {"success": True, "message": f"Usuario {user_name} eliminado correctamente."}
 
         except Exception as e:
             logger.error(f"Error eliminando usuario: {e}")
             return {"success": False, "message": f"Error en eliminación: {str(e)}"}
 
-    # ==========================================================
-    # 🔍 RECONOCER USUARIO (ya funcionaba - sin cambios)
-    # ==========================================================
     async def recognize_face(self, source: str = "camera") -> Dict[str, Any]:
         try:
             await self.recognizer.load_known_faces()
@@ -97,9 +80,6 @@ class FaceRecognitionCore:
             logger.error(f"Error en reconocimiento facial: {e}")
             return {"success": False, "message": f"Error en reconocimiento: {str(e)}"}
 
-    # ==========================================================
-    # 📋 LISTAR USUARIOS (ya funcionaba - sin cambios)
-    # ==========================================================
     async def list_users(self) -> List[Dict[str, Any]]:
         try:
             users_list = []
@@ -128,8 +108,11 @@ class FaceRecognitionCore:
             logger.error(f"Error listando usuarios: {e}")
             return []
 
-    # ==========================================================
-    # ⚙️ VERIFICAR ESTADO (ya funcionaba - sin cambios)
-    # ==========================================================
     def is_online(self) -> bool:
         return all([self.capture, self.encoder, self.recognizer])
+
+    async def shutdown(self):
+        """
+        Realiza un apagado limpio de los recursos de FaceRecognitionCore.
+        """
+        logger.info("Apagando recursos de FaceRecognitionCore.")

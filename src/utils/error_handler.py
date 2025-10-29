@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional, Callable, Type
+from typing import Dict, Any, Callable
 from functools import wraps
 import traceback
 import asyncio
@@ -71,3 +71,4 @@ class ErrorHandler:
         except Exception as e:
             logger.error(f"Error en {context}: {e}")
             return default_return
+            

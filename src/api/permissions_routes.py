@@ -8,6 +8,7 @@ import logging
 from sqlalchemy import select
 
 logger = logging.getLogger("APIRoutes")
+
 router = APIRouter()
 
 @router.post("/permissions/", response_model=permissions_schemas.Permission, status_code=status.HTTP_201_CREATED)

@@ -61,8 +61,8 @@ export default function App() {
             menuItems={menuItems}
             selectedMenu={selectedMenu}
             handleMenuSelect={(menu) => {
+              // Mantener la sidebar abierta al navegar entre secciones
               setSelectedMenu(menu);
-              setIsSidebarOpen(false);
             }}
             onLogout={() => setPhase("login")}
             colors={colors}

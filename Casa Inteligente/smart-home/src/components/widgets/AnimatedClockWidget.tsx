@@ -55,34 +55,6 @@ export default function AnimatedClockWidget({ temperature = 22 }: { temperature?
   const minuteDeg = (minutes + seconds / 60) * 6
   const secondDeg = seconds * 6
 
-  // calendario
-  const today = new Date()
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay()
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  const emptyDays = Array(firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1).fill(null)
-
-  const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11)
-      setCurrentYear(currentYear - 1)
-    } else {
-      setCurrentMonth(currentMonth - 1)
-    }
-  }
-
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0)
-      setCurrentYear(currentYear + 1)
-    } else {
-      setCurrentMonth(currentMonth + 1)
-    }
-  }
-
-  const isCurrentMonth = currentMonth === today.getMonth() && currentYear === today.getFullYear()
-  const currentDay = today.getDate()
-
   return (
     <SimpleCard className="relative p-6 md:p-8 bg-gradient-to-br from-slate-900/80 to-slate-800/50 backdrop-blur-xl border border-slate-700/40 shadow-2xl rounded-2xl overflow-hidden">
       {/* Partículas decorativas */}
@@ -171,38 +143,6 @@ export default function AnimatedClockWidget({ temperature = 22 }: { temperature?
             </div>
           </div>
 
-          {/* Calendario */}
-          <div className="space-y-4 md:w-1/3">
-            <div className="flex items-center justify-between">
-              <button onClick={prevMonth} className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors">
-                <ChevronLeft className="w-5 h-5 text-slate-200" />
-              </button>
-              <h4 className="text-lg font-semibold text-slate-200">
-                {new Date(currentYear, currentMonth).toLocaleString("es-ES", { month: "long", year: "numeric" }).toUpperCase()}
-              </h4>
-              <button onClick={nextMonth} className="p-2 rounded-lg bg-slate-800/30 hover:bg-slate-700/40 transition-colors">
-                <ChevronRight className="w-5 h-5 text-slate-200" />
-              </button>
-            </div>
-            <div className="grid grid-cols-7 gap-2 text-center">
-              {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
-                <div key={d} className="text-xs font-medium text-slate-400">{d}</div>
-              ))}
-              {emptyDays.map((_, i) => <div key={`e-${i}`} className="h-10" />)}
-              {days.map((day) => (
-                <div
-                  key={day}
-                  className={`relative h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isCurrentMonth && day === currentDay
-                      ? "bg-gradient-to-br from-purple-500/40 to-pink-500/40 text-white shadow-lg"
-                      : "text-slate-400 hover:bg-slate-700/30"
-                  }`}
-                >
-                  {day}
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </SimpleCard>

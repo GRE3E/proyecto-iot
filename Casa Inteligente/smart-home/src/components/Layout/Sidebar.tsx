@@ -1,6 +1,6 @@
 // Menu Hamburguesa
 "use client"
-import { } from "react"
+import { useEffect, useRef } from "react"
 import { Home, LogOut } from "lucide-react"
 import SimpleButton from "../UI/Button"
 
@@ -23,19 +23,63 @@ export default function HamburgerMenu({
   onLogout,
   colors,
 }: HamburgerMenuProps) {
-  // Mantiene el menú abierto hasta que el usuario pulse el botón hamburguesa
+  const sidebarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)
+      ) {
+        setIsSidebarOpen(false)
+      }
+    }
+
+    if (isSidebarOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isSidebarOpen, setIsSidebarOpen])
 
   return (
     <>
-      {/* Eliminamos overlay y blur para que el contenido no se vea borroso */}
+      {/* Botón flotante móvil cuando el menú está cerrado */}
+      {!isSidebarOpen && (
+        <div className="md:hidden fixed top-4 right-4 z-50">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className={`h-11 w-11 flex flex-col justify-center items-center rounded-xl
+              bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
+              shadow-lg transition-transform duration-200 active:scale-95`}
+          >
+            <span className="block h-0.5 w-6 bg-white rounded-sm mb-1"></span>
+            <span className="block h-0.5 w-6 bg-white rounded-sm mb-1"></span>
+            <span className="block h-0.5 w-6 bg-white rounded-sm"></span>
+          </button>
+        </div>
+      )}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-500"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
       <aside
-        className={`fixed left-0 top-0 h-full ${
-          isSidebarOpen ? "w-80" : "w-24"
-        } ${colors.cardBg} 
+        ref={sidebarRef}
+        className={`fixed left-0 top-0 h-full 
+          ${isSidebarOpen ? "w-[86vw] sm:w-72 md:w-80" : "w-0 md:w-24"}
+          ${colors.cardBg} 
           border-r-2 border-cyan-500/20 shadow-[6px_0_20px_rgba(0,0,0,0.5)]
           flex flex-col items-center justify-between py-8 px-6
-          transition-all duration-500 ease-in-out z-50`}
+          transition-transform duration-500 ease-in-out z-50 overflow-y-auto
+          md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
         style={{
           boxShadow:
             "8px 0 25px rgba(0,0,0,0.4), inset -1px 0 0 rgba(0,255,255,0.1)",
@@ -47,31 +91,26 @@ export default function HamburgerMenu({
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              aria-label="Abrir menú"
               className={`w-11/12 h-12 flex flex-col justify-center items-center rounded-xl
                 bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.98]`}
+                transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
             >
-              <span className={`block h-0.5 w-6 bg-white rounded-sm mb-1 transition-all duration-300`}></span>
-              <span className={`block h-0.5 w-6 bg-white rounded-sm mb-1 transition-all duration-300`}></span>
-              <span className={`block h-0.5 w-6 bg-white rounded-sm transition-all duration-300`}></span>
+              <span className="block h-0.5 w-6 bg-white rounded-sm mb-1"></span>
+              <span className="block h-0.5 w-6 bg-white rounded-sm mb-1"></span>
+              <span className="block h-0.5 w-6 bg-white rounded-sm"></span>
             </button>
           )}
 
-          {/* Botón hamburguesa visible también cuando el menú está abierto */}
+          {/* Botón de la casita + texto SmartHome */}
           {isSidebarOpen && (
             <div className="flex items-center justify-start gap-3 px-4 w-full">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                aria-label="Cerrar menú"
-                className={`w-12 h-12 flex flex-col justify-center items-center rounded-xl
+                className={`w-12 h-12 flex items-center justify-center rounded-xl
                   bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.98]`}
+                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
               >
-                {/* Transformación a X cuando está abierto */}
-                <span className={`block h-0.5 w-6 bg-white rounded-sm mb-1 transition-transform duration-300 translate-y-[3px] rotate-45`}></span>
-                <span className={`block h-0.5 w-6 bg-white rounded-sm mb-1 transition-opacity duration-300 opacity-0`}></span>
-                <span className={`block h-0.5 w-6 bg-white rounded-sm transition-transform duration-300 -translate-y-[3px] -rotate-45`}></span>
+                <Home className="w-6 h-6 text-white" />
               </button>
 
               <h1

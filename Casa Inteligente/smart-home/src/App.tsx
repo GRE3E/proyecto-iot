@@ -71,7 +71,7 @@ export default function App() {
           {/* CONTENIDO PRINCIPAL */}
           <main
             className={`transition-all duration-500 ease-in-out flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll
-              ${isSidebarOpen ? "ml-72" : "ml-20"}
+              ${isSidebarOpen ? "ml-0 md:ml-80" : "ml-0 md:ml-24"}
             `}
           >
             {selectedMenu === "Inicio" && <Inicio />}

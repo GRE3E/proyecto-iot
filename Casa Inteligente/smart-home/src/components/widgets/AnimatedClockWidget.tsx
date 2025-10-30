@@ -68,9 +68,9 @@ export default function AnimatedClockWidget({ temperature = 22 }: { temperature?
           Reloj Inteligente HUD
         </h2>
 
-        <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-center">
           {/* Reloj digital + analógico */}
-          <div className="flex flex-col items-center gap-4 md:w-1/3">
+          <div className="flex flex-col items-center gap-4 md:w-full">
             <div className="text-3xl md:text-4xl font-bold text-white font-mono drop-shadow-lg tracking-widest mb-2">
               {currentTime.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </div>
@@ -132,7 +132,7 @@ export default function AnimatedClockWidget({ temperature = 22 }: { temperature?
           </div>
 
           {/* Clima */}
-          <div className="relative flex flex-col items-center justify-center px-4 py-6 md:px-6 md:py-8 rounded-2xl bg-gradient-to-br from-blue-800/60 via-purple-800/50 to-cyan-800/60 border border-cyan-400/20 shadow-[0_0_15px_rgba(0,255,255,0.2)] backdrop-blur-lg md:w-1/3">
+          <div className="relative flex flex-col items-center justify-center px-4 py-6 md:px-6 md:py-8 rounded-2xl bg-gradient-to-br from-blue-800/60 via-purple-800/50 to-cyan-800/60 border border-cyan-400/20 shadow-[0_0_15px_rgba(0,255,255,0.2)] backdrop-blur-lg md:w-full">
             <div className="w-24 h-24 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-700/50 via-purple-700/40 to-cyan-700/50 border border-cyan-400/30 shadow-[0_0_10px_rgba(0,255,255,0.2)] animate-pulse">
               {weather.icon}
             </div>

@@ -17,7 +17,7 @@ export default function MiniChat() {
     toggleVoiceActive,
   } = useVoiceChat();
 
-  // 👉 Redirige al chat completo
+  // Redirige al chat completo
   const handleExpand = () => {
     window.location.href = "../../pages/Chat";
   };
@@ -43,7 +43,7 @@ export default function MiniChat() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
-            className="absolute bottom-20 right-0 w-80 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="absolute bottom-20 right-0 w-96 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50 bg-slate-800/60">

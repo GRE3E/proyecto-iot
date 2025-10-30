@@ -1,3 +1,5 @@
+import { Mic } from "lucide-react";
+
 interface ChatWidgetProps {
   text: string;
   setText: (value: string) => void;
@@ -35,7 +37,7 @@ export default function ChatWidget({
           voiceActive ? "bg-red-600" : "bg-slate-700"
         } text-white transition`}
       >
-        🎤
+        <Mic className="w-5 h-5" />
       </button>
     </div>
   );

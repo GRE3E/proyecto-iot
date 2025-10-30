@@ -103,14 +103,15 @@ export default function HamburgerMenu({
 
           {/* Botón de la casita + texto SmartHome */}
           {isSidebarOpen && (
-            <div className="flex items-center justify-start gap-3 px-4 w-full">
+            <div className="flex items-center justify-start gap-3 px-3 md:px-4 w-full">
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className={`w-12 h-12 flex items-center justify-center rounded-xl
+                aria-label="Cerrar menú"
+                className={`w-12 h-10 md:w-12 md:h-10 flex items-center justify-center rounded-xl
                   bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97]`}
               >
-                <Home className="w-6 h-6 text-white" />
+                <Home className="w-6 h-6 text-white md:transition-transform md:duration-300 md:hover:scale-110" />
               </button>
 
               <h1
@@ -154,12 +155,16 @@ export default function HamburgerMenu({
         </nav>
 
         {/* Botón Cerrar Sesión */}
-        <div className="w-full flex flex-col items-center">
+        <div
+          className={`w-full flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            isSidebarOpen ? "opacity-100 translate-y-0" : "opacity-80 translate-y-1"
+          }`}
+        >
           <SimpleButton
             onClick={onLogout}
             className="flex items-center gap-3 w-11/12 justify-center px-3 py-2 rounded-xl
             bg-red-950/20 border border-red-500/20 text-red-400 hover:bg-red-900/30 hover:border-red-400/40
-            transition-all duration-200 font-medium mb-2"
+            transition-all duration-300 font-medium mb-2"
           >
             <LogOut className="w-5 h-5 shrink-0" />
             {isSidebarOpen && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import SimpleCard from "../UI/Card"
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react"
+import { Clock } from "lucide-react"
 import { getWeatherData, generateParticles, updateParticles } from "../../utils/widgetUtils"
 
 function AnimatedParticles() {
@@ -36,8 +36,6 @@ function AnimatedParticles() {
 
 export default function AnimatedClockWidget({ temperature = 22 }: { temperature?: number }) {
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [currentMonth, setCurrentMonth] = useState(currentTime.getMonth())
-  const [currentYear, setCurrentYear] = useState(currentTime.getFullYear())
 
   const weather = getWeatherData(temperature)
 

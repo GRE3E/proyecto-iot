@@ -119,9 +119,16 @@ async def process_hotword_audio(
                 transcribed_text = stt_result.get("text", "")
                 logger.info(f"Texto transcrito (vía HTTP): {transcribed_text}")
             
-                speaker_response.raise_for_status()
-                speaker_result = speaker_response.json()
-                user_access_token = speaker_result.get("access_token")
+                try:
+                    speaker_response.raise_for_status()
+                    speaker_result = speaker_response.json()
+                    user_access_token = speaker_result.get("access_token")
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 404 and "No hay usuarios registrados" in e.response.text:
+                        logger.info("No hay usuarios registrados. Procediendo a registrar como desconocido.")
+                        user_access_token = None # Esto activará la lógica de registro de usuario desconocido
+                    else:
+                        raise e
 
                 if user_access_token:
                     decoded_token = verify_token(user_access_token)
@@ -255,8 +262,11 @@ async def process_hotword_audio(
                 logger.error("Timeout en procesamiento de hotword")
                 raise HTTPException(status_code=504, detail="El procesamiento tardó demasiado tiempo")
             except httpx.HTTPStatusError as e:
-                logger.error(f"Error HTTP al llamar a servicios: {e.response.status_code} - {e.response.text}")
-                raise HTTPException(status_code=e.response.status_code, detail=f"Error en servicio externo: {e.response.text}")
+                if e.request.url == "http://localhost:8000/speaker/speaker/identify" and e.response.status_code == 404 and "No hay usuarios registrados" in e.response.text:
+                    logger.info("Excepción de 'No hay usuarios registrados' capturada en el nivel superior. Procediendo con el registro de usuario desconocido.")
+                else:
+                    logger.error(f"Error HTTP al llamar a servicios: {e.response.status_code} - {e.response.text}")
+                    raise HTTPException(status_code=e.response.status_code, detail=f"Error en servicio externo: {e.response.text}")
             except HTTPException as e:
                 logger.error(f"Error en procesamiento de hotword: {e.detail}")
                 raise e

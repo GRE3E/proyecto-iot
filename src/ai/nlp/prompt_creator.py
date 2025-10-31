@@ -113,6 +113,6 @@ def create_system_prompt(
     )
     logger.debug("System_prompt construido correctamente.")
 
-    prompt_text = f"{system_prompt}\n\nUsuario: {prompt}\nAsistente:"
+    prompt_text = f"Usuario: {prompt}"
     return system_prompt, prompt_text
     

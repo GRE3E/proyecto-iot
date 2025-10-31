@@ -135,6 +135,12 @@ async def identify_speaker(audio_file: UploadFile = File(...)):
         raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
     
     try:
+        async with get_db() as db:
+            result = await db.execute(select(User))
+            users = result.scalars().all()
+            if not users:
+                raise HTTPException(status_code=404, detail="No hay usuarios registrados")
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             file_location = Path(tmpdir) / audio_file.filename
             with open(file_location, "wb+") as file_object:
@@ -160,6 +166,8 @@ async def identify_speaker(audio_file: UploadFile = File(...)):
         logger.info(f"Usuario {identified_user.nombre} identificado por voz exitosamente")
         return token
         
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         logger.error(f"Error al identificar hablante para /speaker/identify: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error al identificar el hablante")

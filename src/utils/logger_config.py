@@ -45,6 +45,7 @@ class ColoredFormatter(logging.Formatter):
         'FaceEncoder': '\033[38;5;22m',            # Verde oscuro para FaceEncoder
         'FaceRecognizer': '\033[38;5;23m',         # Gris azulado para FaceRecognizer
         'ErrorHandler': '\033[38;5;166m',           # Naranja quemado para ErrorHandler
+        'DeviceAuth': '\033[38;5;75m',             # Azul verdoso para DeviceAuth
         'JWTManager': '\033[38;5;108m',      # Verde azulado para JWT Manager
         'AuthService': '\033[38;5;135m',     # Púrpura claro para Auth Service
         'root': '\033[38;5;240m',                  # Gris oscuro

@@ -145,9 +145,10 @@ async def hotword_callback_async():
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
+            headers = {"X-Device-API-Key": os.getenv("DEVICE_API_KEY")}
             with open(audio_filename, "rb") as f:
                 files = {'audio_file': (audio_filename, f, 'audio/wav')}
-                response = await client.post("http://localhost:8000/hotword/hotword/process_audio", files=files)
+                response = await client.post("http://localhost:8000/hotword/hotword/process_audio", files=files, headers=headers)
                 response.raise_for_status()
                 result = response.json()
                 logger.info(f"Respuesta de la API: {result}")
@@ -170,9 +171,15 @@ if __name__ == '__main__':
     if not HOTWORD_PATH:
         logger.error("Error: HOTWORD_PATH no encontrada en las variables de entorno.")
         exit()
+    
+    DEVICE_API_KEY = os.getenv("DEVICE_API_KEY")
+    if not DEVICE_API_KEY:
+        logger.error("Error: DEVICE_API_KEY no encontrada en las variables de entorno.")
+        exit()
 
     async def main_hotword_test():
         detector = HotwordDetector(access_key=ACCESS_KEY, hotword_path=HOTWORD_PATH)
         await detector.start(hotword_callback_async)
 
     asyncio.run(main_hotword_test())
+    

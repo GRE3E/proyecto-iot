@@ -108,7 +108,6 @@ class FaceEncoder:
                                                                        number_of_times_to_upsample=1,
                                                                        batch_size=self.encoding_batch_size)
 
-            # Procesar cada imagen
             for img, locations, fpath in zip(images, batch_face_locations, valid_paths):
                 if not locations:
                     logger.warning(f"No se detectaron rostros en: {fpath}")
@@ -117,7 +116,6 @@ class FaceEncoder:
                 best_quality = -1
                 best_encoding = None
 
-                # Encontrar la cara de mejor calidad
                 for face_location in locations:
                     quality = self._calculate_face_quality(img, face_location)
                     logger.debug(f"Calidad calculada por FaceEncoder para {fpath}: {quality} (Umbral: {self.min_quality_score})")

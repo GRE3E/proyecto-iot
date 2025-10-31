@@ -12,7 +12,10 @@ logger = logging.getLogger("APIRoutes")
 stt_router = APIRouter()
 
 @stt_router.post("/stt/transcribe", response_model=STTResponse)
-async def transcribe_audio(audio_file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def transcribe_audio(
+    audio_file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
     """Convierte voz a texto usando el módulo STT."""
     if utils._stt_module is None or not utils._stt_module.is_online():
         raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")

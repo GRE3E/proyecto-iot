@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from src.db.database import get_db
 from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate
 from src.api.schemas import StatusResponse
+from src.auth.auth_service import get_current_user
+from src.db.models import User
 import logging
 from src.api import utils
 
@@ -10,13 +12,18 @@ logger = logging.getLogger("APIRoutes")
 nlp_router = APIRouter()
 
 @nlp_router.post("/nlp/query", response_model=NLPResponse)
-async def query_nlp(query: NLPQuery, request: Request):
+async def query_nlp(
+    query: NLPQuery,
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+
     """Procesa una consulta NLP y devuelve la respuesta generada."""
 
     try:
         response = await utils._nlp_module.generate_response(
             query.prompt,
-            user_id=query.user_id,
+            user_id=current_user.id,
         )
 
         if response.get("error"):

@@ -28,17 +28,14 @@ class FaceRecognitionCore:
             async with get_db() as db:
                 auth_service = AuthService(db)
                 
-                # Verificar si el usuario ya existe en la base de datos
                 exists_query = select(User.id).filter(User.nombre == user_name).exists()
                 if await db.scalar(select(exists_query)):
                     return ResponseModel(success=False, message=f"El usuario {user_name} ya existe")
 
-                # Registrar el usuario en la base de datos a través de AuthService
-                # Esto creará el usuario y hasheará la contraseña
                 await auth_service.register_user(
                     username=user_name,
                     password=password,
-                    is_owner=False # Por defecto, no es propietario al registrar por reconocimiento facial
+                    is_owner=False
                 )
 
             capture_result = await self.capture.capture_user(user_name, num_photos)
@@ -47,13 +44,11 @@ class FaceRecognitionCore:
 
             encoding_generated = await self.encoder.generate_encodings(user_name)
             if encoding_generated:
-                # El face_embedding ya ha sido guardado en la base de datos por generate_encodings.
-                # Refrescamos el objeto new_user para obtener el embedding actualizado.
                 async with get_db() as db:
                     result = await db.execute(select(User).filter(User.nombre == user_name))
                     user = result.scalars().first()
                     if user:
-                        auth_service = AuthService(db) # Re-initialize auth_service with the new session
+                        auth_service = AuthService(db)
                         auth_tokens = await auth_service.authenticate_user_by_id(user.id)
                         return ResponseModel(success=True, message=f"Usuario {user_name} registrado exitosamente", auth=AuthResponse(**auth_tokens))
                     else:

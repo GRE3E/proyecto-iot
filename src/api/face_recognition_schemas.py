@@ -58,3 +58,4 @@ class StatusResponse(BaseModel):
 
 class UserListResponse(BaseModel):
     users: List[UserResponse] = []
+    

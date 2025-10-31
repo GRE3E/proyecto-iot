@@ -106,7 +106,7 @@ class FaceRecognizer:
 
         recognized_users = set()
         frame_count = 0
-        max_frames = 90  # Número máximo de frames a procesar
+        max_frames = 90
 
         try:
             while frame_count < max_frames:

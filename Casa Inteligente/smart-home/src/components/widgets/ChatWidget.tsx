@@ -1,4 +1,4 @@
-import { Mic } from "lucide-react";
+import { Mic, Send } from "lucide-react";
 
 interface ChatWidgetProps {
   text: string;
@@ -25,17 +25,22 @@ export default function ChatWidget({
         placeholder="Escribe un mensaje..."
         className="flex-1 bg-transparent outline-none text-white placeholder-gray-400 px-3 py-2 rounded-lg border border-slate-700 focus:border-blue-500 transition"
       />
+      
       <button
         onClick={() => sendMessage()}
-        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-semibold"
+        disabled={!text.trim()}
+        className="p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg text-white transition flex items-center justify-center"
+        title="Enviar mensaje"
       >
-        Enviar
+        <Send className="w-5 h-5" />
       </button>
+
       <button
         onClick={toggleVoiceActive}
         className={`p-2 rounded-full ${
           voiceActive ? "bg-red-600" : "bg-slate-700"
         } text-white transition`}
+        title={voiceActive ? "Detener grabación" : "Grabar voz"}
       >
         <Mic className="w-5 h-5" />
       </button>

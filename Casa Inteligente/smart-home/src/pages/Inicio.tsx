@@ -78,11 +78,21 @@ export default function Inicio({
                 </>
               )}
             </button>
+
+            {/* PANEL DE NOTIFICACIONES CON RESPONSIVE PARA MÓVILES */}
             {open && (
               <div
-                className={`absolute right-0 mt-3 w-80 bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/40 p-4 z-50 ${
-                  closing ? "opacity-0" : "opacity-100"
-                } transition-opacity duration-300`}
+                className={`
+                  absolute mt-3 
+                  w-[90vw] max-w-xs sm:w-80 
+                  bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl 
+                  border border-slate-700/40 p-4 z-50
+                  left-1/2 -translate-x-1/2 
+                  sm:left-auto sm:translate-x-0 sm:right-0
+                  ${closing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
+                  transition-all duration-300 ease-out 
+                  max-h-[60vh] overflow-hidden
+                `}
               >
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-sm font-semibold text-slate-200 tracking-wide">Notificaciones</h4>
@@ -93,11 +103,17 @@ export default function Inicio({
                 {notifications.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-4">No tienes notificaciones</p>
                 ) : (
-                  <ul className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                  <ul className="space-y-3 max-h-48 sm:max-h-64 overflow-y-auto pr-2">
                     {notifications.map((n) => (
-                      <li key={n.id} className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all">
+                      <li
+                        key={n.id}
+                        className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all"
+                      >
                         <p className="text-sm text-slate-200">{n.message}</p>
-                        <button onClick={() => remove(n.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors">
+                        <button
+                          onClick={() => remove(n.id)}
+                          className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors"
+                        >
                           <X className="w-4 h-4" />
                         </button>
                       </li>

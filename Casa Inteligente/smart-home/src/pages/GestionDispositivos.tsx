@@ -19,6 +19,7 @@ import {
   Power,
   BarChart2,
   Calendar,
+  Computer,
 } from "lucide-react"
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
 import EnergyGauge from "../components/widgets/EnergyGauge"
@@ -30,9 +31,7 @@ interface Device {
   on: boolean
 }
 
-
 export default function GestionDispositivos() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {
     devices,
     energyUsage,
@@ -48,7 +47,7 @@ export default function GestionDispositivos() {
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
 
   const getDeviceIcon = (device: Device) => {
-    if (device.name.includes("Luz") || device.name.includes("Bombillo") || device.name.includes("Lámpara")) {
+    if (device.name.includes("Luz") || device.name.includes("Bombilla") || device.name.includes("Lámpara")) {
       return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
     }
     if (device.name.includes("Aire")) {
@@ -61,16 +60,23 @@ export default function GestionDispositivos() {
     (d) => filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on),
   )
 
-  // Mantengo las mismas constantes visuales / cálculos (siempre vienen del hook)
   return (
-    <div className="font-inter min-h-screen pb-8">
-      <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5 border-b border-slate-700/30">
-        <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight leading-tight">
-          Gestión de Dispositivos
-        </h2>
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
+      {/* Header - Título arriba, pestañas debajo */}
+      <div className="flex flex-col items-start gap-4 -mt-1 md:-mt-2">
+        {/* Título con ícono */}
+        <div className="flex items-center gap-4 -mt-6 md:-mt-5.5">
+          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
+            <Computer className="w-8 md:w-10 h-8 md:h-10 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
+            Gestión de dispositivos
+          </h2>
+        </div>
 
+        {/* Pestañas debajo del título */}
         <div
-          className="flex flex-col sm:flex-row gap-0 sm:gap-1 relative border-b border-slate-700/50 w-full"
+          className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50"
           role="tablist"
           aria-label="Gestion de Dispositivos Tabs"
         >
@@ -111,6 +117,7 @@ export default function GestionDispositivos() {
         </div>
       </div>
 
+      {/* Contenido de las pestañas */}
       <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6 px-3 sm:px-4 md:px-6">
         <AnimatePresence mode="wait">
           {activeTab === "control" && (
@@ -123,6 +130,7 @@ export default function GestionDispositivos() {
               role="tabpanel"
               aria-hidden={activeTab !== "control"}
             >
+              {/* Filtros */}
               <div className="mb-5 sm:mb-6 flex flex-nowrap overflow-x-auto gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide">
                 {[
                   { name: "Todos", icon: Filter, color: "purple" },
@@ -147,6 +155,7 @@ export default function GestionDispositivos() {
                 ))}
               </div>
 
+              {/* Tarjetas de resumen */}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 sm:mb-7 md:mb-8">
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
@@ -205,6 +214,7 @@ export default function GestionDispositivos() {
                 </SimpleCard>
               </div>
 
+              {/* Lista de dispositivos */}
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 <AnimatePresence>
                   {filteredDevices.map((device, i) => (
@@ -339,7 +349,6 @@ export default function GestionDispositivos() {
                     <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
                     <span>Tendencia de Consumo (últimos 14 días)</span>
                   </h3>
-                  {/* EnergyTrendChart inlined (mantengo la implementación original) */}
                   <div className="w-full h-24 sm:h-32 md:h-40 bg-slate-900/40 rounded-lg p-2 sm:p-3">
                     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
                       <defs>

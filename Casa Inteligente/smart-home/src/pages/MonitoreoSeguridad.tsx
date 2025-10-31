@@ -35,10 +35,6 @@ import {
   getGlobalIndex,
 } from "../utils/monitoreoUtils"
 
-/* =========================================================================
-   🌙 Monitoreo y Seguridad (Visual + Integración)
-   ========================================================================= */
-
 export default function MonitoreoSeguridad() {
   const {
     activeTab,
@@ -64,12 +60,18 @@ export default function MonitoreoSeguridad() {
   const { colors } = useThemeByTime()
 
   return (
-    <div className={`font-inter min-h-screen pb-8 bg-gradient-to-br ${colors}`}>
-      {/* Encabezado */}
-      <div className="px-6 py-4 border-b border-slate-700/30">
-        <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Monitoreo y Seguridad
-        </h2>
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
+      {/* Header - Título arriba, pestañas debajo */}
+      <div className="flex flex-col items-start gap-4 -mt-1 md:-mt-2">
+        {/* Título con ícono */}
+        <div className="flex items-center gap-4 -mt-6 md:-mt-5.5">
+          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
+            <Shield className="w-8 md:w-10 h-8 md:h-10 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
+            Monitoreo y Seguridad
+          </h2>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-slate-700/50" role="tablist">

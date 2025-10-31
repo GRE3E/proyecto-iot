@@ -50,7 +50,7 @@ async def register_speaker(
                 username=name,
                 password=generated_password,
                 is_owner=is_owner,
-                embedding=embedding_str
+                speaker_embedding=embedding_str # Actualizado a speaker_embedding
             )
             token = await auth_service.authenticate_user(
                 username=name,
@@ -107,7 +107,7 @@ async def register_owner_speaker(
                 username=name,
                 password=generated_password,
                 is_owner=True,
-                embedding=embedding_str
+                speaker_embedding=embedding_str # Actualizado a speaker_embedding
             )
             token = await auth_service.authenticate_user(
                 username=name,
@@ -196,7 +196,7 @@ async def add_voice_to_user(
             if embedding_str is None:
                 raise HTTPException(status_code=409, detail="La voz proporcionada ya está registrada por otro usuario.")
             
-            user.embedding = embedding_str
+            user.speaker_embedding = embedding_str # Actualizado a speaker_embedding
             await db.commit()
             await db.refresh(user)
 

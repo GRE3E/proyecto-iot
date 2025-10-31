@@ -20,7 +20,7 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def register_user(self, username: str, password: str, is_owner: bool = False, embedding: str = "[]") -> User:
+    async def register_user(self, username: str, password: str, is_owner: bool = False, face_embedding: str = None, speaker_embedding: str = None) -> User:
         """
         Registra un nuevo usuario en el sistema.
         """
@@ -39,7 +39,8 @@ class AuthService:
             nombre=username,
             hashed_password=hashed_password,
             is_owner=is_owner,
-            embedding=embedding
+            face_embedding=face_embedding,
+            speaker_embedding=speaker_embedding
         )
 
         self.db.add(user)

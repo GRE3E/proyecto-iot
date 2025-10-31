@@ -27,7 +27,7 @@ router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
 router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Depends(get_current_user)])
 router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
-router.include_router(face_recognition_router, prefix="/rc", tags=["rc"], dependencies=[Depends(get_current_user)])
+router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status():

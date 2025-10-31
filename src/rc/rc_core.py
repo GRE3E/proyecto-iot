@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import List, Dict, Any
 from sqlalchemy import select, delete
 from src.db.database import get_db
+from src.api.face_recognition_schemas import AuthResponse, ResponseModel
 from src.db.models import User, Face
 from src.rc.capture import FaceCapture
 from src.rc.encode import FaceEncoder
 from src.rc.recognize import FaceRecognizer
+from src.auth.auth_service import AuthService
 
 logger = logging.getLogger("FaceRecognitionCore")
 
@@ -21,27 +23,72 @@ class FaceRecognitionCore:
         self.encoder = FaceEncoder()
         self.recognizer = FaceRecognizer()
 
-    async def register_user(self, user_name: str, num_photos: int = 5) -> Dict[str, Any]:
+    async def register_user(self, user_name: str, num_photos: int = 5, password: str = None) -> ResponseModel:
         try:
             async with get_db() as db:
-                result = await db.execute(select(User).filter(User.nombre == user_name))
-                existing_user = result.scalars().first()
-                if existing_user:
-                    return {"success": False, "message": f"El usuario {user_name} ya existe"}
+                auth_service = AuthService(db)
+                
+                # Verificar si el usuario ya existe en la base de datos
+                exists_query = select(User.id).filter(User.nombre == user_name).exists()
+                if await db.scalar(select(exists_query)):
+                    return ResponseModel(success=False, message=f"El usuario {user_name} ya existe")
+
+                # Registrar el usuario en la base de datos a través de AuthService
+                # Esto creará el usuario y hasheará la contraseña
+                await auth_service.register_user(
+                    username=user_name,
+                    password=password,
+                    is_owner=False # Por defecto, no es propietario al registrar por reconocimiento facial
+                )
 
             capture_result = await self.capture.capture_user(user_name, num_photos)
             if not capture_result["success"]:
-                return capture_result
+                return ResponseModel(**capture_result)
 
-            total_encodings, _ = await self.encoder.generate_encodings()
-            if total_encodings > 0:
-                return {"success": True, "message": f"Usuario {user_name} registrado exitosamente"}
+            encoding_generated = await self.encoder.generate_encodings(user_name)
+            if encoding_generated:
+                # El face_embedding ya ha sido guardado en la base de datos por generate_encodings.
+                # Refrescamos el objeto new_user para obtener el embedding actualizado.
+                async with get_db() as db:
+                    result = await db.execute(select(User).filter(User.nombre == user_name))
+                    user = result.scalars().first()
+                    if user:
+                        auth_service = AuthService(db) # Re-initialize auth_service with the new session
+                        auth_tokens = await auth_service.authenticate_user_by_id(user.id)
+                        return ResponseModel(success=True, message=f"Usuario {user_name} registrado exitosamente", auth=AuthResponse(**auth_tokens))
+                    else:
+                        return ResponseModel(success=False, message="Usuario registrado pero no encontrado para generar tokens.")
             else:
-                return {"success": False, "message": "No se pudieron generar encodings válidos"}
+                return ResponseModel(success=False, message="No se pudieron generar encodings faciales válidos")
 
         except Exception as e:
             logger.error(f"Error en registro de usuario: {e}")
-            return {"success": False, "message": f"Error en registro: {str(e)}"}
+            return ResponseModel(success=False, message=f"Error en registro: {str(e)}")
+
+    async def register_face_to_existing_user(self, user_id: int, num_photos: int = 5) -> ResponseModel:
+        try:
+            async with get_db() as db:
+                result = await db.execute(select(User).filter(User.id == user_id))
+                user = result.scalars().first()
+
+                if not user:
+                    return ResponseModel(success=False, message=f"Usuario con ID {user_id} no encontrado")
+
+                user_name = user.nombre
+
+            capture_result = await self.capture.capture_user(user_name, num_photos)
+            if not capture_result["success"]:
+                return ResponseModel(**capture_result)
+
+            encoding_generated = await self.encoder.generate_encodings(user_name)
+            if encoding_generated:
+                return ResponseModel(success=True, message=f"Encodings faciales generados exitosamente para el usuario {user_name}")
+            else:
+                return ResponseModel(success=False, message="No se pudieron generar encodings faciales válidos")
+
+        except Exception as e:
+            logger.error(f"Error al registrar rostro para usuario existente: {e}")
+            return ResponseModel(success=False, message=f"Error al registrar rostro: {str(e)}")
 
     async def delete_user(self, user_name: str) -> Dict[str, Any]:
         """
@@ -50,32 +97,45 @@ class FaceRecognitionCore:
         """
         try:
             async with get_db() as db:
-                result = await db.execute(select(User).filter(User.nombre == user_name))
-                user = result.scalars().first()
+                user_query = select(User).filter(User.nombre == user_name)
+                user = await db.scalar(user_query)
+                
                 if not user:
                     return {"success": False, "message": f"Usuario {user_name} no encontrado"}
 
                 await db.execute(delete(Face).where(Face.user_id == user.id))
-
                 await db.delete(user)
                 await db.commit()
                 logger.info(f"Usuario {user_name} eliminado de la base de datos.")
 
-            result = await self.capture.delete_user_photos(user_name)
+            await self.capture.delete_user_photos(user_name)
             return {"success": True, "message": f"Usuario {user_name} eliminado correctamente."}
 
         except Exception as e:
-            logger.error(f"Error eliminando usuario: {e}")
+            logger.error(f"Error eliminando usuario: {e}")  
             return {"success": False, "message": f"Error en eliminación: {str(e)}"}
 
     async def recognize_face(self, source: str = "camera") -> Dict[str, Any]:
         try:
             await self.recognizer.load_known_faces()
             if source == "camera":
-                result = await self.recognizer.recognize_from_cam()
+                recognized_users = await self.recognizer.recognize_from_cam()
             else:
-                result = await self.recognizer.recognize_from_file(source)
-            return {"success": True, "recognized_users": result}
+                recognized_users = await self.recognizer.recognize_from_file(source)
+            
+            if recognized_users:
+                user_name = recognized_users[0]
+                async with get_db() as db:
+                    result = await db.execute(select(User).filter(User.nombre == user_name))
+                    user = result.scalars().first()
+                    if user:
+                        auth_service = AuthService(db)
+                        auth_tokens = await auth_service.authenticate_user_by_id(user.id)
+                        return {"success": True, "recognized_users": recognized_users, "user_id": user.id, "auth": auth_tokens}
+                    else:
+                        return {"success": False, "message": "Usuario reconocido pero no encontrado en la base de datos.", "recognized_users": recognized_users}
+            else:
+                return {"success": True, "recognized_users": [], "message": "usuario desconocido"}
         except Exception as e:
             logger.error(f"Error en reconocimiento facial: {e}")
             return {"success": False, "message": f"Error en reconocimiento: {str(e)}"}
@@ -84,23 +144,33 @@ class FaceRecognitionCore:
         try:
             users_list = []
             async with get_db() as db:
-                result = await db.execute(select(User))
-                users_db = result.scalars().all()
+                query = select(
+                    User.id,
+                    User.nombre,
+                    User.speaker_embedding.isnot(None).label("tiene_speaker_encoding"),
+                    User.face_embedding.isnot(None).label("tiene_face_encoding")
+                )
+                result = await db.execute(query)
+                users_db = result.all()
+                
                 for user in users_db:
                     users_list.append({
                         "id": user.id,
                         "nombre": user.nombre,
-                        "tiene_encoding": user.embedding is not None
+                        "tiene_speaker_encoding": user.tiene_speaker_encoding,
+                        "tiene_face_encoding": user.tiene_face_encoding
                     })
 
             dataset_path = Path("dataset")
             if dataset_path.exists():
+                existing_names = {u["nombre"] for u in users_list}
                 for folder in dataset_path.iterdir():
-                    if folder.is_dir() and folder.name not in [u["nombre"] for u in users_list]:
+                    if folder.is_dir() and folder.name not in existing_names:
                         users_list.append({
                             "id": None,
                             "nombre": folder.name,
-                            "tiene_encoding": False
+                            "tiene_speaker_encoding": False,
+                            "tiene_face_encoding": False
                         })
 
             return users_list

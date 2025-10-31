@@ -1,181 +1,193 @@
 import cv2
-import face_recognition
 import numpy as np
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-from src.db.database import get_db
-from src.db.models import Face, User
-from sqlalchemy import select
-import logging
+import face_recognition
+from typing import List, Optional, Tuple
+from datetime import datetime, timedelta
 import asyncio
+from sqlalchemy import select
+from collections import OrderedDict
+import logging
+
+from db.database import get_db
+from db.models import User
 
 logger = logging.getLogger("FaceRecognizer")
 
+class EncodingCache:
+    """
+    Caché de encodings con TTL y límite de tamaño.
+    """
+    def __init__(self, max_size: int = 100, ttl_seconds: int = 300):
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+        self._cache: OrderedDict[str, Tuple[np.ndarray, datetime]] = OrderedDict()
+
+    def get(self, key: str) -> Optional[np.ndarray]:
+        """
+        Obtiene un encoding del caché si existe y no ha expirado.
+        """
+        if key not in self._cache:
+            return None
+        
+        encoding, timestamp = self._cache[key]
+        if datetime.now() - timestamp > timedelta(seconds=self.ttl_seconds):
+            del self._cache[key]
+            return None
+            
+        self._cache.move_to_end(key)
+        return encoding
+
+    def set(self, key: str, encoding: np.ndarray):
+        """
+        Almacena un encoding en el caché.
+        """
+        if len(self._cache) >= self.max_size:
+            self._cache.popitem(last=False)
+        
+        self._cache[key] = (encoding, datetime.now())
+        self._cache.move_to_end(key)
+
+    def clear(self):
+        """
+        Limpia el caché.
+        """
+        self._cache.clear()
 
 class FaceRecognizer:
-    """
-    Clase responsable de reconocimiento facial.
-    Maneja la carga de encodings y el reconocimiento desde cámara o archivo.
-    """
-
-    def __init__(self):
-        self.known_face_encodings: List[np.ndarray] = []
-        self.known_face_users: List[str] = []
-        self.dataset_dir = Path(__file__).parent.parent.parent / "data" / "dataset"
-        self.tolerance = 0.45  # distancia máxima para considerar match
+    def __init__(self, resize_dim: Tuple[int, int] = (640, 480)):
+        self.known_face_encodings = []
+        self.known_face_names = []
+        self.resize_dim = resize_dim
+        self.frame_skip = 2
+        self.current_frame = 0
+        self.encoding_cache = EncodingCache()
+        logger.info("FaceRecognizer inicializado con dimensiones %s", resize_dim)
 
     async def load_known_faces(self):
         """
-        Carga los encodings de la base de datos.
+        Carga los encodings conocidos desde la base de datos.
         """
-        self.known_face_encodings.clear()
-        self.known_face_users.clear()
-
         try:
             async with get_db() as db:
-                # Traemos las faces junto a su usuario de manera JOIN para evitar lazy-loading
-                result = await db.execute(select(Face, User).join(User))
-                faces_with_users = result.all()
+                query = select(User).filter(User.face_embedding.isnot(None))
+                result = await db.execute(query)
+                users = result.scalars().all()
 
-                for face_record, user in faces_with_users:
-                    nparr = np.frombuffer(face_record.image_data, np.uint8)
-                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                    if img is None:
+                self.known_face_encodings = []
+                self.known_face_names = []
+
+                for user in users:
+                    cached_encoding = self.encoding_cache.get(user.nombre)
+                    if cached_encoding is not None:
+                        self.known_face_encodings.append(cached_encoding)
+                        self.known_face_names.append(user.nombre)
                         continue
 
-                    encodings = face_recognition.face_encodings(img)
-                    if encodings:
-                        self.known_face_encodings.append(encodings[0])
-                        self.known_face_users.append(user.nombre)
+                    if user.face_embedding:
+                        encoding = np.frombuffer(user.face_embedding, dtype=np.float64)
+                        self.known_face_encodings.append(encoding)
+                        self.known_face_names.append(user.nombre)
+                        self.encoding_cache.set(user.nombre, encoding)
 
-            logger.info("Encodings cargados correctamente.")
-
+            logger.info("Encodings cargados: %d usuarios", len(self.known_face_names))
+            return True
         except Exception as e:
-            logger.error(f"Error cargando encodings: {e}")
-
-    async def recognize_from_file(self, image_path: str) -> List[str]:
-        """
-        Reconoce rostros desde una imagen.
-        """
-        try:
-            image = face_recognition.load_image_file(image_path)
-            face_locations = face_recognition.face_locations(image)
-            if not face_locations:
-                return []
-
-            face_encodings = face_recognition.face_encodings(image, face_locations)
-            recognized_users = []
-
-            for encoding in face_encodings:
-                matches = face_recognition.compare_faces(
-                    self.known_face_encodings, encoding, tolerance=self.tolerance
-                )
-                name = "Desconocido"
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = self.known_face_users[first_match_index]
-                recognized_users.append(name)
-
-            return recognized_users
-
-        except Exception as e:
-            logger.error(f"Error reconociendo desde archivo: {e}")
-            return []
+            logger.error("Error cargando encodings conocidos: %s", e)
+            return False
 
     async def recognize_from_cam(self) -> List[str]:
         """
-        Reconoce rostros desde la cámara en tiempo real.
+        Realiza reconocimiento facial desde la cámara.
         """
-        recognized_users = []
         cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        cap.set(cv2.CAP_PROP_FPS, 30)
 
-        if not cap.isOpened():
-            logger.error("No se pudo abrir la cámara.")
-            return []
+        recognized_users = set()
+        frame_count = 0
+        max_frames = 90  # Número máximo de frames a procesar
 
         try:
-            while True:
+            while frame_count < max_frames:
                 ret, frame = cap.read()
-                if not ret or frame is None:
+                if not ret:
                     break
 
-                rgb_small_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_locations = face_recognition.face_locations(rgb_small_frame)
-                face_encodings = face_recognition.face_encodings(
-                    rgb_small_frame, face_locations
-                )
+                frame_count += 1
+                if frame_count % self.frame_skip != 0:
+                    continue
 
-                frame_recognized_users = []
+                frame = cv2.resize(frame, self.resize_dim)
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                for encoding in face_encodings:
+                face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+                if not face_locations:
+                    continue
+
+                face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+                
+                for face_encoding in face_encodings:
                     matches = face_recognition.compare_faces(
-                        self.known_face_encodings, encoding, tolerance=self.tolerance
+                        self.known_face_encodings, 
+                        face_encoding,
+                        tolerance=0.5
                     )
-                    name = "Desconocido"
                     if True in matches:
                         first_match_index = matches.index(True)
-                        name = self.known_face_users[first_match_index]
-                    frame_recognized_users.append(name)
+                        name = self.known_face_names[first_match_index]
+                        recognized_users.add(name)
 
-                # Mostrar resultados en el frame
-                for (top, right, bottom, left), name in zip(
-                    face_locations, frame_recognized_users
-                ):
-                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                    cv2.putText(
-                        frame,
-                        name,
-                        (left, top - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8,
-                        (0, 255, 0),
-                        2,
-                    )
-
-                cv2.imshow("Reconocimiento Facial", frame)
-                recognized_users.extend(frame_recognized_users)
-
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
-
-            cap.release()
-            cv2.destroyAllWindows()
-
-            return recognized_users
+                await asyncio.sleep(0.01)
 
         except Exception as e:
-            logger.error(f"Error en reconocimiento desde cámara: {e}")
+            logger.error("Error en reconocimiento desde cámara: %s", e)
+        finally:
             cap.release()
-            cv2.destroyAllWindows()
-            return recognized_users
 
-    async def recognize_frame(self, frame):
+        logger.info("Usuarios reconocidos: %s", list(recognized_users))
+        return list(recognized_users)
+
+    async def recognize_from_file(self, image_path: str) -> List[str]:
         """
-        Reconoce rostros en un solo frame (usado por test_face_pipeline.py)
+        Realiza reconocimiento facial desde un archivo.
         """
-        if frame is None or frame.size == 0:
+        try:
+            image = cv2.imread(image_path)
+            if image is None:
+                logger.error("No se pudo cargar la imagen: %s", image_path)
+                return []
+
+            image = cv2.resize(image, self.resize_dim)
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            face_locations = face_recognition.face_locations(rgb_image, model="hog")
+            if not face_locations:
+                return []
+
+            face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
+            recognized_users = set()
+
+            for face_encoding in face_encodings:
+                matches = face_recognition.compare_faces(
+                    self.known_face_encodings, 
+                    face_encoding,
+                    tolerance=0.6
+                )
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    name = self.known_face_names[first_match_index]
+                    recognized_users.add(name)
+
+            return list(recognized_users)
+
+        except Exception as e:
+            logger.error("Error en reconocimiento desde archivo: %s", e)
             return []
 
-        # Convertir de BGR (OpenCV) a RGB (face_recognition)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Detectar rostros
-        face_locations = face_recognition.face_locations(rgb_frame)
-        if not face_locations:
-            return []
-
-        # Codificar los rostros detectados
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
-
-        recognized = []
-        for (top, right, bottom, left), encoding in zip(face_locations, face_encodings):
-            matches = face_recognition.compare_faces(
-                self.known_face_encodings, encoding, tolerance=self.tolerance
-            )
-            name = "Desconocido"
-            if True in matches:
-                first_match_index = matches.index(True)
-                name = self.known_face_users[first_match_index]
-            recognized.append((name, (top, right, bottom, left)))
-
-        return recognized
+    def clear_cache(self):
+        """
+        Limpia el caché de encodings.
+        """
+        self.encoding_cache.clear()
+        logger.info("Caché de encodings limpiado")

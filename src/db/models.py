@@ -113,7 +113,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    embedding = Column(Text, nullable=False)
+    speaker_embedding = Column(Text, nullable=True)
+    face_embedding = Column(Text, nullable=True)
     refresh_token = Column(String(255), nullable=True)
     is_owner = Column(Boolean, default=False)
 

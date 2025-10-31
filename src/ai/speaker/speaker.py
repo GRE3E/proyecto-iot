@@ -66,13 +66,13 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
 
                 existing_user_by_name = await db.execute(select(User).filter(User.nombre == name))
                 if existing_user_by_name.scalar_one_or_none():
-                    logger.warning(f"El usuario '{name}' ya está registrado por nombre. No se puede registrar con la misma voz.")
+                    logger.warning(f"El usuario \'{name}\' ya está registrado por nombre. No se puede registrar con la misma voz.")
                     return None
 
                 logger.debug(f"Comprobando embeddings duplicados. Usuarios registrados actualmente: {[u.nombre for u in self._registered_users]}")
                 for user in self._registered_users:
-                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.embedding}")
-                    registered_embedding = np.array(json.loads(user.embedding))
+                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.speaker_embedding}")
+                    registered_embedding = np.array(json.loads(user.speaker_embedding))
                     similarity = np.dot(new_embedding, registered_embedding) / \
                                  (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
                     distance = 1 - similarity
@@ -115,8 +115,8 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     if user.id == user_id:
                         continue
 
-                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.embedding}")
-                    registered_embedding = np.array(json.loads(user.embedding))
+                    logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.speaker_embedding}")
+                    registered_embedding = np.array(json.loads(user.speaker_embedding))
                     similarity = np.dot(new_embedding, registered_embedding) / \
                                  (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
                     distance = 1 - similarity
@@ -155,7 +155,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         identified_user = None
 
         for user in self._registered_users:
-            registered_embedding = np.array(json.loads(user.embedding))
+            registered_embedding = np.array(json.loads(user.speaker_embedding))
             similarity = np.dot(new_embedding, registered_embedding) / \
                          (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
             distance = 1 - similarity

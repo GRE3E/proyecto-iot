@@ -22,4 +22,8 @@ class IoTDashboardData(BaseModel):
         "LIGHT_8": {"status": "ON", "timestamp": 1678886400.0},
         "TEMP_SENSOR_1": {"value": "25.5", "timestamp": 1678886405.0}
     })
+
+class ArduinoCommandSend(BaseModel):
+    mqtt_topic: str = Field(..., example="home/arduino/lights")
+    command_payload: str = Field(..., example="ON")
     

@@ -243,6 +243,9 @@ async def _initialize_hotword_module() -> None:
         else:
             logger.error("Error al inicializar HotwordDetector")
 
+def get_mqtt_client() -> Optional[MQTTClient]:
+    return _mqtt_client
+
 async def _initialize_mqtt_client() -> None:
     global _mqtt_client
     mqtt_broker = os.getenv("MQTT_BROKER")

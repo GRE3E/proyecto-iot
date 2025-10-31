@@ -1,14 +1,30 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
-from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData
+from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData, ArduinoCommandSend
 from src.db.database import get_db
 from src.db import models
 import logging
+from src.api.utils import get_mqtt_client
 
 logger = logging.getLogger("APIRoutes")
 
 iot_router = APIRouter()
+
+@iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
+async def send_arduino_command(command: ArduinoCommandSend):
+    mqtt_client = get_mqtt_client()
+    if not mqtt_client or not mqtt_client.is_connected:
+        logger.error("MQTT client no está inicializado o conectado.")
+        raise HTTPException(status_code=500, detail="MQTT client no está inicializado o conectado.")
+    
+    success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+    if not success:
+        logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
+        raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
+    
+    logger.info(f"Comando MQTT enviado exitosamente a {command.mqtt_topic}: {command.command_payload}")
+    return {"message": "Comando MQTT enviado exitosamente.", "topic": command.mqtt_topic, "payload": command.command_payload}
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
 async def get_iot_dashboard_data(request: Request):

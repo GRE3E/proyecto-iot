@@ -20,9 +20,13 @@ import {
   BarChart2,
   Calendar,
   Computer,
+  Bell,
+  X,
 } from "lucide-react"
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
 import EnergyGauge from "../components/widgets/EnergyGauge"
+import { useNotifications } from "../hooks/useNotification"
+import { initialNotifications } from "../utils/notificationsUtils"
 
 interface Device {
   name: string
@@ -44,6 +48,9 @@ export default function GestionDispositivos() {
     estimatedAnnualCost,
   } = useGestionDispositivos()
 
+  // NOTIFICACIONES (igual que Inicio)
+  const { notifications, open, closing, remove, clearAll, toggle } = useNotifications(initialNotifications)
+
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
 
   const getDeviceIcon = (device: Device) => {
@@ -61,11 +68,11 @@ export default function GestionDispositivos() {
   )
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
-      {/* Header - Título arriba, pestañas debajo */}
-      <div className="flex flex-col items-start gap-4 -mt-1 md:-mt-2">
-        {/* Título con ícono */}
-        <div className="flex items-center gap-4 -mt-6 md:-mt-5.5">
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-1 md:space-y-1 font-inter">
+      {/* HEADER: Título + Usuario + Notificaciones (igual que Inicio) */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
+        {/* Título + ícono */}
+        <div className="flex items-center gap-4 -mt-6 md:-mt-7">
           <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
             <Computer className="w-8 md:w-10 h-8 md:h-10 text-white" />
           </div>
@@ -74,50 +81,123 @@ export default function GestionDispositivos() {
           </h2>
         </div>
 
-        {/* Pestañas debajo del título */}
-        <div
-          className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50"
-          role="tablist"
-          aria-label="Gestion de Dispositivos Tabs"
-        >
-          <button
-            onClick={() => setActiveTab("control")}
-            role="tab"
-            aria-selected={activeTab === "control"}
-            className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
-              activeTab === "control" ? "text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="text-center sm:text-left leading-tight font-semibold">Control de dispositivos</span>
-            {activeTab === "control" && (
-              <motion.span
-                layoutId="underline"
-                className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-              />
+        {/* PERFIL + NOTIFICACIONES (exactamente igual que Inicio) */}
+        <div className="flex items-center gap-4 md:gap-4 w-full md:w-auto justify-end md:justify-start">
+          {/* Ícono de usuario (solo en móvil) */}
+          <div className="flex md:hidden">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">U</div>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">U</div>
+            <span className="text-sm text-slate-200">Usuario</span>
+          </div>
+
+          {/* Botón de notificaciones */}
+          <div className="relative">
+            <button
+              onClick={toggle}
+              className="relative p-2 md:p-3 rounded-xl bg-slate-800/30 hover:bg-slate-700/40 transition-colors border border-slate-600/20"
+              aria-label="Notificaciones"
+            >
+              <Bell className="w-5 md:w-6 h-5 md:h-6 text-white" />
+              {notifications.length > 0 && (
+                <>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                  <span className="absolute -bottom-1 -right-1 text-xs font-bold text-red-400">{notifications.length}</span>
+                </>
+              )}
+            </button>
+
+            {/* PANEL DE NOTIFICACIONES (responsive, igual que Inicio) */}
+            {open && (
+              <div
+                className={`
+                  absolute mt-3 
+                  w-[90vw] max-w-xs sm:w-80 
+                  bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl 
+                  border border-slate-700/40 p-4 z-50
+                  left-[-250%] -translate-x-[55%] 
+                  sm:left-auto sm:translate-x-0 sm:right-0
+                  ${closing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
+                  transition-all duration-300 ease-out 
+                  max-h-[60vh] overflow-hidden
+                `}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-semibold text-slate-200 tracking-wide">Notificaciones</h4>
+                  <button onClick={clearAll} className="p-1 hover:bg-slate-700/50 rounded-lg transition-colors">
+                    <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
+                  </button>
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No tienes notificaciones</p>
+                ) : (
+                  <ul className="space-y-3 max-h-48 sm:max-h-64 overflow-y-auto pr-2">
+                    {notifications.map((n) => (
+                      <li
+                        key={n.id}
+                        className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all"
+                      >
+                        <p className="text-sm text-slate-200">{n.message}</p>
+                        <button
+                          onClick={() => remove(n.id)}
+                          className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
-          </button>
-          <button
-            onClick={() => setActiveTab("energia")}
-            role="tab"
-            aria-selected={activeTab === "energia"}
-            className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
-              activeTab === "energia" ? "text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="text-center sm:text-left leading-tight font-semibold">Consumo de energía</span>
-            {activeTab === "energia" && (
-              <motion.span
-                layoutId="underline"
-                className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full"
-              />
-            )}
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Contenido de las pestañas */}
+      {/* PESTAÑAS (debajo del header) */}
+      <div
+        className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50 mt-4"
+        role="tablist"
+        aria-label="Gestion de Dispositivos Tabs"
+      >
+        <button
+          onClick={() => setActiveTab("control")}
+          role="tab"
+          aria-selected={activeTab === "control"}
+          className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
+            activeTab === "control" ? "text-white" : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span className="text-center sm:text-left leading-tight font-semibold">Control de dispositivos</span>
+          {activeTab === "control" && (
+            <motion.span
+              layoutId="underline"
+              className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+            />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("energia")}
+          role="tab"
+          aria-selected={activeTab === "energia"}
+          className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
+            activeTab === "energia" ? "text-white" : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span className="text-center sm:text-left leading-tight font-semibold">Consumo de energía</span>
+          {activeTab === "energia" && (
+            <motion.span
+              layoutId="underline"
+              className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full"
+            />
+          )}
+        </button>
+      </div>
+
+      {/* CONTENIDO DE LAS PESTAÑAS */}
       <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6 px-3 sm:px-4 md:px-6">
         <AnimatePresence mode="wait">
           {activeTab === "control" && (
@@ -130,7 +210,7 @@ export default function GestionDispositivos() {
               role="tabpanel"
               aria-hidden={activeTab !== "control"}
             >
-              {/* Filtros */}
+              {/* FILTROS */}
               <div className="mb-5 sm:mb-6 flex flex-nowrap overflow-x-auto gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide">
                 {[
                   { name: "Todos", icon: Filter, color: "purple" },
@@ -155,7 +235,7 @@ export default function GestionDispositivos() {
                 ))}
               </div>
 
-              {/* Tarjetas de resumen */}
+              {/* TARJETAS DE RESUMEN */}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 sm:mb-7 md:mb-8">
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
@@ -214,7 +294,7 @@ export default function GestionDispositivos() {
                 </SimpleCard>
               </div>
 
-              {/* Lista de dispositivos */}
+              {/* LISTA DE DISPOSITIVOS */}
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 <AnimatePresence>
                   {filteredDevices.map((device, i) => (

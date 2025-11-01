@@ -60,11 +60,16 @@ export default function Inicio({
         </div>
 
         {/* Perfil + Notificaciones */}
-        <div className="flex items-center gap-4 relative">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20">
+        <div className="flex items-center gap-4 md:gap-4 w-full md:w-auto justify-end md:justify-start">
+          {/* Ícono de usuario (solo en móvil se muestra solo, en desktop con texto) */}
+          <div className="flex md:hidden">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">U</div>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">U</div>
             <span className="text-sm text-slate-200">Usuario</span>
           </div>
+
           <div className="relative">
             <button
               onClick={toggle}
@@ -87,7 +92,7 @@ export default function Inicio({
                   w-[90vw] max-w-xs sm:w-80 
                   bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl 
                   border border-slate-700/40 p-4 z-50
-                  left-1/2 -translate-x-1/2 
+                  left-[-279%] -translate-x-[55%] 
                   sm:left-auto sm:translate-x-0 sm:right-0
                   ${closing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
                   transition-all duration-300 ease-out 

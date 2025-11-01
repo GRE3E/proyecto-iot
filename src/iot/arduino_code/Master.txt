@@ -1,183 +1,274 @@
+// ========================================
+// ARDUINO MASTER
+// ========================================
 #include <Wire.h>
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#include <LiquidCrystal_I2C.h>
 
-// === Configuración WiFi ===
-const char* ssid = "YOUR_WIFI_SSID"; // Reemplaza con tu SSID
-const char* password = "YOUR_WIFI_PASSWORD"; // Reemplaza con tu contraseña
+#define SLAVE_LUCES_ADDRESS 8
+#define SLAVE_SENSORES_ADDRESS 9
+#define SLAVE_PUERTAS_ADDRESS 10
 
-// === Configuración MQTT ===
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // Reemplaza con la IP de tu broker MQTT
-const int mqtt_port = 1883; // Puerto MQTT estándar
-const char* mqtt_client_id = "MasterDisplay"; // ID único para este cliente MQTT
+struct DeviceMap {
+  String name;
+  int index;
+};
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+DeviceMap luces[] = {
+  {"GARAJE", 0},
+  {"PASILLO", 1},
+  {"HABITACION_INVITADOS", 2},
+  {"BANO_INVITADOS", 3},
+  {"LAVANDERIA", 4},
+  {"BANO_PRINCIPAL", 5},
+  {"HABITACION_PRINCIPAL", 6},
+  {"COCINA", 7},
+  {"SALA", 8}
+};
 
-// ---- Configuración LCD 16x2 ----
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+DeviceMap puertas[] = {
+  {"PRINCIPAL", 0},
+  {"GARAJE", 1},
+  {"PASILLO", 2},
+  {"HABITACION_INVITADOS", 3},
+  {"BANO_INVITADOS", 4},
+  {"LAVANDERIA", 5},
+  {"BANO_PRINCIPAL", 6},
+  {"HABITACION_PRINCIPAL", 7}
+};
 
-// === Tópicos MQTT a los que suscribirse ===
-const char* topic_luz1_estado = "iot/luces/luz_sala/estado";
-const char* topic_luz2_estado = "iot/luces/luz_cocina/estado";
-const char* topic_luz3_estado = "iot/luces/luz_dormitorio/estado";
+String serialBuffer = "";
+unsigned long ultimaLectura = 0;
+const unsigned long intervaloLectura = 5000;
 
-const char* topic_aire_estado = "iot/hvac/aire_sala/estado";
-const char* topic_temp_estado = "iot/sensores/temperatura_sala/estado";
-const char* topic_ultrasonico_estado = "iot/sensores/ultrasonico_entrada/estado";
-
-const char* topic_puerta_principal_estado = "iot/puertas/principal/estado";
-const char* topic_puerta_garaje_estado = "iot/puertas/garaje/estado";
-
-// Variables para almacenar los últimos estados y mostrarlos en el LCD
-String estadoLuz1 = "DESCONOCIDO";
-String estadoLuz2 = "DESCONOCIDO";
-String estadoLuz3 = "DESCONOCIDO";
-String estadoAire = "DESCONOCIDO";
-String estadoTemp = "DESCONOCIDO";
-String estadoDist = "DESCONOCIDO";
-String estadoPuertaPrincipal = "DESCONOCIDO";
-String estadoPuertaGaraje = "DESCONOCIDO";
-
-// === Declaraciones de funciones ===
-void setup_wifi();
-void callback(char* topic, byte* payload, unsigned int length);
-void reconnect();
-void actualizarLCD();
-
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Conectando a ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  Wire.setClock(100000);
+  
+  Serial.println("=== Arduino MASTER I2C ===");
+  Serial.println("Sistema de control domotico");
+  Serial.println("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc.");
+  Serial.println("\nDispositivos disponibles:");
+  Serial.println("\nLuces:");
+  for (int i = 0; i < 9; i++) {
+    Serial.println("  - " + luces[i].name);
   }
-
-  Serial.println("");
-  Serial.println("WiFi conectado");
-  Serial.print("Dirección IP: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("\nPuertas:");
+  for (int i = 0; i < 8; i++) {
+    Serial.println("  - " + puertas[i].name);
+  }
+  Serial.println("\nActuadores:");
+  Serial.println("  - VENTILADOR");
+  Serial.println("\nSistema listo\n");
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  String mensaje = "";
-  for (int i = 0; i < length; i++) {
-    mensaje += (char)payload[i];
+void loop() {
+  leerSerial();
+  if (millis() - ultimaLectura >= intervaloLectura) {
+    ultimaLectura = millis();
+    leerYEnviarEstados();
   }
-  Serial.print("Mensaje MQTT recibido en ");
-  Serial.print(topic);
-  Serial.print(": ");
-  Serial.println(mensaje);
-
-  // Actualizar estados basados en el tópico
-  if (strcmp(topic, topic_luz1_estado) == 0) {
-    estadoLuz1 = mensaje;
-  } else if (strcmp(topic, topic_luz2_estado) == 0) {
-    estadoLuz2 = mensaje;
-  } else if (strcmp(topic, topic_luz3_estado) == 0) {
-    estadoLuz3 = mensaje;
-  } else if (strcmp(topic, topic_aire_estado) == 0) {
-    estadoAire = mensaje;
-  } else if (strcmp(topic, topic_temp_estado) == 0) {
-    estadoTemp = mensaje;
-  } else if (strcmp(topic, topic_ultrasonico_estado) == 0) {
-    estadoDist = mensaje;
-  } else if (strcmp(topic, topic_puerta_principal_estado) == 0) {
-    estadoPuertaPrincipal = mensaje;
-  } else if (strcmp(topic, topic_puerta_garaje_estado) == 0) {
-    estadoPuertaGaraje = mensaje;
-  }
-  actualizarLCD();
 }
 
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Intentando conexión MQTT...");
-    if (client.connect(mqtt_client_id)) {
-      Serial.println("conectado");
-      // Suscribirse a los tópicos de estado de los esclavos
-      client.subscribe(topic_luz1_estado);
-      client.subscribe(topic_luz2_estado);
-      client.subscribe(topic_luz3_estado);
-      client.subscribe(topic_aire_estado);
-      client.subscribe(topic_temp_estado);
-      client.subscribe(topic_ultrasonico_estado);
-      client.subscribe(topic_puerta_principal_estado);
-      client.subscribe(topic_puerta_garaje_estado);
-
-      Serial.println("Suscrito a tópicos de estado.");
-    } else {
-      Serial.print("falló, rc=");
-      Serial.print(client.state());
-      Serial.println(" intentando de nuevo en 5 segundos");
-      delay(5000);
+void leerSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (serialBuffer.length() > 0) {
+        procesarComando(serialBuffer);
+        serialBuffer = "";
+      }
+    } else if (serialBuffer.length() < 100) {
+      serialBuffer += c;
     }
   }
 }
 
-void setup() {
-  Serial.begin(115200); // Usar una velocidad de baudios más alta para ESP8266
-  setup_wifi();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-
-  // ---- Inicializar LCD ----
-  lcd.init();        // Inicializar LCD
-  lcd.backlight();   // Encender luz de fondo
-  lcd.setCursor(0, 0);
-  lcd.print("Master MQTT");
-  lcd.setCursor(0, 1);
-  lcd.print("Iniciando...");
-
-  Serial.println("Master Display listo (MQTT)");
+int getLuzIndex(String nombre) {
+  nombre.toUpperCase();
+  for (int i = 0; i < 9; i++) {
+    if (nombre.indexOf(luces[i].name) != -1) {
+      return luces[i].index;
+    }
+  }
+  return -1;
 }
 
-void loop() {
-  if (!client.connected()) {
-    reconnect();
+int getPuertaIndex(String nombre) {
+  nombre.toUpperCase();
+  for (int i = 0; i < 8; i++) {
+    if (nombre.indexOf(puertas[i].name) != -1) {
+      return puertas[i].index;
+    }
   }
-  client.loop();
+  return -1;
 }
 
-void actualizarLCD() {
-  // Esta función se llamará cada vez que se reciba un mensaje MQTT
-  // Podemos rotar la información o mostrar la más relevante.
-  // Por simplicidad, mostraremos la temperatura y el estado de una luz/puerta.
+String getLuzName(int index) {
+  if (index >= 0 && index < 9) return luces[index].name;
+  return "DESCONOCIDA";
+}
 
-  static int displayMode = 0;
-  lcd.clear();
+String getPuertaName(int index) {
+  if (index >= 0 && index < 8) return puertas[index].name;
+  return "DESCONOCIDA";
+}
 
-  switch (displayMode) {
-    case 0:
-      lcd.setCursor(0, 0);
-      lcd.print("Temp: " + estadoTemp + " C");
-      lcd.setCursor(0, 1);
-      lcd.print("Aire: " + estadoAire);
-      break;
-    case 1:
-      lcd.setCursor(0, 0);
-      lcd.print("Luz Sala: " + estadoLuz1);
-      lcd.setCursor(0, 1);
-      lcd.print("Luz Cocina: " + estadoLuz2);
-      break;
-    case 2:
-      lcd.setCursor(0, 0);
-      lcd.print("Puerta Ppal: " + estadoPuertaPrincipal);
-      lcd.setCursor(0, 1);
-      lcd.print("Garaje: " + estadoPuertaGaraje);
-      break;
-    case 3:
-      lcd.setCursor(0, 0);
-      lcd.print("Distancia: " + estadoDist + " cm");
-      lcd.setCursor(0, 1);
-      lcd.print("Luz Dorm: " + estadoLuz3);
-      break;
+void procesarComando(String cmd) {
+  cmd.trim();
+  if (cmd.length() == 0) return;
+  
+  cmd.toUpperCase();
+  
+  Serial.println("\n[PROCESANDO]: " + cmd);
+  
+  if (cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1 || cmd.indexOf("LAMPARA") != -1) {
+    int luzIndex = getLuzIndex(cmd);
+    
+    if (luzIndex == -1) {
+      Serial.println("[ERROR] Luz no encontrada");
+      return;
+    }
+    
+    String accion = "";
+    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "ENCENDER";
+    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "APAGAR";
+    } else {
+      Serial.println("[ERROR] Accion no reconocida para luz");
+      return;
+    }
+    
+    String comando = String(luzIndex) + "_" + accion;
+    enviarComandoI2C(SLAVE_LUCES_ADDRESS, comando);
+    Serial.println("[OK] Luz " + getLuzName(luzIndex) + " " + accion);
   }
-  displayMode = (displayMode + 1) % 4; // Rotar entre 4 modos de visualización
+  
+  else if (cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
+    int puertaIndex = getPuertaIndex(cmd);
+    
+    if (puertaIndex == -1) {
+      Serial.println("[ERROR] Puerta no encontrada");
+      return;
+    }
+    
+    String accion = "";
+    if (cmd.indexOf("ABRIR") != -1 || cmd.indexOf("OPEN") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "ABRIR";
+    } else if (cmd.indexOf("CERRAR") != -1 || cmd.indexOf("CLOSE") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "CERRAR";
+    } else {
+      Serial.println("[ERROR] Accion no reconocida para puerta");
+      return;
+    }
+    
+    String comando = String(puertaIndex) + "_" + accion;
+    enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
+    Serial.println("[OK] Puerta " + getPuertaName(puertaIndex) + " " + accion);
+  }
+  
+  else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1 || cmd.indexOf("VENTILACION") != -1 || cmd.indexOf("AIRE") != -1) {
+    String accion = "";
+    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "VENTILADOR_ENCENDER";
+    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "VENTILADOR_APAGAR";
+    } else {
+      Serial.println("[ERROR] Accion no reconocida para ventilador");
+      return;
+    }
+    
+    enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
+    Serial.println("[OK] " + accion);
+  }
+  
+  else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
+    Serial.println("[INFO] Consultando estados...");
+    leerYEnviarEstados();
+  }
+  
+  else if (cmd.indexOf("HELP") != -1 || cmd.indexOf("AYUDA") != -1) {
+    Serial.println("\n=== COMANDOS DISPONIBLES ===");
+    Serial.println("Luces: 'encender/apagar luz [NOMBRE]'");
+    Serial.println("Puertas: 'abrir/cerrar puerta [NOMBRE]'");
+    Serial.println("Ventilador: 'encender/apagar ventilador'");
+    Serial.println("Estado: 'status' o 'estado'");
+    Serial.println("============================\n");
+  }
+  
+  else {
+    Serial.println("[ERROR] Comando no entendido");
+    Serial.println("Escribe 'help' para ver comandos disponibles");
+  }
+}
+
+void enviarComandoI2C(int address, String comando) {
+  Wire.beginTransmission(address);
+  Wire.write((const uint8_t*)comando.c_str(), comando.length());
+  byte error = Wire.endTransmission();
+  
+  if (error != 0) {
+    Serial.println("[ERROR I2C] Slave " + String(address) + " (codigo: " + String(error) + ")");
+  }
+  delay(50);
+}
+
+void leerYEnviarEstados() {
+  Serial.println("\n--- ESTADOS ACTUALES ---");
+  
+  // === LUCES ===
+  Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
+  delay(50);
+  int lucesRecibidas = 0;
+  for (int i = 0; i < 9 && Wire.available(); i++) {
+    byte estado = Wire.read();
+    Serial.println("LIGHT|" + getLuzName(i) + "|" + ((estado == '1') ? "ON" : "OFF"));
+    lucesRecibidas++;
+  }
+  if (lucesRecibidas == 0) {
+    Serial.println("[ERROR] No se recibieron estados de luces");
+  }
+  
+  // === SENSORES ===
+  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
+  delay(50);
+  String datos = "";
+  while (Wire.available()) {
+    datos += (char)Wire.read();
+  }
+  
+  if (datos.length() > 5) {
+    int c1 = datos.indexOf(',');
+    int c2 = datos.indexOf(',', c1 + 1);
+    
+    if (c1 > 2 && c2 > c1 + 3 && c2 + 3 < datos.length()) {
+      String temp = datos.substring(2, c1);
+      String dist = datos.substring(c1 + 3, c2);
+      String vent = datos.substring(c2 + 3);
+      
+      Serial.println("SENSOR|TEMPERATURA|" + temp + "C");
+      Serial.println("SENSOR|DISTANCIA|" + dist + "cm");
+      String estadoVent = (vent == "1") ? "ON" : "OFF";
+      Serial.println("ACTUATOR|VENTILADOR|" + estadoVent);
+    } else {
+      Serial.println("[ERROR] Formato de datos de sensores invalido: " + datos);
+    }
+  } else {
+    Serial.println("[ERROR] No se recibieron datos de sensores");
+  }
+  
+  // === PUERTAS ===
+  Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);
+  delay(50);
+  int puertasRecibidas = 0;
+  for (int i = 0; i < 8 && Wire.available(); i++) {
+    byte estado = Wire.read();
+    Serial.println("DOOR|" + getPuertaName(i) + "|" + ((estado == '1') ? "OPEN" : "CLOSED"));
+    puertasRecibidas++;
+  }
+  if (puertasRecibidas == 0) {
+    Serial.println("[ERROR] No se recibieron estados de puertas");
+  }
+  
+  Serial.println("--- FIN ESTADOS ---\n");
 }

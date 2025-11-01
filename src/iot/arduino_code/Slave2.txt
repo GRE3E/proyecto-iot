@@ -1,177 +1,133 @@
+// ========================================
+// ARDUINO ESCLAVO 2 - Sensores
+// ========================================
 #include <Wire.h>
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
 
-// === Configuración WiFi ===
-const char* ssid = "YOUR_WIFI_SSID"; // Reemplaza con tu SSID
-const char* password = "YOUR_WIFI_PASSWORD"; // Reemplaza con tu contraseña
+#define SLAVE_ADDRESS 9
 
-// === Configuración MQTT ===
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // Reemplaza con la IP de tu broker MQTT
-const int mqtt_port = 1883; // Puerto MQTT estándar
-const char* mqtt_client_id = "EsclavoSensores"; // ID único para este cliente MQTT
+const int pinTemp = A0;
+const int trig = 4;
+const int echo = 3;
+const int fan = 5;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+float temperatura = 0.0;
+long distancia = 0;
+bool ventilador = false;
 
-// === Pines de dispositivos ===
-const int airAcond = 2;     // Aire acondicionado
-const int tempPin = A1;     // Sensor de temperatura TMP36
-const int trigPin = 4;      // Trigger Ultrasonico
-const int echoPin = 3;      // Echo Ultrasonico
-
-// === Tópicos MQTT ===
-const char* topic_aire_comando = "iot/hvac/aire_sala/comando";
-const char* topic_aire_estado = "iot/hvac/aire_sala/estado";
-const char* topic_temp_estado = "iot/sensores/temperatura_sala/estado";
-const char* topic_ultrasonico_estado = "iot/sensores/ultrasonico_entrada/estado";
-
-// === Variables de estado ===
-unsigned long ultimaMedicionTemp = 0;
-unsigned long ultimaMedicionDist = 0;
-const unsigned long intervaloTemp = 5000; // Publicar temperatura cada 5 segundos
-const unsigned long intervaloDist = 1000; // Publicar distancia cada 1 segundo
-
-float temperaturaActual = 0.0;
-long distanciaActual = -1;
-bool aireEncendido = false;
-
-// === Declaraciones de funciones ===
-void setup_wifi();
-void callback(char* topic, byte* payload, unsigned int length);
-void reconnect();
-float leerTemperatura();
-long medirDistancia();
-
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Conectando a ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi conectado");
-  Serial.print("Dirección IP: ");
-  Serial.println(WiFi.localIP());
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Mensaje recibido en el tópico: ");
-  Serial.print(topic);
-  Serial.print(" -> ");
-  String mensaje = "";
-  for (int i = 0; i < length; i++) {
-    mensaje += (char)payload[i];
-  }
-  Serial.println(mensaje);
-
-  // Procesar comandos para el aire acondicionado
-  if (strcmp(topic, topic_aire_comando) == 0) {
-    if (mensaje == "ENCENDER") {
-      digitalWrite(airAcond, HIGH);
-      aireEncendido = true;
-      client.publish(topic_aire_estado, "ENCENDIDO");
-      Serial.println("Aire acondicionado ENCENDIDO");
-    } else if (mensaje == "APAGAR") {
-      digitalWrite(airAcond, LOW);
-      aireEncendido = false;
-      client.publish(topic_aire_estado, "APAGADO");
-      Serial.println("Aire acondicionado APAGADO");
-    } else if (mensaje == "ESTADO") {
-      if (aireEncendido) {
-        client.publish(topic_aire_estado, "ENCENDIDO");
-      } else {
-        client.publish(topic_aire_estado, "APAGADO");
-      }
-      Serial.println("Estado del aire acondicionado solicitado.");
-    }
-  }
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Intentando conexión MQTT...");
-    if (client.connect(mqtt_client_id)) {
-      Serial.println("conectado");
-      // Suscribirse a los tópicos de comando
-      client.subscribe(topic_aire_comando);
-      Serial.print("Suscrito a: ");
-      Serial.println(topic_aire_comando);
-    } else {
-      Serial.print("falló, rc=");
-      Serial.print(client.state());
-      Serial.println(" intentando de nuevo en 5 segundos");
-      delay(5000);
-    }
-  }
-}
+unsigned long ultimaLecturaSensor = 0;
+const unsigned long intervaloSensor = 500;
 
 void setup() {
-  Serial.begin(115200); // Usar una velocidad de baudios más alta para ESP8266
-  setup_wifi();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-
-  pinMode(airAcond, OUTPUT);
-  digitalWrite(airAcond, LOW); // Asegurarse de que el aire esté apagado al inicio
-
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-
-  Serial.println("Esclavo de Sensores listo (MQTT)");
+  Serial.begin(115200);
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent);
+  
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(fan, OUTPUT);
+  digitalWrite(trig, LOW);
+  analogWrite(fan, 0);
+  
+  Serial.println("=== SLAVE 2 - Sensores y Actuadores ===");
+  Serial.println("Direccion I2C: 9");
+  Serial.println("Sensor temperatura: A0 (LM35)");
+  Serial.println("Sensor distancia: Trig=4, Echo=3 (HC-SR04)");
+  Serial.println("Ventilador: Pin 5 (PWM)");
+  Serial.println("Sistema listo");
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-
-  unsigned long ahora = millis();
-
-  // Publicar temperatura periódicamente
-  if (ahora - ultimaMedicionTemp >= intervaloTemp) {
-    ultimaMedicionTemp = ahora;
-    temperaturaActual = leerTemperatura();
-    client.publish(topic_temp_estado, String(temperaturaActual, 1).c_str());
-    Serial.print("Temperatura publicada: ");
-    Serial.println(temperaturaActual, 1);
-  }
-
-  // Publicar distancia periódicamente
-  if (ahora - ultimaMedicionDist >= intervaloDist) {
-    ultimaMedicionDist = ahora;
-    distanciaActual = medirDistancia();
-    if (distanciaActual != -1) {
-      client.publish(topic_ultrasonico_estado, String(distanciaActual).c_str());
-      Serial.print("Distancia publicada: ");
-      Serial.println(distanciaActual);
+  if (millis() - ultimaLecturaSensor >= intervaloSensor) {
+    ultimaLecturaSensor = millis();
+    temperatura = leerTemp();
+    distancia = leerDist();
+    
+    static unsigned long ultimoReporte = 0;
+    if (millis() - ultimoReporte >= 5000) {
+      ultimoReporte = millis();
+      Serial.println("--- Lecturas Actuales ---");
+      Serial.println("Temperatura: " + String(temperatura, 1) + "C");
+      Serial.println("Distancia: " + String(distancia) + " cm");
+      Serial.println("Ventilador: " + String(ventilador ? "ON" : "OFF"));
+      Serial.println("------------------------");
     }
   }
 }
 
-// Funciones auxiliares
-float leerTemperatura() {
-  int valor = analogRead(tempPin);
-  float voltaje = valor * (5.0 / 1023.0);
-  return (voltaje - 0.5) * 100.0; // TMP36
+void receiveEvent(int howMany) {
+  String cmd = "";
+  int count = 0;
+  const int MAX_CMD_LENGTH = 32;
+  
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
+  }
+  
+  while (Wire.available()) {
+    Wire.read();
+  }
+  
+  cmd.trim();
+  cmd.toUpperCase();
+  
+  if (cmd == "VENTILADOR_ENCENDER") {
+    analogWrite(fan, 200);
+    ventilador = true;
+    Serial.println("Ventilador ENCENDIDO (PWM: 200/255)");
+  } 
+  else if (cmd == "VENTILADOR_APAGAR") {
+    analogWrite(fan, 0);
+    ventilador = false;
+    Serial.println("Ventilador APAGADO");
+  }
+  else {
+    Serial.println("ERROR: Comando no reconocido: " + cmd);
+    Serial.println("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR");
+  }
 }
 
-long medirDistancia() {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
+void requestEvent() {
+  String data = "";
+  
+  int tempInt = (int)temperatura;
+  int distInt = (int)distancia;
+  if (distInt > 999) distInt = 999;
+  if (distInt < 0) distInt = 0;
+  
+  data = "T:" + String(tempInt) + ",D:" + String(distInt) + ",V:" + (ventilador ? "1" : "0");
+  
+  if (data.length() <= 16) {
+    Wire.write(data.c_str());
+    Serial.println("Datos enviados: " + data);
+  } else {
+    String fallback = "T:" + String(tempInt) + ",D:0,V:0";
+    Wire.write(fallback.c_str());
+    Serial.println("WARN: Datos truncados: " + fallback);
+  }
+}
 
-  long duracion = pulseIn(echoPin, HIGH, 30000); // timeout 30ms (~5m)
-  if (duracion == 0) return -1; // no hay eco
-  return duracion * 0.034 / 2;
+float leerTemp() {
+  float suma = 0;
+  for (int i = 0; i < 10; i++) {
+    float v = analogRead(pinTemp) * (5.0 / 1023.0);
+    suma += v * 100.0;
+    delay(10);
+  }
+  return suma / 10.0;
+}
+
+long leerDist() {
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  
+  long dur = pulseIn(echo, HIGH, 30000);
+  if (dur == 0) {
+    return -1;
+  }
+  return dur * 0.034 / 2;
 }

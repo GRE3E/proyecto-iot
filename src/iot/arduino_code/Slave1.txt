@@ -1,151 +1,87 @@
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
+// ========================================
+// ESCLAVO 1 - LUCES (TOTALMENTE CORREGIDO)
+// ========================================
+#include <Wire.h>
 
-// === Configuración WiFi ===
-const char* ssid = "YOUR_WIFI_SSID"; // Reemplaza con tu SSID
-const char* password = "YOUR_WIFI_PASSWORD"; // Reemplaza con tu contraseña
+#define SLAVE_ADDRESS 8
+#define MAX_CMD_LENGTH 32
 
-// === Configuración MQTT ===
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // Reemplaza con la IP de tu broker MQTT
-const int mqtt_port = 1883; // Puerto MQTT estándar
-const char* mqtt_client_id = "EsclavoLuces"; // ID único para este cliente MQTT
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-
-// === Pines de luces ===
-const int ledPasilloEx = 2;
-const int ledPasilloInt = 3;
-const int ledSala = 4;
-const int ledGaraje = 5;
-const int ledHabInv = 6;
-const int ledBaInv = 7;
-const int ledHabP = 8;
-const int ledBaP = 9;
-const int ledLav = 10;
-const int ledCocina = 11;
-const int ledGarajeEx = 12;
-
-struct Luz {
-  const char* nombre; // Nombres como "LIGHT_1", "LIGHT_2", etc.
-  int pin;
-  bool estado;
-  const char* topic_estado;
-  const char* topic_comando;
-};
-
-Luz luces[] = {
-  {"LUZ_PASILLO_EXTERIOR", ledPasilloEx, false, "iot/luces/pasillo_exterior/estado", "iot/luces/pasillo_exterior/comando"},
-  {"LUZ_PASILLO_INTERIOR", ledPasilloInt, false, "iot/luces/pasillo_interior/estado", "iot/luces/pasillo_interior/comando"},
-  {"LUZ_SALA", ledSala, false, "iot/luces/sala/estado", "iot/luces/sala/comando"},
-  {"LUZ_GARAJE", ledGaraje, false, "iot/luces/garaje/estado", "iot/luces/garaje/comando"},
-  {"LUZ_HABITACION_INVITADOS", ledHabInv, false, "iot/luces/habitacion_invitados/estado", "iot/luces/habitacion_invitados/comando"},
-  {"LUZ_BANO_INVITADOS", ledBaInv, false, "iot/luces/bano_invitados/estado", "iot/luces/bano_invitados/comando"},
-  {"LUZ_HABITACION_PRINCIPAL", ledHabP, false, "iot/luces/habitacion_principal/estado", "iot/luces/habitacion_principal/comando"},
-  {"LUZ_BANO_PRINCIPAL", ledBaP, false, "iot/luces/bano_principal/estado", "iot/luces/bano_principal/comando"},
-  {"LUZ_LAVADERO", ledLav, false, "iot/luces/lavadero/estado", "iot/luces/lavadero/comando"},
-  {"LUZ_COCINA", ledCocina, false, "iot/luces/cocina/estado", "iot/luces/cocina/comando"},
-  {"LUZ_GARAJE_EXTERIOR", ledGarajeEx, false, "iot/luces/garaje_exterior/estado", "iot/luces/garaje_exterior/comando"}
-};
-
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Conectando a ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi conectado");
-  Serial.print("Dirección IP: ");
-  Serial.println(WiFi.localIP());
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Mensaje recibido en el tópico: ");
-  Serial.print(topic);
-  Serial.print(" -> ");
-  String mensaje = "";
-  for (int i = 0; i < length; i++) {
-    mensaje += (char)payload[i];
-  }
-  Serial.println(mensaje);
-
-  // Procesar el comando MQTT
-  for (int i = 0; i < sizeof(luces) / sizeof(luces[0]); i++) {
-    if (strcmp(topic, luces[i].topic_comando) == 0) {
-      if (mensaje == "ENCENDER") {
-        digitalWrite(luces[i].pin, HIGH);
-        luces[i].estado = true;
-        client.publish(luces[i].topic_estado, "ENCENDIDA");
-        Serial.print("Luz ");
-        Serial.print(luces[i].nombre);
-        Serial.println(" ENCENDIDA");
-      } else if (mensaje == "APAGAR") {
-        digitalWrite(luces[i].pin, LOW);
-        luces[i].estado = false;
-        client.publish(luces[i].topic_estado, "APAGADA");
-        Serial.print("Luz ");
-        Serial.print(luces[i].nombre);
-        Serial.println(" APAGADA");
-      } else if (mensaje == "ESTADO") {
-        if (luces[i].estado) {
-          client.publish(luces[i].topic_estado, "ENCENDIDA");
-        } else {
-          client.publish(luces[i].topic_estado, "APAGADA");
-        }
-        Serial.print("Estado de luz ");
-        Serial.print(luces[i].nombre);
-        Serial.println(" solicitado.");
-      }
-      break;
-    }
-  }
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Intentando conexión MQTT...");
-    if (client.connect(mqtt_client_id)) {
-      Serial.println("conectado");
-      // Suscribirse a los tópicos de comando de cada luz
-      for (int i = 0; i < sizeof(luces) / sizeof(luces[0]); i++) {
-        client.subscribe(luces[i].topic_comando);
-        Serial.print("Suscrito a: ");
-        Serial.println(luces[i].topic_comando);
-      }
-    } else {
-      Serial.print("falló, rc=");
-      Serial.print(client.state());
-      Serial.println(" intentando de nuevo en 5 segundos");
-      delay(5000);
-    }
-  }
-}
+const int ledPins[9] = {2, 3, 4, 5, 6, 7, 8, 9, 10};
+bool estadoLuces[9] = {false};
 
 void setup() {
-  Serial.begin(115200); // Usar una velocidad de baudios más alta para ESP8266
-  setup_wifi();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-
-  for (int i = 0; i < sizeof(luces) / sizeof(luces[0]); i++) {
-    pinMode(luces[i].pin, OUTPUT);
-    digitalWrite(luces[i].pin, LOW); // Asegura que todas las luces estén apagadas al inicio
+  Serial.begin(115200);
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+  
+  for (int i = 0; i < 9; i++) {
+    pinMode(ledPins[i], OUTPUT);
+    digitalWrite(ledPins[i], LOW);
   }
-
-  Serial.println("Esclavo de Luces listo (MQTT)");
+  
+  Serial.println("=== SLAVE 1 - Control de Luces (CORREGIDO) ===");
+  Serial.println("Direccion I2C: 8");
+  Serial.println("9 luces disponibles (0-8)");
+  Serial.println("0=GARAJE, 1=PASILLO, 2=H.INVITADOS, 3=B.INVITADOS");
+  Serial.println("4=LAVANDERIA, 5=B.PRINCIPAL, 6=H.PRINCIPAL, 7=COCINA, 8=SALA");
+  Serial.println("Pines: 2-10");
+  Serial.println("Sistema listo");
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
+  delay(10);
+}
+
+void receiveEvent(int howMany) {
+  String cmd = "";
+  int count = 0;
+  
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
   }
-  client.loop();
+  
+  while (Wire.available()) {
+    Wire.read();
+  }
+  
+  cmd.trim();
+  cmd.toUpperCase();
+  
+  int guion = cmd.indexOf('_');
+  
+  if (guion != -1 && guion > 0 && guion < cmd.length() - 1) {
+    int index = cmd.substring(0, guion).toInt();
+    String accion = cmd.substring(guion + 1);
+    accion.trim();
+    
+    if (index >= 0 && index < 9) {
+      if (accion == "ENCENDER") {
+        estadoLuces[index] = true;
+        digitalWrite(ledPins[index], HIGH);
+        Serial.println("Luz " + String(index) + " ENCENDIDA [Pin " + String(ledPins[index]) + "]");
+      } 
+      else if (accion == "APAGAR") {
+        estadoLuces[index] = false;
+        digitalWrite(ledPins[index], LOW);
+        Serial.println("Luz " + String(index) + " APAGADA [Pin " + String(ledPins[index]) + "]");
+      }
+      else {
+        Serial.println("ERROR: Accion desconocida: " + accion);
+      }
+    } else {
+      Serial.println("ERROR: Indice de luz invalido: " + String(index) + " (rango: 0-8)");
+    }
+  } else {
+    Serial.println("ERROR: Formato de comando invalido: " + cmd);
+    Serial.println("Formato esperado: NUMERO_ACCION (ej: 3_ENCENDER)");
+  }
+}
+
+void requestEvent() {
+  for (int i = 0; i < 9; i++) {
+    Wire.write(estadoLuces[i] ? '1' : '0');
+  }
+  Serial.println("Estados enviados al Master");
 }

@@ -1,5 +1,5 @@
 "use client"
-import { User, Trash2, Edit, Eye, Power, X } from "lucide-react"
+import { User, Trash2, Edit, Eye, Power, X, UserPlus } from "lucide-react"
 import { useState } from "react"
 
 export interface FamilyMember {
@@ -20,6 +20,7 @@ interface PerfilProps {
   setMembers: (value: FamilyMember[]) => void
   isOwnerFixed?: boolean
   onEditProfile: () => void
+  onAddMember?: () => void // callback opcional para el botón de agregar familiar
 }
 
 export default function Perfil({
@@ -29,6 +30,7 @@ export default function Perfil({
   setMembers,
   isOwnerFixed = false,
   onEditProfile,
+  onAddMember,
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
 
@@ -50,7 +52,7 @@ export default function Perfil({
   return (
     <div className="space-y-5 text-white">
       {/* Sección del propietario */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <User className="w-6 h-6 text-blue-400" />
           <div>
@@ -61,12 +63,24 @@ export default function Perfil({
           </div>
         </div>
 
-        <button
-          onClick={onEditProfile}
-          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition-all"
-        >
-          <Edit className="w-4 h-4" /> Editar perfil
-        </button>
+        {/* Botones alineados horizontalmente a la derecha */}
+        <div className="flex gap-2">
+          <button
+            onClick={onEditProfile}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg w-44 transition-all"
+          >
+            <Edit className="w-4 h-4" /> Editar perfil
+          </button>
+
+          {onAddMember && (
+            <button
+              onClick={onAddMember}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg w-44 transition-all"
+            >
+              <UserPlus className="w-4 h-4" /> Agregar familiar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Lista de miembros familiares */}
@@ -122,7 +136,6 @@ export default function Perfil({
             </h3>
 
             <div className="space-y-4">
-              {/* Nombre */}
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Nombre</label>
                 <input
@@ -138,7 +151,6 @@ export default function Perfil({
                 />
               </div>
 
-              {/* Privilegios */}
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Privilegios</label>
                 <div className="space-y-2">

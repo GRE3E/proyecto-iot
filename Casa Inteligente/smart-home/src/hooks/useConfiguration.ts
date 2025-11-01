@@ -59,8 +59,35 @@ export function useConfiguracion() {
     setIsProfileModalOpen(false);
   };
 
-  // 🎙 Reconocimiento de voz
-  const handleVoiceRecognition = () => {
+  // 🔁 Flujo del registro paso a paso
+  const [currentStep, setCurrentStep] = useState(1);
+  const [newMember, setNewMember] = useState({
+    username: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [errorMessage, setErrorMessage] = useState("");
+  const [voiceConfirmed, setVoiceConfirmed] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+
+  // ✅ Validación de usuario y contraseña
+  const handleAccountStep = () => {
+    if (!newMember.username || !newMember.password || !newMember.confirmPassword) {
+      setErrorMessage("Completa todos los campos.");
+      return;
+    }
+    if (newMember.password !== newMember.confirmPassword) {
+      setErrorMessage("Las contraseñas no coinciden.");
+      return;
+    }
+    setErrorMessage("");
+    setTimeout(() => {
+      setCurrentStep(2);
+    }, 400);
+  };
+
+  // 🎙 Reconocimiento de voz (Paso 2) - Frase natural
+  const handleVoiceRecognitionEnhanced = () => {
     const SpeechRecognitionClass =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -77,37 +104,24 @@ export function useConfiguracion() {
     recognition.onstart = () => {
       setIsListening(true);
       setTranscript("");
-      setStatusMessage("🎙️ Escuchando... di 'Okay Murphy' seguido del nombre del familiar.");
+      setStatusMessage(
+        "🎙️ Escuchando... Di la frase: 'Murphy soy parte del hogar' para registrar tu voz."
+      );
     };
 
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript.trim();
       setTranscript(result);
-      setStatusMessage("🔎 Procesando comando...");
+      setStatusMessage("🔎 Procesando voz...");
 
       const lower = result.toLowerCase();
-      if (lower.startsWith("okay murphy")) {
-        const nombre = result.replace(/okay murphy/i, "").trim();
-        if (!nombre) {
-          setStatusMessage("⚠️ No detecté un nombre después de 'Okay Murphy'. Intenta de nuevo.");
-          return;
-        }
-
-        const nuevo: FamilyMember = {
-          id: Date.now().toString(),
-          name: nombre.charAt(0).toUpperCase() + nombre.slice(1),
-          role: "Familiar",
-          privileges: { controlDevices: false, viewCamera: false },
-        };
-
-        setMembers((prev) => [...prev, nuevo]);
-        setStatusMessage(`✅ Familiar "${nombre}" agregado correctamente.`);
-        setTimeout(() => {
-          setIsAddMemberModalOpen(false);
-          setStatusMessage("");
-        }, 2000);
+      if (lower.includes("murphy") && lower.includes("soy parte del hogar")) {
+        setStatusMessage(`✅ Voz registrada correctamente: "${result}"`);
+        setVoiceConfirmed(true);
       } else {
-        setStatusMessage("❌ Debes decir 'Okay Murphy' para activar el registro.");
+        setStatusMessage(
+          "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+        );
       }
     };
 
@@ -124,6 +138,30 @@ export function useConfiguracion() {
     };
 
     recognition.start();
+  };
+
+  // 📸 Simulación de reconocimiento facial
+  const handleFaceDetection = () => {
+    setFaceDetected(true);
+    setStatusMessage("✅ Rostro detectado correctamente.");
+  };
+
+  // 🎯 Finalizar registro
+  const handleFinalizeMember = () => {
+    const nuevoMiembro: FamilyMember = {
+      id: Date.now().toString(),
+      name: newMember.username,
+      role: "Familiar",
+      privileges: { controlDevices: false, viewCamera: false },
+    };
+
+    setMembers((prev) => [...prev, nuevoMiembro]);
+    setIsAddMemberModalOpen(false);
+    setStatusMessage("");
+    setCurrentStep(1);
+    setVoiceConfirmed(false);
+    setFaceDetected(false);
+    setNewMember({ username: "", password: "", confirmPassword: "" });
   };
 
   return {
@@ -153,8 +191,21 @@ export function useConfiguracion() {
     transcript,
     statusMessage,
 
+    // funciones perfil
     handleEditProfile,
     handleSaveProfile,
-    handleVoiceRecognition,
+
+    // flujo registro
+    currentStep,
+    setCurrentStep,
+    newMember,
+    setNewMember,
+    errorMessage,
+    voiceConfirmed,
+    faceDetected,
+    handleAccountStep,
+    handleVoiceRecognitionEnhanced,
+    handleFaceDetection,
+    handleFinalizeMember,
   };
 }

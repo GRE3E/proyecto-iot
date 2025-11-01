@@ -1,10 +1,10 @@
-"use client";
+"use client"
 
-import { Settings, Globe, Bell, UserPlus, Mic } from "lucide-react";
-import SimpleCard from "../components/UI/Card";
-import Perfil from "../components/UI/Perfil";
-import Modal from "../components/UI/Modal";
-import { useConfiguracion } from "../hooks/useConfiguration";
+import { Settings, Globe, Bell, Mic } from "lucide-react"
+import SimpleCard from "../components/UI/Card"
+import Perfil from "../components/UI/Perfil"
+import Modal from "../components/UI/Modal"
+import { useConfiguracion } from "../hooks/useConfiguration"
 
 export default function Configuracion() {
   const {
@@ -16,23 +16,33 @@ export default function Configuracion() {
     setNotifications,
     members,
     setMembers,
+    isAddMemberModalOpen,
+    setIsAddMemberModalOpen,
     isProfileModalOpen,
     setIsProfileModalOpen,
     modalOwnerName,
     setModalOwnerName,
-    modalTimezone,
-    setModalTimezone,
     modalLanguage,
     setModalLanguage,
-    isAddMemberModalOpen,
-    setIsAddMemberModalOpen,
+    modalTimezone,
+    setModalTimezone,
     isListening,
     transcript,
     statusMessage,
     handleEditProfile,
     handleSaveProfile,
-    handleVoiceRecognition,
-  } = useConfiguracion();
+    currentStep,
+    setCurrentStep,
+    newMember,
+    setNewMember,
+    errorMessage,
+    voiceConfirmed,
+    faceDetected,
+    handleAccountStep,
+    handleVoiceRecognitionEnhanced,
+    handleFaceDetection,
+    handleFinalizeMember,
+  } = useConfiguracion()
 
   return (
     <div className="font-inter max-w-5xl mx-auto space-y-6 relative">
@@ -40,8 +50,8 @@ export default function Configuracion() {
         <Settings className="w-6 h-6" /> Configuración
       </h2>
 
-      {/* Perfil del propietario */}
-      <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg">
+      {/* Perfil del propietario con ambos botones */}
+      <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
         <Perfil
           name={ownerName}
           setName={setOwnerName}
@@ -50,6 +60,7 @@ export default function Configuracion() {
           setMembers={setMembers}
           isOwnerFixed={true}
           onEditProfile={handleEditProfile}
+          onAddMember={() => setIsAddMemberModalOpen(true)}
         />
       </SimpleCard>
 
@@ -88,19 +99,9 @@ export default function Configuracion() {
         </SimpleCard>
       </div>
 
-      {/* Botón agregar familiar */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setIsAddMemberModalOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-all"
-        >
-          <UserPlus className="w-4 h-4" /> Agregar familiar
-        </button>
-      </div>
-
-      {/* Modal editar perfil (usa Modal.tsx) */}
+      {/* Modal editar perfil */}
       <Modal
-        title="Editar perfil del propietario"
+        title="Editar perfil"
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
       >
@@ -111,17 +112,6 @@ export default function Configuracion() {
               type="text"
               value={modalOwnerName}
               onChange={(e) => setModalOwnerName(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Zona horaria</label>
-            <input
-              type="text"
-              value={modalTimezone}
-              onChange={(e) => setModalTimezone(e.target.value)}
-              placeholder="Ejemplo: GMT-5"
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
             />
           </div>
@@ -138,7 +128,17 @@ export default function Configuracion() {
             </select>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div>
+            <label className="block text-sm text-slate-400 mb-1">Zona horaria</label>
+            <input
+              type="text"
+              value={modalTimezone}
+              onChange={(e) => setModalTimezone(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={() => setIsProfileModalOpen(false)}
               className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
@@ -155,32 +155,152 @@ export default function Configuracion() {
         </div>
       </Modal>
 
-      {/* Modal agregar familiar (usa Modal.tsx) */}
+      {/* Modal agregar familiar */}
       <Modal
         title="Agregar nuevo familiar"
         isOpen={isAddMemberModalOpen}
-        onClose={() => setIsAddMemberModalOpen(false)}
+        onClose={() => {
+          setIsAddMemberModalOpen(false);
+          setCurrentStep(1);
+        }}
       >
-        <p className="text-sm text-slate-400 mb-4">
-          Para registrar, di: <span className="text-blue-400 font-semibold">“Okay Murphy [nombre]”</span>.
-        </p>
+        <div className="space-y-6">
+          {/* Paso 1: Registro */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Nombre de usuario</label>
+                <input
+                  type="text"
+                  value={newMember.username}
+                  onChange={(e) =>
+                    setNewMember({ ...newMember, username: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Contraseña</label>
+                <input
+                  type="password"
+                  value={newMember.password}
+                  onChange={(e) =>
+                    setNewMember({ ...newMember, password: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Confirmar contraseña</label>
+                <input
+                  type="password"
+                  value={newMember.confirmPassword}
+                  onChange={(e) =>
+                    setNewMember({ ...newMember, confirmPassword: e.target.value })
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                />
+              </div>
 
-        <div className="flex flex-col items-center gap-4">
-          <button
-            onClick={handleVoiceRecognition}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-all ${
-              isListening ? "bg-red-600 animate-pulse cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-            }`}
-            disabled={isListening}
-          >
-            <Mic className="w-4 h-4" />
-            {isListening ? "Escuchando..." : "Iniciar escucha"}
-          </button>
+              {errorMessage && <p className="text-red-400 text-sm">{errorMessage}</p>}
 
-          {statusMessage && <p className="text-sm text-slate-300 text-center">{statusMessage}</p>}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleAccountStep}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+                >
+                  Registrar usuario
+                </button>
+              </div>
+            </div>
+          )}
 
-          {transcript && (
-            <p className="text-sm text-slate-400 text-center italic">🗣️ Detectado: "{transcript}"</p>
+          {/* Paso 2: Voz */}
+          {currentStep === 2 && (
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-sm text-slate-400 text-center">
+                Di la siguiente frase para registrar tu voz:
+              </p>
+              <p className="text-blue-400 font-semibold text-center text-lg">
+                “Murphy soy parte del hogar”
+              </p>
+
+              <button
+                onClick={handleVoiceRecognitionEnhanced}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-all ${
+                  isListening ? "bg-red-600 animate-pulse cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                }`}
+                disabled={isListening}
+              >
+                <Mic className="w-4 h-4" />
+                {isListening ? "Escuchando..." : "Iniciar escucha"}
+              </button>
+
+              {statusMessage && (
+                <p className="text-sm text-slate-300 text-center">{statusMessage}</p>
+              )}
+              {transcript && (
+                <p className="text-sm text-slate-400 text-center italic">
+                  🗣️ Detectado: "{transcript}"
+                </p>
+              )}
+
+              {voiceConfirmed && (
+                <div className="flex justify-end w-full">
+                  <button
+                    onClick={() => setCurrentStep(3)}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Paso 3: Rostro */}
+          {currentStep === 3 && (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-slate-400">
+                Usa la cámara para registrar el rostro del nuevo familiar.
+              </p>
+
+              <div className="bg-slate-800 border border-slate-700 rounded-xl w-full h-48 flex items-center justify-center">
+                <span className="text-slate-500 text-sm">📷 Vista previa de cámara</span>
+              </div>
+
+              {!faceDetected && (
+                <button
+                  onClick={handleFaceDetection}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+                >
+                  Escanear rostro
+                </button>
+              )}
+
+              {faceDetected && (
+                <p className="text-green-400 text-sm font-medium">
+                  Rostro detectado correctamente ✅
+                </p>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsAddMemberModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                >
+                  Cancelar
+                </button>
+                {faceDetected && (
+                  <button
+                    onClick={handleFinalizeMember}
+                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm"
+                  >
+                    Finalizar registro
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </Modal>

@@ -50,7 +50,7 @@ async def register_speaker(
                 username=name,
                 password=generated_password,
                 is_owner=is_owner,
-                speaker_embedding=embedding_str # Actualizado a speaker_embedding
+                speaker_embedding=embedding_str
             )
             token = await auth_service.authenticate_user(
                 username=name,
@@ -107,7 +107,7 @@ async def register_owner_speaker(
                 username=name,
                 password=generated_password,
                 is_owner=True,
-                speaker_embedding=embedding_str # Actualizado a speaker_embedding
+                speaker_embedding=embedding_str
             )
             token = await auth_service.authenticate_user(
                 username=name,
@@ -130,7 +130,7 @@ async def register_owner_speaker(
 
 @speaker_router.post("/speaker/identify", response_model=Token)
 async def identify_speaker(audio_file: UploadFile = File(...)):
-    """Identifica quién habla y devuelve un token de autenticación."""
+    """Identifica quién habla y devuelve su token de acceso. Si no hay usuarios registrados o no se identifica al usuario, indica que se necesita registro."""
     if utils._speaker_module is None or not utils._speaker_module.is_online():
         raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
     
@@ -139,6 +139,7 @@ async def identify_speaker(audio_file: UploadFile = File(...)):
             result = await db.execute(select(User))
             users = result.scalars().all()
             if not users:
+                logger.info("No hay usuarios registrados en el sistema")
                 raise HTTPException(status_code=404, detail="No hay usuarios registrados")
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -151,15 +152,16 @@ async def identify_speaker(audio_file: UploadFile = File(...)):
             identified_user, _ = future_identified_user.result()
 
         if identified_user is None:
-            raise HTTPException(status_code=500, detail="No se pudo identificar al hablante")
+            raise HTTPException(status_code=404, detail="Usuario no identificado")
         
         async with get_db() as db:
             auth_service = AuthService(db)
             token = await auth_service.authenticate_user_by_id(identified_user.id)
+            
             await utils._save_api_log(
                 "/speaker/identify",
                 {"filename": audio_file.filename},
-                token,
+                {"user_id": identified_user.id, "speaker_name": identified_user.nombre},
                 db
             )
 
@@ -204,7 +206,7 @@ async def add_voice_to_user(
             if embedding_str is None:
                 raise HTTPException(status_code=409, detail="La voz proporcionada ya está registrada por otro usuario.")
             
-            user.speaker_embedding = embedding_str # Actualizado a speaker_embedding
+            user.speaker_embedding = embedding_str
             await db.commit()
             await db.refresh(user)
 

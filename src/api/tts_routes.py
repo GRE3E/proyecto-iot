@@ -32,7 +32,9 @@ async def generate_audio(request: TTSTextRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=503, detail="El módulo TTS está fuera de línea")
     
     try:
-        audio_file_paths = await utils._tts_module.generate_audio_files_from_text(request.text)
+        audio_file_paths = []
+        async for audio_path in utils._tts_module.generate_audio_stream(request.text):
+            audio_file_paths.append(audio_path)
 
         if not audio_file_paths:
             raise HTTPException(status_code=500, detail="No se pudo generar el audio")

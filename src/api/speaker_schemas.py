@@ -11,9 +11,10 @@ class SpeakerIdentifyRequest(BaseModel):
 
 class SpeakerIdentifyResponse(BaseModel):
     """Modelo para la respuesta de identificación de hablante."""
-    speaker_name: str
+    speaker_name: str | None = None
     user_id: int | None = None
     is_owner: bool | None = None
+    needs_registration: bool = False
 
 class UserCharacteristic(BaseModel):
     """Modelo para las características de un usuario."""

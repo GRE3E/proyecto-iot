@@ -115,6 +115,7 @@ class TTSModule:
     async def generate_audio_files_from_text(self, text: str) -> list[Path]:
         """
         Genera múltiples archivos de audio a partir de un texto largo, dividiéndolo en frases.
+        La generación es secuencial para garantizar el orden correcto y la calidad.
 
         Args:
             text (str): El texto completo a convertir en voz.
@@ -129,17 +130,78 @@ class TTSModule:
         os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
         sentences = _split_text_into_sentences(text)
         
-        futures = []
+        generated_file_paths = []
         for i, sentence in enumerate(sentences):
             if not sentence:
+                logger.warning(f"Frase {i+1} vacía, saltando...")
                 continue
             
-            current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}_{i}.wav"
-            futures.append(self.generate_speech(sentence, str(current_tts_audio_output_path)))
+            try:
+                current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}_{i}.wav"
+                logger.info(f"Generando audio {i+1}/{len(sentences)}: '{sentence[:50]}...'")
+                
+                # Generar audio de forma secuencial
+                future = self.generate_speech(sentence, str(current_tts_audio_output_path))
+                result = await asyncio.to_thread(future.result)
+                
+                if result and os.path.exists(result):
+                    generated_file_paths.append(Path(result))
+                    logger.info(f"Audio {i+1} generado exitosamente: {result}")
+                else:
+                    logger.error(f"Error: Audio {i+1} no generado correctamente")
+                    
+                # Pequeña pausa entre generaciones para estabilidad
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"Error al generar audio {i+1}: {str(e)}")
+                # Continuar con la siguiente frase en caso de error
+                continue
         
-        generated_file_paths = await asyncio.gather(*[asyncio.to_thread(f.result) for f in futures])
-        
-        successful_paths = [Path(p) for p in generated_file_paths if p]
-        
-        logger.info(f"Generados {len(successful_paths)} archivos de audio para el texto.")
-        return successful_paths
+        if not generated_file_paths:
+            logger.warning("No se generó ningún archivo de audio")
+            return []
+            
+        logger.info(f"Generados {len(generated_file_paths)}/{len(sentences)} archivos de audio")
+        return generated_file_paths
+
+    async def generate_audio_stream(self, text: str):
+        """
+        Genera archivos de audio a partir de un texto largo, dividiéndolo en frases,
+        y devuelve cada archivo de audio tan pronto como está disponible (streaming).
+
+        Args:
+            text (str): El texto completo a convertir en voz.
+
+        Yields:
+            Path: La ruta a un archivo de audio generado.
+        """
+        if not self.is_online():
+            logger.warning("El módulo TTS está fuera de línea. No se puede generar voz en streaming.")
+            return
+
+        os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+        sentences = _split_text_into_sentences(text)
+
+        for i, sentence in enumerate(sentences):
+            if not sentence:
+                logger.warning(f"Frase {i+1} vacía, saltando...")
+                continue
+
+            try:
+                current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_stream_audio_{uuid.uuid4()}_{i}.wav"
+                logger.info(f"GENERATED: Generando audio {i+1}/{len(sentences)}: '{sentence[:50]}...' en {current_tts_audio_output_path}")
+
+                future = self.generate_speech(sentence, str(current_tts_audio_output_path))
+                result = await asyncio.to_thread(future.result)
+
+                if result and os.path.exists(result):
+                    yield Path(result)
+                    logger.info(f"GENERATED: Audio {i+1} generado y enviado: {result}")
+                else:
+                    logger.error(f"Error: Audio {i+1} no generado correctamente para la frase: '{sentence[:50]}...'")
+
+            except Exception as e:
+                logger.error(f"Error al generar audio {i+1} para la frase '{sentence[:50]}...': {str(e)}")
+                # Continuar con la siguiente frase en caso de error
+                continue

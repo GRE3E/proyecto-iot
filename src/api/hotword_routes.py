@@ -19,27 +19,70 @@ logger = logging.getLogger("APIRoutes")
 
 hotword_router = APIRouter()
 
-def play_audio(file_path: str):
+def play_audio(file_path: str) -> bool:
     """
-    Reproduce un archivo de audio WAV.
+    Reproduce un archivo de audio WAV de forma segura y controlada.
+    
+    Args:
+        file_path (str): Ruta al archivo de audio WAV a reproducir.
+        
+    Returns:
+        bool: True si la reproducción fue exitosa, False en caso contrario.
     """
+    if not os.path.exists(file_path):
+        logger.error(f"Archivo de audio no encontrado: {file_path}")
+        return False
+        
+    p = None
+    stream = None
+    wf = None
+    
     try:
         wf = wave.open(file_path, 'rb')
         p = pyaudio.PyAudio()
+        
+        if wf.getsampwidth() not in [1, 2, 4]:
+            logger.error(f"Formato de audio inválido en {file_path}")
+            return False
+            
         stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-                        channels=wf.getnchannels(),
-                        rate=wf.getframerate(),
-                        output=True)
-        data = wf.readframes(1024)
-        while data:
+                       channels=wf.getnchannels(),
+                       rate=wf.getframerate(),
+                       output=True)
+        
+        chunk_size = 1024
+        data = wf.readframes(chunk_size)
+        
+        while len(data) > 0:
             stream.write(data)
-            data = wf.readframes(1024)
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+            data = wf.readframes(chunk_size)
+            
         logger.info(f"Audio reproducido exitosamente: {file_path}")
+        return True
+        
     except Exception as e:
         logger.error(f"Error al reproducir audio {file_path}: {e}")
+        return False
+        
+    finally:
+        if stream is not None:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception as e:
+                logger.error(f"Error al cerrar stream de audio: {e}")
+                
+        if p is not None:
+            try:
+                p.terminate()
+            except Exception as e:
+                logger.error(f"Error al terminar PyAudio: {e}")
+                
+        if wf is not None:
+            try:
+                wf.close()
+            except Exception as e:
+                logger.error(f"Error al cerrar archivo WAV: {e}")
 
 @hotword_router.post("/hotword/process_audio", response_model=HotwordAudioProcessResponse)
 async def process_hotword_audio(
@@ -124,9 +167,9 @@ async def process_hotword_audio(
                     speaker_result = speaker_response.json()
                     user_access_token = speaker_result.get("access_token")
                 except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 404 and "No hay usuarios registrados" in e.response.text:
-                        logger.info("No hay usuarios registrados. Procediendo a registrar como desconocido.")
-                        user_access_token = None # Esto activará la lógica de registro de usuario desconocido
+                    if e.response.status_code == 404 and ("No hay usuarios registrados" in e.response.text or "Usuario no identificado" in e.response.text):
+                        logger.info("Usuario no identificado o no hay usuarios registrados. Procediendo a registrar como desconocido.")
+                        user_access_token = None
                     else:
                         raise e
 
@@ -203,7 +246,7 @@ async def process_hotword_audio(
                     try:
                         nlp_api_response = await client.post(
                             "http://localhost:8000/nlp/nlp/query",
-                            json={"prompt": transcribed_text, "user_id": user_id_for_nlp},
+                            json={"prompt": transcribed_text},
                             headers={"Authorization": f"Bearer {user_access_token}"}
                         )
                         nlp_api_response.raise_for_status()
@@ -227,20 +270,28 @@ async def process_hotword_audio(
                 if nlp_response_text and not nlp_response_text.startswith("Error"):
                     logger.info("Iniciando generación TTS a través del endpoint /tts/generate_audio.")
                     try:
-                        tts_api_response = await client.post(
-                            "http://localhost:8000/tts/tts/generate_audio",
-                            json={"text": nlp_response_text},
-                            headers={"X-Device-API-Key": DEVICE_API_KEY}
-                        )
-                        tts_api_response.raise_for_status()
-                        tts_result = tts_api_response.json()
-                        tts_audio_paths = tts_result.get("audio_file_paths", [])
-                        logger.info(f"Audio TTS generado a través del endpoint en: {tts_audio_paths}")
+                        async for audio_path in utils._tts_module.generate_audio_stream(nlp_response_text):
+                            try:
+                                logger.info(f"PLAYED: Reproduciendo audio: {audio_path}")
+                                success = await asyncio.to_thread(play_audio, str(audio_path))
 
-                        for audio_path in tts_audio_paths:
-                            await asyncio.to_thread(play_audio, audio_path)
-                            os.remove(audio_path)
-                            logger.info(f"Audio temporal {audio_path} reproducido y eliminado.")
+                                if success:
+                                    logger.info(f"PLAYED: Audio reproducido exitosamente: {audio_path}")
+                                else:
+                                    logger.error(f"Error al reproducir audio: {audio_path}")
+
+                            except Exception as e:
+                                logger.error(f"Error al procesar audio {audio_path}: {e}")
+
+                            finally:
+                                try:
+                                    if audio_path.exists():
+                                        audio_path.unlink(missing_ok=True)
+                                        logger.info(f"DELETED: Audio temporal eliminado: {audio_path}")
+                                except Exception as e:
+                                    logger.error(f"Error al eliminar archivo temporal {audio_path}: {e}")
+
+                        tts_audio_paths = []
 
                     except httpx.TimeoutException:
                         logger.error("Timeout al llamar al servicio TTS")
@@ -262,8 +313,12 @@ async def process_hotword_audio(
                 logger.error("Timeout en procesamiento de hotword")
                 raise HTTPException(status_code=504, detail="El procesamiento tardó demasiado tiempo")
             except httpx.HTTPStatusError as e:
-                if e.request.url == "http://localhost:8000/speaker/speaker/identify" and e.response.status_code == 404 and "No hay usuarios registrados" in e.response.text:
-                    logger.info("Excepción de 'No hay usuarios registrados' capturada en el nivel superior. Procediendo con el registro de usuario desconocido.")
+                if e.request.url == "http://localhost:8000/speaker/speaker/identify" and e.response.status_code == 404:
+                    if "No hay usuarios registrados" in e.response.text or "Usuario no identificado" in e.response.text:
+                        logger.info("Excepción de identificación capturada. Procediendo con el registro de usuario desconocido.")
+                    else:
+                        logger.error(f"Error HTTP al llamar a servicios: {e.response.status_code} - {e.response.text}")
+                        raise HTTPException(status_code=e.response.status_code, detail=f"Error en servicio externo: {e.response.text}")
                 else:
                     logger.error(f"Error HTTP al llamar a servicios: {e.response.status_code} - {e.response.text}")
                     raise HTTPException(status_code=e.response.status_code, detail=f"Error en servicio externo: {e.response.text}")

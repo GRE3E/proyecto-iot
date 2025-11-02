@@ -36,7 +36,7 @@ async def query_nlp(
             command=response.get("command"),
             prompt_sent=query.prompt,
             user_name=response.get("user_name"),
-            user_id=query.user_id
+            user_id=current_user.id,
         )
 
         logger.info(f"Consulta NLP procesada exitosamente. Respuesta completa: {response_obj.dict()}")
@@ -87,19 +87,15 @@ async def update_capabilities(update: CapabilitiesUpdate):
         logger.error(f"Error al actualizar capacidades para /config/capabilities: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar las capacidades: {str(e)}")
 
-@nlp_router.get("/nlp/history/{user_id}", response_model=ConversationHistoryResponse)
+@nlp_router.get("/nlp/history", response_model=ConversationHistoryResponse)
 async def get_user_conversation_history(
-    user_id: int,
     limit: int = 100,
     current_user: User = Depends(get_current_user)
 ):
     """Recupera el historial de conversación para un usuario específico."""
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="No tienes permiso para acceder al historial de conversación de este usuario.")
-
     try:
         async with get_db() as db:
-            logs = await utils._nlp_module.get_conversation_history(db, user_id, limit)
+            logs = await utils._nlp_module.get_conversation_history(db, current_user.id, limit)
             response_data = ConversationHistoryResponse(history=[
                 ConversationLogEntry(
                     user_message=log.prompt,
@@ -107,12 +103,12 @@ async def get_user_conversation_history(
                 ) for log in logs
             ])
             await utils._save_api_log(
-                f"/nlp/history/{user_id}",
-                {"user_id": user_id, "limit": limit},
+                f"/nlp/history/{current_user.id}",
+                {"user_id": current_user.id, "limit": limit},
                 response_data.dict(),
                 db
             )
             return response_data
     except Exception as e:
-        logger.error(f"Error al recuperar el historial de conversación para el usuario {user_id}: {e}", exc_info=True)
+        logger.error(f"Error al recuperar el historial de conversación para el usuario {current_user.id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al recuperar el historial de conversación: {str(e)}")

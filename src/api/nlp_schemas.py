@@ -4,7 +4,6 @@ from typing import Optional
 class NLPQuery(BaseModel):
     """Modelo para validar las consultas al módulo NLP."""
     prompt: str
-    user_id: Optional[int] = None
 
 class NLPResponse(BaseModel):
     """Modelo para las respuestas del módulo NLP."""
@@ -35,8 +34,3 @@ class ConversationLogEntry(BaseModel):
 class ConversationHistoryResponse(BaseModel):
     """Modelo para la respuesta del historial de conversación."""
     history: list[ConversationLogEntry]
-
-class ConversationHistoryRequest(BaseModel):
-    """Modelo para solicitar el historial de conversación."""
-    user_id: int
-    limit: Optional[int] = 100

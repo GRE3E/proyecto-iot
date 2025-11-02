@@ -11,44 +11,45 @@ class ColoredFormatter(logging.Formatter):
 
     # ====== Colores por nivel (no usados en módulos) ======
     LEVEL_COLORS = {
-        'DEBUG': '\033[38;5;244m',     # Gris medio neutro
-        'INFO': '\033[38;5;252m',      # Blanco tenue
-        'WARNING': '\033[38;5;220m',   # Dorado intenso
-        'ERROR': '\033[38;5;203m',     # Rojo coral
-        'CRITICAL': '\033[1;41m\033[97m',  # Fondo rojo, texto blanco
+        'DEBUG': '\033[38;5;244m',                      # Gris medio neutro (ANSI 244)
+        'INFO': '\033[38;5;252m',                       # Blanco tenue (ANSI 252)
+        'WARNING': '\033[38;5;220m',                    # Dorado intenso (ANSI 220)
+        'ERROR': '\033[38;5;203m',                      # Rojo coral (ANSI 203)
+        'CRITICAL': '\033[1;41m\033[97m',               # Fondo rojo, texto blanco (ANSI 1;41m, 97m)
     }
 
     # ====== Colores únicos por módulo ======
     MODULE_COLORS = {
-        'HotwordDetector': '\033[38;5;39m',        # Azul cian intenso
-        'STTModule': '\033[38;5;34m',              # Verde bosque
-        'NLPModule': '\033[38;5;129m',             # Magenta elegante
-        'TTSModule': '\033[38;5;178m',             # Amarillo ocre
-        'TextSplitter': '\033[38;5;208m',          # Naranja vibrante para el separador de texto
-        'SpeakerRecognitionModule': '\033[38;5;170m', # Púrpura claro
-        'APIRoutes': '\033[38;5;105m',             # Violeta claro para rutas API
-        'APIUtils': '\033[38;5;105m',              # Violeta claro para utilidades API
-        'AppLogger': '\033[38;5;33m',              # Azul corporativo
-        'MainApp': '\033[38;5;141m',               # Lavanda
-        'ConfigManager': '\033[38;5;112m',         # Verde esmeralda
-        'Database': '\033[38;5;37m',              # Azul cian más claro
-        'MemoryManager': '\033[38;5;109m',         # Verde claro
-        'OllamaManager': '\033[38;5;99m',          # Púrpura ceniza
-        'MQTTClient': '\033[38;5;123m',             # Verde brillante
-        'UserManager': '\033[38;5;160m',           # Rojo brillante para UserManager
-        'IoTCommandProcessor': '\033[38;5;202m',    # Naranja intenso
-        'IoTCommandCache': '\033[38;5;214m',       # Naranja-rojo para IoTCommandCache
-        'PromptCreator': '\033[38;5;226m',         # Amarillo brillante para PromptCreator
-        'PromptLoader': '\033[38;5;198m',          # Rosa vibrante para PromptLoader
-        'FaceRecognitionCore': '\033[38;5;190m',    # Verde amarillento claro
-        'FaceCapture': '\033[38;5;21m',            # Azul medio para FaceCapture
-        'FaceEncoder': '\033[38;5;22m',            # Verde oscuro para FaceEncoder
-        'FaceRecognizer': '\033[38;5;23m',         # Gris azulado para FaceRecognizer
-        'ErrorHandler': '\033[38;5;166m',           # Naranja quemado para ErrorHandler
-        'DeviceAuth': '\033[38;5;75m',             # Azul verdoso para DeviceAuth
-        'JWTManager': '\033[38;5;108m',      # Verde azulado para JWT Manager
-        'AuthService': '\033[38;5;135m',     # Púrpura claro para Auth Service
-        'root': '\033[38;5;240m',                  # Gris oscuro
+        'HotwordDetector': '\033[38;5;39m',             # Azul cian intenso (ANSI 39)
+        'STTModule': '\033[38;5;34m',                   # Verde bosque (ANSI 34)
+        'NLPModule': '\033[38;5;129m',                  # Magenta (ANSI 129)
+        'TTSModule': '\033[38;5;178m',                  # Amarillo ocre (ANSI 178)
+        'TextSplitter': '\033[38;5;208m',               # Naranja vibrante (ANSI 208)
+        'SpeakerRecognitionModule': '\033[38;5;170m',   # Púrpura claro (ANSI 170)
+        'APIRoutes': '\033[38;5;105m',                  # Violeta claro (ANSI 105)
+        'APIUtils': '\033[38;5;104m',                   # Violeta medio (ANSI 104)
+        'AppLogger': '\033[38;5;33m',                   # Azul medio (ANSI 33)
+        'MainApp': '\033[38;5;141m',                    # Lavanda (ANSI 141)
+        'ConfigManager': '\033[38;5;112m',              # Verde esmeralda (ANSI 112)
+        'Database': '\033[38;5;37m',                    # Azul cian (ANSI 37)
+        'MemoryManager': '\033[38;5;109m',              # Verde lima (ANSI 109)
+        'OllamaManager': '\033[38;5;99m',               # Púrpura grisáceo (ANSI 99)
+        'MQTTClient': '\033[38;5;123m',                 # Verde brillante (ANSI 123)
+        'DeviceManager': '\033[38;5;81m',               # Azul verdoso claro (ANSI 81)
+        'UserManager': '\033[38;5;167m',                # Rojo anaranjado (ANSI 167)
+        'IoTCommandProcessor': '\033[38;5;202m',        # Naranja oscuro (ANSI 202)
+        'IoTCommandCache': '\033[38;5;214m',            # Naranja rojizo (ANSI 214)
+        'PromptCreator': '\033[38;5;226m',              # Amarillo brillante (ANSI 226)
+        'PromptLoader': '\033[38;5;198m',               # Rosa fuerte (ANSI 198)
+        'FaceRecognitionCore': '\033[38;5;190m',        # Verde amarillento (ANSI 190)
+        'FaceCapture': '\033[38;5;21m',                 # Azul oscuro (ANSI 21)
+        'FaceEncoder': '\033[38;5;22m',                 # Verde muy oscuro (ANSI 22)
+        'FaceRecognizer': '\033[38;5;23m',              # Gris azulado oscuro (ANSI 23)
+        'ErrorHandler': '\033[38;5;166m',               # Naranja quemado (ANSI 166)
+        'DeviceAuth': '\033[38;5;75m',                  # Azul verdoso (ANSI 75)
+        'JWTManager': '\033[38;5;108m',                 # Verde azulado (ANSI 108)
+        'AuthService': '\033[38;5;135m',                # Púrpura claro (ANSI 135)
+        'root': '\033[38;5;245m',                       # Gris claro (ANSI 245)
     }
 
     RESET = '\033[0m'

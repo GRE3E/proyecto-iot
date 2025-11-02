@@ -1,30 +1,44 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData, ArduinoCommandSend
+from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData, ArduinoCommandSend, DeviceState
 from src.db.database import get_db
 from src.db import models
 import logging
 from src.api.utils import get_mqtt_client
+from src.iot import device_manager
+import json
 
 logger = logging.getLogger("APIRoutes")
 
 iot_router = APIRouter()
 
 @iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
-async def send_arduino_command(command: ArduinoCommandSend):
+@iot_router.post("/command", response_model=dict)
+async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = Depends(get_db)):
     mqtt_client = get_mqtt_client()
     if not mqtt_client or not mqtt_client.is_connected:
         logger.error("MQTT client no está inicializado o conectado.")
         raise HTTPException(status_code=500, detail="MQTT client no está inicializado o conectado.")
     
     success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+
     if not success:
         logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
         raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
-    
-    logger.info(f"Comando MQTT enviado exitosamente a {command.mqtt_topic}: {command.command_payload}")
-    return {"message": "Comando MQTT enviado exitosamente.", "topic": command.mqtt_topic, "payload": command.command_payload}
+
+    await device_manager.process_mqtt_message_and_update_state(db, command.mqtt_topic, command.command_payload)
+
+    return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
+
+@iot_router.get("/device_states", response_model=List[DeviceState])
+async def get_all_device_states(db: AsyncSession = Depends(get_db)):
+    """
+    Obtiene el estado de todos los dispositivos IoT almacenados en la base de datos.
+    """
+    device_states = await device_manager.get_all_device_states(db)
+    return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
 async def get_iot_dashboard_data(request: Request):

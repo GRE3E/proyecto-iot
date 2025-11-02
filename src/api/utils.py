@@ -8,6 +8,8 @@ from src.ai.speaker.speaker import SpeakerRecognitionModule
 from src.ai.tts.tts_module import TTSModule
 from src.rc.rc_core import FaceRecognitionCore 
 from src.ai.hotword.hotword import HotwordDetector, hotword_callback_async
+from src.db.database import get_db
+from src.iot import device_manager
 from src.iot.mqtt_client import MQTTClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.models import APILog
@@ -250,12 +252,17 @@ async def _initialize_mqtt_client() -> None:
     global _mqtt_client
     mqtt_broker = os.getenv("MQTT_BROKER")
     mqtt_port = os.getenv("MQTT_PORT")
+
+    def _on_console_message(payload):
+        logger.info(f"[ARDUINO CONSOLE]: {payload}")
+
     if mqtt_broker and mqtt_port:
-        _mqtt_client = await ErrorHandler.safe_execute_async(
-            lambda: MQTTClient(broker=mqtt_broker, port=int(mqtt_port)),
-            default_return=None,
-            context="initialize_nlp.mqtt_client"
-        )
+        async with get_db() as db:
+            _mqtt_client = await ErrorHandler.safe_execute_async(
+                lambda: MQTTClient(broker=mqtt_broker, port=int(mqtt_port), db=db, device_manager=device_manager),
+                default_return=None,
+                context="initialize_nlp.mqtt_client"
+            )
         
         if _mqtt_client:
             await ErrorHandler.safe_execute_async(
@@ -263,6 +270,7 @@ async def _initialize_mqtt_client() -> None:
                 context="initialize_nlp.mqtt_connect"
             )
             await _mqtt_client._online_event.wait()
+            _mqtt_client.subscribe("iot/system/console", _on_console_message)
             logger.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
     else:
         logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")

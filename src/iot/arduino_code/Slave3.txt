@@ -14,6 +14,10 @@ bool estado[8] = {false};
 const int ABIERTO = 90;
 const int CERRADO = 0;
 
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(SLAVE_ADDRESS);
@@ -26,14 +30,14 @@ void setup() {
     delay(100);
   }
   
-  Serial.println("=== SLAVE 3 - Control de Puertas ===");
-  Serial.println("Direccion I2C: 10");
-  Serial.println("8 servomotores disponibles (0-7)");
-  Serial.println("0=PRINCIPAL, 1=GARAJE, 2=PASILLO, 3=H.INVITADOS");
-  Serial.println("4=B.INVITADOS, 5=LAVANDERIA, 6=B.PRINCIPAL, 7=H.PRINCIPAL");
-  Serial.println("Pines: 2-9");
-  Serial.println("Angulo CERRADO: 0, ABIERTO: 90");
-  Serial.println("Sistema listo");
+  consolePrint("=== SLAVE 3 - Control de Puertas ===");
+  consolePrint("Direccion I2C: 10");
+  consolePrint("8 servomotores disponibles (0-7)");
+  consolePrint("0=PRINCIPAL, 1=GARAJE, 2=PASILLO, 3=H.INVITADOS");
+  consolePrint("4=B.INVITADOS, 5=LAVANDERIA, 6=B.PRINCIPAL, 7=H.PRINCIPAL");
+  consolePrint("Pines: 2-9");
+  consolePrint("Angulo CERRADO: 0, ABIERTO: 90");
+  consolePrint("Sistema listo");
 }
 
 void loop() {
@@ -67,22 +71,22 @@ void receiveEvent(int howMany) {
       if (accion == "ABRIR") {
         servos[index].write(ABIERTO);
         estado[index] = true;
-        Serial.println("Puerta " + String(index) + " ABIERTA [Pin " + String(servoPins[index]) + ", Angulo: 90]");
-      } 
+        consolePrint("Puerta " + String(index) + " ABIERTA [Pin " + String(servoPins[index]) + ", Angulo: 90]");
+      }
       else if (accion == "CERRAR") {
         servos[index].write(CERRADO);
         estado[index] = false;
-        Serial.println("Puerta " + String(index) + " CERRADA [Pin " + String(servoPins[index]) + ", Angulo: 0]");
+        consolePrint("Puerta " + String(index) + " CERRADA [Pin " + String(servoPins[index]) + ", Angulo: 0]");
       }
       else {
-        Serial.println("ERROR: Accion desconocida: " + accion);
+        consolePrint("ERROR: Accion desconocida: " + accion);
       }
     } else {
-      Serial.println("ERROR: Indice de puerta invalido: " + String(index) + " (rango: 0-7)");
+      consolePrint("ERROR: Indice de puerta invalido: " + String(index) + " (rango: 0-7)");
     }
   } else {
-    Serial.println("ERROR: Formato de comando invalido: " + cmd);
-    Serial.println("Formato esperado: NUMERO_ACCION (ej: 2_ABRIR)");
+    consolePrint("ERROR: Formato de comando invalido: " + cmd);
+    consolePrint("Formato esperado: NUMERO_ACCION (ej: 2_ABRIR)");
   }
 }
 
@@ -90,5 +94,5 @@ void requestEvent() {
   for (int i = 0; i < 8; i++) {
     Wire.write(estado[i] ? '1' : '0');
   }
-  Serial.println("Estados enviados al Master");
+  consolePrint("Estados enviados al Master");
 }

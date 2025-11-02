@@ -39,26 +39,30 @@ String serialBuffer = "";
 unsigned long ultimaLectura = 0;
 const unsigned long intervaloLectura = 5000;
 
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
   Wire.setClock(100000);
   
-  Serial.println("=== Arduino MASTER I2C ===");
-  Serial.println("Sistema de control domotico");
-  Serial.println("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc.");
-  Serial.println("\nDispositivos disponibles:");
-  Serial.println("\nLuces:");
+  consolePrint("=== Arduino MASTER I2C ===");
+  consolePrint("Sistema de control domotico");
+  consolePrint("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc.");
+  consolePrint("\nDispositivos disponibles:");
+  consolePrint("\nLuces:");
   for (int i = 0; i < 9; i++) {
-    Serial.println("  - " + luces[i].name);
+    consolePrint("  - " + luces[i].name);
   }
-  Serial.println("\nPuertas:");
+  consolePrint("\nPuertas:");
   for (int i = 0; i < 8; i++) {
-    Serial.println("  - " + puertas[i].name);
+    consolePrint("  - " + puertas[i].name);
   }
-  Serial.println("\nActuadores:");
-  Serial.println("  - VENTILADOR");
-  Serial.println("\nSistema listo\n");
+  consolePrint("\nActuadores:");
+  consolePrint("  - VENTILADOR");
+  consolePrint("\nSistema listo\n");
 }
 
 void loop() {
@@ -119,13 +123,13 @@ void procesarComando(String cmd) {
   
   cmd.toUpperCase();
   
-  Serial.println("\n[PROCESANDO]: " + cmd);
+  consolePrint("\n[PROCESANDO]: " + cmd);
   
   if (cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1 || cmd.indexOf("LAMPARA") != -1) {
     int luzIndex = getLuzIndex(cmd);
     
     if (luzIndex == -1) {
-      Serial.println("[ERROR] Luz no encontrada");
+      consolePrint("[ERROR] Luz no encontrada");
       return;
     }
     
@@ -135,20 +139,20 @@ void procesarComando(String cmd) {
     } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
       accion = "APAGAR";
     } else {
-      Serial.println("[ERROR] Accion no reconocida para luz");
+      consolePrint("[ERROR] Accion no reconocida para luz");
       return;
     }
     
     String comando = String(luzIndex) + "_" + accion;
     enviarComandoI2C(SLAVE_LUCES_ADDRESS, comando);
-    Serial.println("[OK] Luz " + getLuzName(luzIndex) + " " + accion);
+    consolePrint("[OK] Luz " + getLuzName(luzIndex) + " " + accion);
   }
   
   else if (cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
     int puertaIndex = getPuertaIndex(cmd);
     
     if (puertaIndex == -1) {
-      Serial.println("[ERROR] Puerta no encontrada");
+      consolePrint("[ERROR] Puerta no encontrada");
       return;
     }
     
@@ -158,13 +162,13 @@ void procesarComando(String cmd) {
     } else if (cmd.indexOf("CERRAR") != -1 || cmd.indexOf("CLOSE") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
       accion = "CERRAR";
     } else {
-      Serial.println("[ERROR] Accion no reconocida para puerta");
+      consolePrint("[ERROR] Accion no reconocida para puerta");
       return;
     }
     
     String comando = String(puertaIndex) + "_" + accion;
     enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
-    Serial.println("[OK] Puerta " + getPuertaName(puertaIndex) + " " + accion);
+    consolePrint("[OK] Puerta " + getPuertaName(puertaIndex) + " " + accion);
   }
   
   else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1 || cmd.indexOf("VENTILACION") != -1 || cmd.indexOf("AIRE") != -1) {
@@ -174,31 +178,31 @@ void procesarComando(String cmd) {
     } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
       accion = "VENTILADOR_APAGAR";
     } else {
-      Serial.println("[ERROR] Accion no reconocida para ventilador");
+      consolePrint("[ERROR] Accion no reconocida para ventilador");
       return;
     }
     
     enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
-    Serial.println("[OK] " + accion);
+    consolePrint("[OK] " + accion);
   }
   
   else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
-    Serial.println("[INFO] Consultando estados...");
+    consolePrint("[INFO] Consultando estados...");
     leerYEnviarEstados();
   }
   
   else if (cmd.indexOf("HELP") != -1 || cmd.indexOf("AYUDA") != -1) {
-    Serial.println("\n=== COMANDOS DISPONIBLES ===");
-    Serial.println("Luces: 'encender/apagar luz [NOMBRE]'");
-    Serial.println("Puertas: 'abrir/cerrar puerta [NOMBRE]'");
-    Serial.println("Ventilador: 'encender/apagar ventilador'");
-    Serial.println("Estado: 'status' o 'estado'");
-    Serial.println("============================\n");
+    consolePrint("\n=== COMANDOS DISPONIBLES ===");
+    consolePrint("Luces: 'encender/apagar luz [NOMBRE]'");
+    consolePrint("Puertas: 'abrir/cerrar puerta [NOMBRE]'");
+    consolePrint("Ventilador: 'encender/apagar ventilador'");
+    consolePrint("Estado: 'status' o 'estado'");
+    consolePrint("============================\n");
   }
   
   else {
-    Serial.println("[ERROR] Comando no entendido");
-    Serial.println("Escribe 'help' para ver comandos disponibles");
+    consolePrint("[ERROR] Comando no entendido");
+    consolePrint("Escribe 'help' para ver comandos disponibles");
   }
 }
 
@@ -208,13 +212,13 @@ void enviarComandoI2C(int address, String comando) {
   byte error = Wire.endTransmission();
   
   if (error != 0) {
-    Serial.println("[ERROR I2C] Slave " + String(address) + " (codigo: " + String(error) + ")");
+    consolePrint("[ERROR I2C] Slave " + String(address) + " (codigo: " + String(error) + ")");
   }
   delay(50);
 }
 
 void leerYEnviarEstados() {
-  Serial.println("\n--- ESTADOS ACTUALES ---");
+  consolePrint("\n--- ESTADOS ACTUALES ---");
   
   // === LUCES ===
   Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
@@ -222,11 +226,11 @@ void leerYEnviarEstados() {
   int lucesRecibidas = 0;
   for (int i = 0; i < 9 && Wire.available(); i++) {
     byte estado = Wire.read();
-    Serial.println("LIGHT|" + getLuzName(i) + "|" + ((estado == '1') ? "ON" : "OFF"));
+    consolePrint("LIGHT|" + getLuzName(i) + "|" + ((estado == '1') ? "ON" : "OFF"));
     lucesRecibidas++;
   }
   if (lucesRecibidas == 0) {
-    Serial.println("[ERROR] No se recibieron estados de luces");
+    consolePrint("[ERROR] No se recibieron estados de luces");
   }
   
   // === SENSORES ===
@@ -246,15 +250,15 @@ void leerYEnviarEstados() {
       String dist = datos.substring(c1 + 3, c2);
       String vent = datos.substring(c2 + 3);
       
-      Serial.println("SENSOR|TEMPERATURA|" + temp + "C");
-      Serial.println("SENSOR|DISTANCIA|" + dist + "cm");
+      consolePrint("SENSOR|TEMPERATURA|" + temp + "C");
+      consolePrint("SENSOR|DISTANCIA|" + dist + "cm");
       String estadoVent = (vent == "1") ? "ON" : "OFF";
-      Serial.println("ACTUATOR|VENTILADOR|" + estadoVent);
+      consolePrint("ACTUATOR|VENTILADOR|" + estadoVent);
     } else {
-      Serial.println("[ERROR] Formato de datos de sensores invalido: " + datos);
+      consolePrint("[ERROR] Formato de datos de sensores invalido: " + datos);
     }
   } else {
-    Serial.println("[ERROR] No se recibieron datos de sensores");
+    consolePrint("[ERROR] No se recibieron datos de sensores");
   }
   
   // === PUERTAS ===
@@ -263,12 +267,12 @@ void leerYEnviarEstados() {
   int puertasRecibidas = 0;
   for (int i = 0; i < 8 && Wire.available(); i++) {
     byte estado = Wire.read();
-    Serial.println("DOOR|" + getPuertaName(i) + "|" + ((estado == '1') ? "OPEN" : "CLOSED"));
+    consolePrint("DOOR|" + getPuertaName(i) + "|" + ((estado == '1') ? "OPEN" : "CLOSED"));
     puertasRecibidas++;
   }
   if (puertasRecibidas == 0) {
-    Serial.println("[ERROR] No se recibieron estados de puertas");
+    consolePrint("[ERROR] No se recibieron estados de puertas");
   }
   
-  Serial.println("--- FIN ESTADOS ---\n");
+  consolePrint("--- FIN ESTADOS ---\n");
 }

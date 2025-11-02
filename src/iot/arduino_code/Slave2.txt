@@ -17,6 +17,10 @@ bool ventilador = false;
 unsigned long ultimaLecturaSensor = 0;
 const unsigned long intervaloSensor = 500;
 
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(SLAVE_ADDRESS);
@@ -29,12 +33,12 @@ void setup() {
   digitalWrite(trig, LOW);
   analogWrite(fan, 0);
   
-  Serial.println("=== SLAVE 2 - Sensores y Actuadores ===");
-  Serial.println("Direccion I2C: 9");
-  Serial.println("Sensor temperatura: A0 (LM35)");
-  Serial.println("Sensor distancia: Trig=4, Echo=3 (HC-SR04)");
-  Serial.println("Ventilador: Pin 5 (PWM)");
-  Serial.println("Sistema listo");
+  consolePrint("=== SLAVE 2 - Sensores y Actuadores ===");
+  consolePrint("Direccion I2C: 9");
+  consolePrint("Sensor temperatura: A0 (LM35)");
+  consolePrint("Sensor distancia: Trig=4, Echo=3 (HC-SR04)");
+  consolePrint("Ventilador: Pin 5 (PWM)");
+  consolePrint("Sistema listo");
 }
 
 void loop() {
@@ -46,11 +50,11 @@ void loop() {
     static unsigned long ultimoReporte = 0;
     if (millis() - ultimoReporte >= 5000) {
       ultimoReporte = millis();
-      Serial.println("--- Lecturas Actuales ---");
-      Serial.println("Temperatura: " + String(temperatura, 1) + "C");
-      Serial.println("Distancia: " + String(distancia) + " cm");
-      Serial.println("Ventilador: " + String(ventilador ? "ON" : "OFF"));
-      Serial.println("------------------------");
+      consolePrint("--- Lecturas Actuales ---");
+      consolePrint("Temperatura: " + String(temperatura, 1) + "C");
+      consolePrint("Distancia: " + String(distancia) + " cm");
+      consolePrint("Ventilador: " + String(ventilador ? "ON" : "OFF"));
+      consolePrint("------------------------");
     }
   }
 }
@@ -75,16 +79,16 @@ void receiveEvent(int howMany) {
   if (cmd == "VENTILADOR_ENCENDER") {
     analogWrite(fan, 200);
     ventilador = true;
-    Serial.println("Ventilador ENCENDIDO (PWM: 200/255)");
+    consolePrint("Ventilador ENCENDIDO (PWM: 200/255)");
   } 
   else if (cmd == "VENTILADOR_APAGAR") {
     analogWrite(fan, 0);
     ventilador = false;
-    Serial.println("Ventilador APAGADO");
+    consolePrint("Ventilador APAGADO");
   }
   else {
-    Serial.println("ERROR: Comando no reconocido: " + cmd);
-    Serial.println("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR");
+    consolePrint("ERROR: Comando no reconocido: " + cmd);
+    consolePrint("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR");
   }
 }
 
@@ -100,7 +104,7 @@ void requestEvent() {
   
   if (data.length() <= 16) {
     Wire.write(data.c_str());
-    Serial.println("Datos enviados: " + data);
+    consolePrint("Datos enviados: " + data);
   } else {
     String fallback = "T:" + String(tempInt) + ",D:0,V:0";
     Wire.write(fallback.c_str());

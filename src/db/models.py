@@ -221,4 +221,22 @@ class Face(Base):
     image_data = Column(LargeBinary, nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="faces")
+
+class DeviceState(Base):
+    __tablename__ = "device_states"
+    """
+    Modelo para almacenar el estado actual de los dispositivos IoT.
+
+    Atributos:
+        id (int): Identificador único del estado del dispositivo.
+        device_name (str): Nombre único del dispositivo (ej. "luz_sala", "sensor_temperatura_cocina").
+        device_type (str): Tipo de dispositivo (ej. "luz", "sensor_temperatura", "ventilador", "valvula").
+        state_json (str): Estado actual del dispositivo en formato JSON.
+        last_updated (datetime): Marca de tiempo de la última actualización del estado.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_name = Column(String(100), unique=True, nullable=False)
+    device_type = Column(String(50), nullable=False)
+    state_json = Column(Text, default="{}")
+    last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
     

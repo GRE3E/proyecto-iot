@@ -140,7 +140,6 @@ class TTSModule:
                 current_tts_audio_output_path = AUDIO_OUTPUT_DIR / f"tts_audio_{uuid.uuid4()}_{i}.wav"
                 logger.info(f"Generando audio {i+1}/{len(sentences)}: '{sentence[:50]}...'")
                 
-                # Generar audio de forma secuencial
                 future = self.generate_speech(sentence, str(current_tts_audio_output_path))
                 result = await asyncio.to_thread(future.result)
                 
@@ -150,12 +149,10 @@ class TTSModule:
                 else:
                     logger.error(f"Error: Audio {i+1} no generado correctamente")
                     
-                # Pequeña pausa entre generaciones para estabilidad
                 await asyncio.sleep(0.1)
                 
             except Exception as e:
                 logger.error(f"Error al generar audio {i+1}: {str(e)}")
-                # Continuar con la siguiente frase en caso de error
                 continue
         
         if not generated_file_paths:
@@ -203,5 +200,4 @@ class TTSModule:
 
             except Exception as e:
                 logger.error(f"Error al generar audio {i+1} para la frase '{sentence[:50]}...': {str(e)}")
-                # Continuar con la siguiente frase en caso de error
                 continue

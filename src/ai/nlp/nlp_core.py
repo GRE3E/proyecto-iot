@@ -5,6 +5,7 @@ from typing import Optional, Any, Dict
 from pathlib import Path
 from ollama import ResponseError
 from httpx import ConnectError
+from src.ai.nlp.memory_manager import MemoryManager
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.config_manager import ConfigManager
 from src.ai.nlp.iot_command_processor import IoTCommandProcessor
@@ -42,6 +43,7 @@ class NLPModule:
         self._is_closing = False
         self.mqtt_client = None
         self._user_manager = UserManager()
+        self._memory_manager = MemoryManager()
         self._iot_command_processor = None
         self._reload_lock = asyncio.Lock()
         logger.info("NLPModule inicializado.")
@@ -177,6 +179,12 @@ class NLPModule:
             search_results_str = "No se encontraron resultados en el historial de conversaciones."
             
         return search_results_str, True
+
+    async def get_conversation_history(self, db: AsyncSession, user_id: int, limit: int = 100):
+        """
+        Recupera el historial de conversación para un usuario específico.
+        """
+        return await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit)
     
     async def _process_iot_command(self, db: AsyncSession, full_response_content: str) -> tuple[str, Optional[str]]:
         """Procesa comandos IoT en la respuesta"""

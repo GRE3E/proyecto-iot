@@ -1,9 +1,10 @@
 import logging
-import asyncio
 import time
 from typing import Generator, Optional, List
 from sqlalchemy import or_
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from src.db.models import UserMemory, ConversationLog
 from src.db.database import get_db
@@ -29,21 +30,22 @@ class MemoryManager:
         """
         return get_db()
 
-    async def get_user_memory(self, db: Session, user_id: int) -> UserMemory:
+    async def get_user_memory(self, db: AsyncSession, user_id: int) -> UserMemory:
         """Recupera la memoria del usuario de la base de datos, creándola si no existe.
 
         Args:
-            db (Session): La sesión de la base de datos.
+            db (AsyncSession): La sesión de la base de datos.
             user_id (int): El ID del usuario.
 
         Returns:
             UserMemory: El objeto UserMemory del usuario.
         """
         logger.debug(f"Recuperando memoria para el usuario {user_id}")
-        return await asyncio.to_thread(self._sync_get_user_memory_logic, db, user_id)
+        return await self._async_get_user_memory_logic(db, user_id)
 
-    def _sync_get_user_memory_logic(self, db: Session, user_id: int) -> UserMemory:
-        memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
+    async def _async_get_user_memory_logic(self, db: AsyncSession, user_id: int) -> UserMemory:
+        result = await db.execute(select(UserMemory).filter(UserMemory.user_id == user_id).with_for_update())
+        memory_db = result.scalars().first()
         
         if memory_db:
             logger.debug(f"Memoria recuperada para el usuario {user_id}: {memory_db}")
@@ -52,16 +54,17 @@ class MemoryManager:
         try:
             memory_db = UserMemory(user_id=user_id)
             db.add(memory_db)
-            db.commit()
-            db.refresh(memory_db)
+            await db.commit()
+            await db.refresh(memory_db)
             logger.debug(f"Nueva memoria creada para el usuario {user_id}: {memory_db}")
             return memory_db
         except IntegrityError:
-            db.rollback()
+            await db.rollback()
             logger.info(f"Memoria ya existe para el usuario {user_id} debido a inserción concurrente. Recuperando registro existente.")
             
             for retry in range(3):
-                memory_db = db.query(UserMemory).filter(UserMemory.user_id == user_id).with_for_update().first()
+                result = await db.execute(select(UserMemory).filter(UserMemory.user_id == user_id).with_for_update())
+                memory_db = result.scalars().first()
                 if memory_db:
                     logger.debug(f"Memoria recuperada para el usuario {user_id} después de {retry+1} intentos: {memory_db}")
                     return memory_db
@@ -70,12 +73,12 @@ class MemoryManager:
             raise ValueError(f"Imposible recuperar memoria para usuario {user_id} después de múltiples intentos")
 
     async def search_conversation_logs(
-        self, db: Session, user_id: int, query: str, limit: int = 10
+        self, db: AsyncSession, user_id: int, query: str, limit: int = 10
     ) -> List[ConversationLog]:
         logger.debug(f"Buscando en el historial de conversación para el usuario '{user_id}' con la consulta '{query}' y límite '{limit}'.")
         try:
-            logs = await asyncio.to_thread(
-                lambda: db.query(ConversationLog)
+            result = await db.execute(
+                select(ConversationLog)
                 .filter(
                     ConversationLog.user_id == user_id,
                     or_(
@@ -83,36 +86,63 @@ class MemoryManager:
                         ConversationLog.response.ilike(f"%{query}%"),
                     ),
                 )
-                .order_by(ConversationLog.timestamp.desc())
+                .order_by(ConversationLog.timestamp.asc())
                 .limit(limit)
-                .all()
             )
+            logs = result.scalars().all()
             logger.debug(f"Se encontraron {len(logs)} registros de conversación para la consulta '{query}'.")
             return logs
         except Exception as e:
             logger.error(f"Error al buscar en el historial de conversación para el usuario '{user_id}': {e}")
             return []
 
-    async def update_memory(self, user_id: int, prompt: str, response: str, db: Session, speaker_identifier: Optional[str] = None):
+    async def get_conversation_logs_by_user_id(self, db: AsyncSession, user_id: int, limit: int = 100) -> List[ConversationLog]:
+        """
+        Recupera los logs de conversación para un usuario específico.
+
+        Args:
+            db (Session): La sesión de la base de datos.
+            user_id (int): El ID del usuario.
+            limit (int): El número máximo de logs a recuperar.
+
+        Returns:
+            List[ConversationLog]: Una lista de objetos ConversationLog.
+        """
+        logger.debug(f"Recuperando logs de conversación para el usuario '{user_id}' con límite '{limit}'.")
+        try:
+            result = await db.execute(
+                select(ConversationLog)
+                .filter(ConversationLog.user_id == user_id)
+                .order_by(ConversationLog.timestamp.asc())
+                .limit(limit)
+            )
+            logs = result.scalars().all()
+            logger.debug(f"Se encontraron {len(logs)} logs de conversación para el usuario '{user_id}'.")
+            return logs
+        except Exception as e:
+            logger.error(f"Error al recuperar logs de conversación para el usuario '{user_id}': {e}")
+            return []
+
+    async def update_memory(self, user_id: int, prompt: str, response: str, db: AsyncSession, speaker_identifier: Optional[str] = None):
         """Actualiza la última interacción del usuario y registra la conversación.
 
         Args:
             user_id (int): El ID del usuario.
             prompt (str): El prompt enviado por el usuario.
             response (str): La respuesta generada por el asistente.
-            db (Session): La sesión de la base de datos.
+            db (AsyncSession): La sesión de la base de datos.
             speaker_identifier (Optional[str]): Identificador del hablante, si está disponible.
         """
         logger.debug(f"Actualizando memoria para el usuario {user_id}. Prompt: '{prompt[:50]}...', Response: '{response[:50]}...' ")
-        await asyncio.to_thread(self._sync_update_memory_logic, user_id, prompt, response, db, speaker_identifier)
+        await self._async_update_memory_logic(user_id, prompt, response, db, speaker_identifier)
 
-    def _sync_update_memory_logic(self, user_id: int, prompt: str, response: str, db: Session, speaker_identifier: Optional[str] = None):
+    async def _async_update_memory_logic(self, user_id: int, prompt: str, response: str, db: AsyncSession, speaker_identifier: Optional[str] = None):
         timestamp = datetime.now()
 
-        memory_db = self._sync_get_user_memory_logic(db, user_id)
+        memory_db = await self._async_get_user_memory_logic(db, user_id)
 
         memory_db.last_interaction = timestamp
-        db.commit()
+        await db.commit()
         logger.debug(f"Última interacción actualizada para el usuario {user_id}.")
 
         conversation = ConversationLog(
@@ -123,5 +153,6 @@ class MemoryManager:
             speaker_identifier=speaker_identifier
         )
         db.add(conversation)
-        db.commit()
+        await db.commit()
         logger.info(f"Log de conversación guardado para el usuario {user_id}. Prompt: '{prompt[:50]}...' ")
+        

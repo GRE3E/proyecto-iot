@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from src.db.database import get_db
-from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate
+from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, ConversationHistoryResponse, ConversationLogEntry
 from src.api.schemas import StatusResponse
 from src.auth.auth_service import get_current_user
 from src.db.models import User
@@ -86,3 +86,33 @@ async def update_capabilities(update: CapabilitiesUpdate):
     except Exception as e:
         logger.error(f"Error al actualizar capacidades para /config/capabilities: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar las capacidades: {str(e)}")
+
+@nlp_router.get("/nlp/history/{user_id}", response_model=ConversationHistoryResponse)
+async def get_user_conversation_history(
+    user_id: int,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user)
+):
+    """Recupera el historial de conversación para un usuario específico."""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para acceder al historial de conversación de este usuario.")
+
+    try:
+        async with get_db() as db:
+            logs = await utils._nlp_module.get_conversation_history(db, user_id, limit)
+            response_data = ConversationHistoryResponse(history=[
+                ConversationLogEntry(
+                    user_message=log.prompt,
+                    assistant_message=log.response
+                ) for log in logs
+            ])
+            await utils._save_api_log(
+                f"/nlp/history/{user_id}",
+                {"user_id": user_id, "limit": limit},
+                response_data.dict(),
+                db
+            )
+            return response_data
+    except Exception as e:
+        logger.error(f"Error al recuperar el historial de conversación para el usuario {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al recuperar el historial de conversación: {str(e)}")

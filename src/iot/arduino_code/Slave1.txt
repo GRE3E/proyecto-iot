@@ -1,5 +1,5 @@
 // ========================================
-// ESCLAVO 1 - LUCES (TOTALMENTE CORREGIDO)
+// ESCLAVO 1 - LUCES
 // ========================================
 #include <Wire.h>
 
@@ -24,7 +24,7 @@ void setup() {
     digitalWrite(ledPins[i], LOW);
   }
   
-  consolePrint("=== SLAVE 1 - Control de Luces (CORREGIDO) ===");
+  consolePrint("=== SLAVE 1 - Control de Luces");
   consolePrint("Direccion I2C: 8");
   consolePrint("9 luces disponibles (0-8)");
   consolePrint("0=GARAJE, 1=PASILLO, 2=H.INVITADOS, 3=B.INVITADOS");

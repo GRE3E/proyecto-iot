@@ -2,16 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import SimpleCard from "../components/UI/Card";
-import SimpleButton from "../components/UI/Button";
 import {
   Mic,
   Send,
-  Trash2,
-  Bot,
   Volume2,
   VolumeX,
+  Bot,
+  Trash2,
 } from "lucide-react";
+import ProfileNotifications from "../components/UI/ProfileNotifications";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 
 export default function Chat() {
@@ -30,12 +29,10 @@ export default function Chat() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll automático
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Enviar con Enter (sin Shift)
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && text.trim()) {
       e.preventDefault();
@@ -46,25 +43,43 @@ export default function Chat() {
   const canSend = text.trim() !== "";
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full p-2 sm:p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
-      <SimpleCard className="relative flex flex-col w-full max-w-3xl h-[85vh] mx-auto bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
+      {/* 🔹 HEADER PRINCIPAL — igual que las otras secciones */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
+        {/* Título con ícono */}
+        <div className="flex items-center gap-4 -mt-6 md:-mt-7">
+          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
+            <Bot className="w-8 md:w-10 h-8 md:h-10 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
+            CHAT AI
+          </h2>
+        </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-          <div className="flex items-center gap-2 text-white font-semibold text-sm sm:text-base">
+        {/* PERFIL + NOTIFICACIONES */}
+        <ProfileNotifications userName="Usuario" />
+      </div>
+
+      {/* 🔹 ÁREA DEL CHAT */}
+      <div className="flex flex-col w-full h-[78vh] bg-slate-900/60 backdrop-blur-md rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+
+        {/* Sub-header dentro del chat */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/70">
+          <div className="flex items-center gap-2 text-gray-200 font-medium text-lg">
             <Bot className="w-5 h-5 text-blue-400" />
-            <span>CasaIA Chat</span>
+            <span>Asistente CasaIA</span>
           </div>
           <button
             onClick={clearMessages}
-            className="text-red-400 hover:text-red-500 transition p-1"
+            className="text-red-400 hover:text-red-500 transition"
+            title="Borrar conversación"
           >
             <Trash2 className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 text-sm text-gray-300">
+        {/* 💬 Mensajes */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 custom-scrollbar">
           <AnimatePresence>
             {messages.map((msg, i) => (
               <motion.div
@@ -72,13 +87,14 @@ export default function Chat() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 className={`flex ${msg.sender === "Tú" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm break-words ${
+                  className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-md ${
                     msg.sender === "Tú"
                       ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-slate-700/70 text-gray-100 rounded-bl-none"
+                      : "bg-slate-800/70 text-gray-100 rounded-bl-none border border-slate-700/60"
                   }`}
                 >
                   <p>{msg.text}</p>
@@ -88,70 +104,69 @@ export default function Chat() {
           </AnimatePresence>
 
           {isTyping && (
-            <div className="text-gray-500 italic text-xs px-2">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-gray-500 italic text-xs px-2"
+            >
               CasaIA está escribiendo...
-            </div>
+            </motion.div>
           )}
 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input – responsive fix */}
-        <div className="flex items-center gap-2 p-2 sm:p-3 border-t border-slate-700 bg-slate-900/60">
-
+        {/* 🔹 INPUT BAR */}
+        <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-800 bg-slate-900/70 backdrop-blur-sm">
           {/* Mic */}
           <button
             onClick={toggleVoiceActive}
-            className={`p-2 rounded-full transition flex-shrink-0 ${
+            className={`p-2 rounded-full transition-all ${
               listening
                 ? "bg-red-600 text-white animate-pulse"
-                : "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-slate-800 text-gray-400 hover:text-blue-400"
             }`}
           >
             <Mic className="w-5 h-5" />
           </button>
 
-          {/* Texto */}
+          {/* Campo de texto */}
           <input
             ref={inputRef}
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder={listening ? "Escuchando... habla ahora" : "Escribe tu mensaje..."}
-            className="flex-1 min-w-0 bg-slate-800 text-white placeholder-gray-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={listening ? "Escuchando..." : "Escribe tu mensaje..."}
+            className="flex-1 bg-slate-800/60 text-white placeholder-gray-500 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
-          {/* Botones derechos (siempre visibles) */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Enviar */}
+          <button
+            onClick={() => canSend && sendMessage()}
+            disabled={!canSend}
+            className={`p-2 rounded-full transition ${
+              canSend
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-slate-800 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            <Send className="w-5 h-5" />
+          </button>
 
-            {/* Enviar */}
-            <SimpleButton
-              onClick={() => canSend && sendMessage()}
-              disabled={!canSend}
-              className={`p-2 rounded-full transition flex-shrink-0 ${
-                canSend
-                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                  : "bg-slate-700 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              <Send className="w-5 h-5" />
-            </SimpleButton>
-
-            {/* Voz */}
-            <button
-              onClick={toggleVoiceActive}
-              className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-gray-300 transition flex-shrink-0"
-            >
-              {voiceActive ? (
-                <Volume2 className="w-5 h-5 text-blue-400" />
-              ) : (
-                <VolumeX className="w-5 h-5" />
-              )}
-            </button>
-          </div>
+          {/* Volumen */}
+          <button
+            onClick={toggleVoiceActive}
+            className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-gray-300 transition"
+          >
+            {voiceActive ? (
+              <Volume2 className="w-5 h-5 text-blue-400" />
+            ) : (
+              <VolumeX className="w-5 h-5" />
+            )}
+          </button>
         </div>
-      </SimpleCard>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Login from "./pages/login";
 import { useThemeByTime } from "./hooks/useThemeByTime";
-import { Home, Settings, Monitor, Shield, MessageCircle } from "lucide-react";
+import { Home, Settings, Monitor, Shield, MessageCircle, Cpu } from "lucide-react";
 
 // Secciones
 import Inicio from "./pages/Inicio";
@@ -34,7 +34,7 @@ export default function App() {
   const menuItems = [
     { name: "Inicio", icon: Home },
     { name: "Casa 3D", icon: Monitor },
-    { name: "Gestión de Dispositivos", icon: Settings },
+    { name: "Gestión de Dispositivos", icon: Cpu },
     { name: "Monitoreo y Seguridad", icon: Shield },
     { name: "Chat", icon: MessageCircle },
     { name: "Configuración", icon: Settings },

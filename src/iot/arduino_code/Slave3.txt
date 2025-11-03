@@ -14,11 +14,7 @@ bool estado[8] = {false};
 const int ABIERTO = 90;
 const int CERRADO = 0;
 
-void consolePrint(const char* message) {
-  Serial.println(message);
-}
-
-void consolePrint(const __FlashStringHelper* message) {
+void consolePrint(String message) {
   Serial.println(message);
 }
 
@@ -34,14 +30,14 @@ void setup() {
     delay(100);
   }
   
-  consolePrint(F("=== SLAVE 3 - Control de Puertas ==="));
-  consolePrint(F("Direccion I2C: 10"));
-  consolePrint(F("8 servomotores disponibles (0-7)"));
-  consolePrint(F("0=PRINCIPAL, 1=GARAJE, 2=PASILLO, 3=H.INVITADOS"));
-  consolePrint(F("4=B.INVITADOS, 5=LAVANDERIA, 6=B.PRINCIPAL, 7=H.PRINCIPAL"));
-  consolePrint(F("Pines: 2-9"));
-  consolePrint(F("Angulo CERRADO: 0, ABIERTO: 90"));
-  consolePrint(F("Sistema listo"));
+  consolePrint("=== SLAVE 3 - Control de Puertas ===");
+  consolePrint("Direccion I2C: 10");
+  consolePrint("8 servomotores disponibles (0-7)");
+  consolePrint("0=PRINCIPAL, 1=GARAJE, 2=PASILLO, 3=H.INVITADOS");
+  consolePrint("4=B.INVITADOS, 5=LAVANDERIA, 6=B.PRINCIPAL, 7=H.PRINCIPAL");
+  consolePrint("Pines: 2-9");
+  consolePrint("Angulo CERRADO: 0, ABIERTO: 90");
+  consolePrint("Sistema listo");
 }
 
 void loop() {
@@ -49,57 +45,48 @@ void loop() {
 }
 
 void receiveEvent(int howMany) {
-  char cmd[MAX_CMD_LENGTH + 1];
-  int i = 0;
+  String cmd = "";
+  int count = 0;
   
-  while (Wire.available() && i < MAX_CMD_LENGTH) {
-    cmd[i++] = Wire.read();
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
   }
-  cmd[i] = '\0'; // Null-terminate the string
   
-  // Clear any remaining bytes in the buffer
   while (Wire.available()) {
     Wire.read();
   }
   
-  // Convert to uppercase (in-place)
-  for (int j = 0; cmd[j]; j++) {
-    cmd[j] = toupper(cmd[j]);
-  }
+  cmd.trim();
+  cmd.toUpperCase();
   
-  char* guion_ptr = strchr(cmd, '_');
+  int guion = cmd.indexOf('_');
   
-  if (guion_ptr != NULL && guion_ptr != cmd && *(guion_ptr + 1) != '\0') {
-    *guion_ptr = '\0'; // Split the string at the underscore
-    int index = atoi(cmd);
-    char* accion = guion_ptr + 1;
-    
-    char consoleBuffer[60];
+  if (guion != -1 && guion > 0 && guion < cmd.length() - 1) {
+    int index = cmd.substring(0, guion).toInt();
+    String accion = cmd.substring(guion + 1);
+    accion.trim();
     
     if (index >= 0 && index < 8) {
-      if (strcmp(accion, "ABRIR") == 0) {
+      if (accion == "ABRIR") {
         servos[index].write(ABIERTO);
         estado[index] = true;
-        sprintf(consoleBuffer, "Puerta %d ABIERTA [Pin %d, Angulo: 90]", index, servoPins[index]);
-        consolePrint(consoleBuffer);
+        consolePrint("Puerta " + String(index) + " ABIERTA [Pin " + String(servoPins[index]) + ", Angulo: 90]");
       }
-      else if (strcmp(accion, "CERRAR") == 0) {
+      else if (accion == "CERRAR") {
         servos[index].write(CERRADO);
         estado[index] = false;
-        sprintf(consoleBuffer, "Puerta %d CERRADA [Pin %d, Angulo: 0]", index, servoPins[index]);
-        consolePrint(consoleBuffer);
+        consolePrint("Puerta " + String(index) + " CERRADA [Pin " + String(servoPins[index]) + ", Angulo: 0]");
       }
       else {
-        sprintf(consoleBuffer, "ERROR: Accion desconocida: %s", accion);
-        consolePrint(consoleBuffer);
+        consolePrint("ERROR: Accion desconocida: " + accion);
       }
     } else {
-      sprintf(consoleBuffer, "ERROR: Indice de puerta invalido: %d (rango: 0-7)", index);
-      consolePrint(consoleBuffer);
+      consolePrint("ERROR: Indice de puerta invalido: " + String(index) + " (rango: 0-7)");
     }
   } else {
-    consolePrint(F("ERROR: Formato de comando invalido"));
-    consolePrint(F("Formato esperado: NUMERO_ACCION (ej: 2_ABRIR)"));
+    consolePrint("ERROR: Formato de comando invalido: " + cmd);
+    consolePrint("Formato esperado: NUMERO_ACCION (ej: 2_ABRIR)");
   }
 }
 
@@ -107,5 +94,5 @@ void requestEvent() {
   for (int i = 0; i < 8; i++) {
     Wire.write(estado[i] ? '1' : '0');
   }
-  consolePrint(F("Estados enviados al Master"));
+  consolePrint("Estados enviados al Master");
 }

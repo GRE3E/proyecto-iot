@@ -82,30 +82,39 @@ String getPuertaName(int index) {
   return "DESCONOCIDA";
 }
 
-void consolePrint(String message) {
+void consolePrint(const char* message) {
   Serial.println(message);
   if (!dentroCallback && client.connected()) {
-    client.publish("iot/system/console", message.c_str());
+    client.publish("iot/system/console", message);
   }
 }
 
-void publicarConfirmacion(String tipo, String dispositivo, String accion, String estado, bool exito) {
-  String mensaje = tipo + "|" + dispositivo + "|" + accion + "|" + estado + "|" + (exito ? "OK" : "ERROR") + "|" + String(millis());
-  client.publish("iot/system/confirmations", mensaje.c_str());
+void publicarConfirmacion(const char* tipo, const char* dispositivo, const char* accion, const char* estado, bool exito) {
+  char mensaje[200]; // Buffer para el mensaje de confirmación
+  snprintf(mensaje, sizeof(mensaje), "%s|%s|%s|%s|%s|%lu",
+           tipo, dispositivo, accion, estado, (exito ? "OK" : "ERROR"), millis());
+  client.publish("iot/system/confirmations", mensaje);
   
-  consolePrint("\n=== CONFIRMACION ===");
-  consolePrint("Tipo: " + tipo);
-  consolePrint("Dispositivo: " + dispositivo);
-  consolePrint("Accion: " + accion);
-  consolePrint("Estado: " + estado);
-  consolePrint("Resultado: " + String(exito ? "OK" : "ERROR"));
-  consolePrint("====================\n");
+  char consoleBuffer[250]; // Buffer para los mensajes de consola
+
+  consolePrint(F("\n=== CONFIRMACION ==="));
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Tipo: %s", tipo);
+  consolePrint(consoleBuffer);
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Dispositivo: %s", dispositivo);
+  consolePrint(consoleBuffer);
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Accion: %s", accion);
+  consolePrint(consoleBuffer);
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Estado: %s", estado);
+  consolePrint(consoleBuffer);
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Resultado: %s", (exito ? "OK" : "ERROR"));
+  consolePrint(consoleBuffer);
+  consolePrint(F("====================\n"));
 }
 
 void setup_wifi() {
   delay(1000);
-  consolePrint("\nIniciando conexion WiFi...");
-  Serial.print("Red: ");
+  consolePrint(F("\nIniciando conexion WiFi..."));
+  Serial.print(F("Red: "));
   consolePrint(ssid);
   
   WiFi.mode(WIFI_STA);
@@ -114,40 +123,53 @@ void setup_wifi() {
   int retries = 0;
   while (WiFi.status() != WL_CONNECTED && retries < 60) {
     delay(500);
-    Serial.print(".");
+    Serial.print(F("."));
     retries++;
   }
   
   if (WiFi.status() == WL_CONNECTED) {
-    consolePrint("\nWiFi conectado");
-    Serial.print("IP: ");
-    consolePrint(WiFi.localIP().toString());
+    consolePrint(F("\nWiFi conectado"));
+    Serial.print(F("IP: "));
+    
+    char ipBuffer[20];
+    IPAddress ip = WiFi.localIP();
+    sprintf(ipBuffer, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+    consolePrint(ipBuffer);
   } else {
-    consolePrint("\nERROR: No se pudo conectar a WiFi");
+    consolePrint(F("\nERROR: No se pudo conectar a WiFi"));
   }
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
   dentroCallback = true;
   
-  Serial.print("\nMQTT recibido en [");
+  Serial.print(F("\nMQTT recibido en ["));
   Serial.print(topic);
-  Serial.println("]");
+  Serial.println(F("]"));
   
-  String message = "";
-  for (unsigned int i = 0; i < length; i++) {
-    message += (char)payload[i];
+  char message[200];
+  unsigned int i;
+  for (i = 0; i < length && i < sizeof(message) - 1; i++) {
+    message[i] = (char)payload[i];
   }
-  message.trim();
+  message[i] = '\0';
   
-  Serial.print("Comando: ");
+  // Convert message to uppercase
+  for (i = 0; i < strlen(message); i++) {
+    message[i] = toupper(message[i]);
+  }
+  
+  Serial.print(F("Comando: "));
   Serial.println(message);
   
-  String topicStr = String(topic);
-  topicStr.toUpperCase();
-  message.toUpperCase();
+  char topicUpper[100];
+  strcpy(topicUpper, topic);
+  for (i = 0; i < strlen(topicUpper); i++) {
+    topicUpper[i] = toupper(topicUpper[i]);
+  }
   
-  String comando = topicStr + "|" + message;
+  char comando[300];
+  snprintf(comando, sizeof(comando), "%s|%s", topicUpper, message);
   procesarComando(comando);
   
   dentroCallback = false;
@@ -155,27 +177,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void reconnect() {
   while (!client.connected() && WiFi.status() == WL_CONNECTED) {
-    Serial.print("Conectando a MQTT broker...");
+    Serial.print(F("Conectando a MQTT broker..."));
     
     if (client.connect(mqtt_client_id)) {
-      consolePrint(" Conectado!");
+      consolePrint(F(" Conectado!"));
       
-      client.subscribe("iot/lights/+/command");
-      client.subscribe("iot/lights/+/status/get");
-      client.subscribe("iot/doors/+/command");
-      client.subscribe("iot/doors/+/status/get");
-      client.subscribe("iot/actuators/VENTILADOR/command");
-      client.subscribe("iot/actuators/VENTILADOR/status/get");
-      client.subscribe("iot/system/command");
-      client.subscribe("iot/system/console/get");
+      client.subscribe(F("iot/lights/+/command"));
+      client.subscribe(F("iot/lights/+/status/get"));
+      client.subscribe(F("iot/doors/+/command"));
+      client.subscribe(F("iot/doors/+/status/get"));
+      client.subscribe(F("iot/actuators/VENTILADOR/command"));
+      client.subscribe(F("iot/actuators/VENTILADOR/status/get"));
+      client.subscribe(F("iot/system/command"));
+      client.subscribe(F("iot/system/console/get"));
       
-      consolePrint("Suscrito a topicos");
-      client.publish("iot/system/gateway/status", "ONLINE");
+      consolePrint(F("Suscrito a topicos"));
+      client.publish(F("iot/system/gateway/status"), F("ONLINE"));
       
     } else {
-      Serial.print(" Fallo (rc=");
-      Serial.print(client.state());
-      consolePrint(") - reintentando en 5s");
+      char consoleBuffer[100];
+      snprintf(consoleBuffer, sizeof(consoleBuffer), " Fallo (rc=%d) - reintentando en 5s", client.state());
+      Serial.print(consoleBuffer);
+      consolePrint(F("")); // Imprimir una línea nueva después del mensaje de error
       delay(5000);
     }
   }
@@ -186,11 +209,12 @@ void leerEstadoLuz(int index) {
   
   byte estado = '0';
   
-  String nombreLuz = getLuzName(index);
-  String topic = "iot/lights/LIGHT_" + nombreLuz + "/status";
-  String valor = (estado == '1') ? "ON" : "OFF";
+  char nombreLuzBuffer[20];
+  getLuzName(index).toCharArray(nombreLuzBuffer, sizeof(nombreLuzBuffer));
   
-  consolePrint("Luz " + nombreLuz + ": " + valor + " (Lectura I2C deshabilitada en Wifi.txt)");
+  char consoleBuffer[100];
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Luz %s: %s (Lectura I2C deshabilitada en Wifi.txt)", nombreLuzBuffer, (estado == '1') ? "ON" : "OFF");
+  consolePrint(consoleBuffer);
 }
 
 void leerEstadoPuerta(int index) {
@@ -198,17 +222,16 @@ void leerEstadoPuerta(int index) {
   
   byte estado = '0';
   
-  String nombrePuerta = getPuertaName(index);
-  String topic = "iot/doors/DOOR_" + nombrePuerta + "/status";
-  String valor = (estado == '1') ? "OPEN" : "CLOSED";
+  char nombrePuertaBuffer[20];
+  getPuertaName(index).toCharArray(nombrePuertaBuffer, sizeof(nombrePuertaBuffer));
   
-  consolePrint("Puerta " + nombrePuerta + ": " + valor + " (Lectura I2C deshabilitada en Wifi.txt)");
+  char consoleBuffer[100];
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Puerta %s: %s (Lectura I2C deshabilitada en Wifi.txt)", nombrePuertaBuffer, (estado == '1') ? "OPEN" : "CLOSED");
+  consolePrint(consoleBuffer);
 }
 
 void leerEstadoVentilador() {
-  String datos = "";
-  
-  consolePrint("Ventilador: Estado no disponible (Lectura I2C deshabilitada en Wifi.txt)");
+  consolePrint(F("Ventilador: Estado no disponible (Lectura I2C deshabilitada en Wifi.txt)"));
 }
 
 void publicarBufferSerial() {
@@ -229,89 +252,93 @@ void procesarComando(String cmd) {
     return;
   }
   
-  consolePrint("Procesando: " + cmd);
+  char consoleBuffer[100];
+  snprintf(consoleBuffer, sizeof(consoleBuffer), "Procesando: %s", cmd.c_str());
+  consolePrint(consoleBuffer);
   
   // Enviar el comando completo al Master
-  enviarComandoI2C(cmd);
+  enviarComandoI2C(cmd.c_str());
   
   // Extraer información para la confirmación
-  String tipo = "";
-  String dispositivo = "";
-  String accion = "";
-  String estado = "";
+  char tipo[20] = "";
+  char dispositivo[50] = "";
+  char accion[50] = "";
+  char estado[50] = "";
   
   if (cmd.indexOf("IOT/LIGHTS/") != -1) {
-    tipo = "LIGHT";
+    strcpy(tipo, "LIGHT");
     int start = cmd.indexOf("LIGHT_") + 6;
     int end = cmd.indexOf("/COMMAND");
     if (start > 6 && end != -1) {
-      dispositivo = cmd.substring(start, end);
+      cmd.substring(start, end).toCharArray(dispositivo, sizeof(dispositivo));
     }
     int pipePos = cmd.indexOf("|");
     if (pipePos != -1) {
-      accion = cmd.substring(pipePos + 1);
-      estado = accion;
+      cmd.substring(pipePos + 1).toCharArray(accion, sizeof(accion));
+      strcpy(estado, accion);
     }
   }
   else if (cmd.indexOf("IOT/DOORS/") != -1) {
-    tipo = "DOOR";
+    strcpy(tipo, "DOOR");
     int start = cmd.indexOf("DOOR_") + 5;
     int end = cmd.indexOf("/COMMAND");
     if (start > 5 && end != -1) {
-      dispositivo = cmd.substring(start, end);
+      cmd.substring(start, end).toCharArray(dispositivo, sizeof(dispositivo));
     }
     int pipePos = cmd.indexOf("|");
     if (pipePos != -1) {
-      accion = cmd.substring(pipePos + 1);
-      estado = accion;
+      cmd.substring(pipePos + 1).toCharArray(accion, sizeof(accion));
+      strcpy(estado, accion);
     }
   }
   else if (cmd.indexOf("IOT/ACTUATORS/VENTILADOR") != -1) {
-    tipo = "ACTUATOR";
-    dispositivo = "VENTILADOR";
+    strcpy(tipo, "ACTUATOR");
+    strcpy(dispositivo, "VENTILADOR");
     int pipePos = cmd.indexOf("|");
     if (pipePos != -1) {
-      accion = cmd.substring(pipePos + 1);
-      estado = accion;
+      cmd.substring(pipePos + 1).toCharArray(accion, sizeof(accion));
+      strcpy(estado, accion);
     }
   }
   else if (cmd.indexOf("IOT/SYSTEM/COMMAND") != -1) {
-    tipo = "SYSTEM";
-    dispositivo = "COMMAND";
+    strcpy(tipo, "SYSTEM");
+    strcpy(dispositivo, "COMMAND");
     int pipePos = cmd.indexOf("|");
     if (pipePos != -1) {
-      accion = cmd.substring(pipePos + 1);
-      estado = accion;
+      cmd.substring(pipePos + 1).toCharArray(accion, sizeof(accion));
+      strcpy(estado, accion);
     }
   }
   
-  if (tipo.length() > 0) {
+  if (strlen(tipo) > 0) {
     publicarConfirmacion(tipo, dispositivo, accion, estado, true);
   }
 }
 
-void enviarComandoI2C(String comando) {
+void enviarComandoI2C(const char* comando) {
   Wire.beginTransmission(1); // Dirección del Master
-  Wire.write((const uint8_t*)comando.c_str(), comando.length());
+  Wire.write((const uint8_t*)comando, strlen(comando));
   byte error = Wire.endTransmission();
   
   if (error != 0) {
-    consolePrint("ERROR I2C Master (codigo: " + String(error) + ")");
+    char consoleBuffer[100];
+    snprintf(consoleBuffer, sizeof(consoleBuffer), "ERROR I2C Master (codigo: %d)", error);
+    consolePrint(consoleBuffer);
     client.publish("iot/system/gateway/error", "I2C Error: No se pudo enviar comando al Master");
   }
   delay(50);
 }
 
 void leerYPublicarEstados() {
-  consolePrint("\n--- Leyendo Estados ---");
+  consolePrint(F("\n--- Leyendo Estados ---"));
   
-  consolePrint("Estados de Luces: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
+  consolePrint(F("Estados de Luces: No disponibles (Lectura I2C deshabilitada en Wifi.txt)"));
   
-  consolePrint("Estados de Sensores: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
+  consolePrint(F("Estados de Sensores: No disponibles (Lectura I2C deshabilitada en Wifi.txt)"));
   
-  consolePrint("Estados de Puertas: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
+  consolePrint(F("Estados de Puertas: No disponibles (Lectura I2C deshabilitada en Wifi.txt)"));
   
-  consolePrint("--- Fin Estados ---\n");
+  consolePrint(F("--- Fin Estados ---\n"));
 }
 
 void leerSerial() {
@@ -329,50 +356,54 @@ void leerSerial() {
 }
 
 void receiveEvent(int howMany) {
-  String receivedMessage = "";
-  while (Wire.available()) {
+  char receivedMessage[200];
+  int i = 0;
+  while (Wire.available() && i < sizeof(receivedMessage) - 1) {
     char c = Wire.read();
-    receivedMessage += c;
+    receivedMessage[i++] = c;
   }
+  receivedMessage[i] = '\0'; // Null-terminate the string
   
-  if (receivedMessage.length() > 0) {
-    if (receivedMessage.startsWith("CONSOLE|")) {
+  if (strlen(receivedMessage) > 0) {
+    char consoleBuffer[250];
+    if (strstr(receivedMessage, "CONSOLE|") == receivedMessage) {
       // Extraer el mensaje de consola
-      int firstPipe = receivedMessage.indexOf('|');
-      int secondPipe = receivedMessage.indexOf('|', firstPipe + 1);
-      if (secondPipe != -1) {
-        String source = receivedMessage.substring(firstPipe + 1, secondPipe);
-        String message = receivedMessage.substring(secondPipe + 1);
-        client.publish("iot/system/console", ("[" + source + "] " + message).c_str());
+      char* token;
+      char* rest = receivedMessage;
+      
+      token = strtok_r(rest, "|", &rest); // CONSOLE
+      char* source = strtok_r(rest, "|", &rest);
+      char* message = rest;
+
+      if (source != NULL && message != NULL) {
+        snprintf(consoleBuffer, sizeof(consoleBuffer), "[%s] %s", source, message);
+        client.publish("iot/system/console", consoleBuffer);
       }
-    } else if (receivedMessage.startsWith("STATE|")) {
+    } else if (strstr(receivedMessage, "STATE|") == receivedMessage) {
       // Extraer el mensaje de estado
-      int firstPipe = receivedMessage.indexOf('|');
-      String stateMessage = receivedMessage.substring(firstPipe + 1);
+      char* token;
+      char* rest = receivedMessage;
+
+      token = strtok_r(rest, "|", &rest); // STATE
+      char* type = strtok_r(rest, "|", &rest);
+      char* device = strtok_r(rest, "|", &rest);
+      char* state = rest;
       
-      int typeEnd = stateMessage.indexOf('|');
-      String type = stateMessage.substring(0, typeEnd);
-      
-      int deviceEnd = stateMessage.indexOf('|', typeEnd + 1);
-      String device = stateMessage.substring(typeEnd + 1, deviceEnd);
-      
-      String state = stateMessage.substring(deviceEnd + 1);
-      
-      String topic = "";
-      if (type == "LIGHT") {
-        topic = "iot/lights/LIGHT_" + device + "/status";
-      } else if (type == "DOOR") {
-        topic = "iot/doors/DOOR_" + device + "/status";
-      } else if (type == "SENSOR" && device == "TEMPERATURA") {
-        topic = "iot/sensors/TEMPERATURE/status";
-      } else if (type == "SENSOR" && device == "DISTANCIA") {
-        topic = "iot/sensors/DISTANCE/status";
-      } else if (type == "ACTUATOR" && device == "VENTILADOR") {
-        topic = "iot/actuators/VENTILADOR/status";
+      char topic[100] = "";
+      if (strcmp(type, "LIGHT") == 0) {
+        snprintf(topic, sizeof(topic), "iot/lights/LIGHT_%s/status", device);
+      } else if (strcmp(type, "DOOR") == 0) {
+        snprintf(topic, sizeof(topic), "iot/doors/DOOR_%s/status", device);
+      } else if (strcmp(type, "SENSOR") == 0 && strcmp(device, "TEMPERATURA") == 0) {
+        strcpy(topic, "iot/sensors/TEMPERATURE/status");
+      } else if (strcmp(type, "SENSOR") == 0 && strcmp(device, "DISTANCIA") == 0) {
+        strcpy(topic, "iot/sensors/DISTANCE/status");
+      } else if (strcmp(type, "ACTUATOR") == 0 && strcmp(device, "VENTILADOR") == 0) {
+        strcpy(topic, "iot/actuators/VENTILADOR/status");
       }
       
-      if (topic.length() > 0) {
-        client.publish(topic.c_str(), state.c_str());
+      if (strlen(topic) > 0) {
+        client.publish(topic, state);
       }
     }
   }
@@ -383,32 +414,35 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   
-  consolePrint("\n========================================");
-  consolePrint("   ESP8266 WiFi Gateway");
-  consolePrint("========================================");
+  consolePrint(F("\n========================================"));
+  consolePrint(F("   ESP8266 WiFi Gateway"));
+  consolePrint(F("========================================"));
   
   Wire.begin(7); // ESP8266 como esclavo I2C con direccion 7
   Wire.onReceive(receiveEvent);
   Wire.setClock(100000);
-  consolePrint("I2C inicializado como esclavo");
+  consolePrint(F("I2C inicializado como esclavo"));
   
   setup_wifi();
   
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
   
-  consolePrint("\nSistema listo");
-  consolePrint("\nDispositivos disponibles:");
-  consolePrint("\nLuces:");
+  consolePrint(F("\nSistema listo"));
+  consolePrint(F("\nDispositivos disponibles:"));
+  consolePrint(F("\nLuces:"));
+  char consoleBuffer[100];
   for (int i = 0; i < 9; i++) {
-    consolePrint("  - LIGHT_" + luces[i].name);
+    snprintf(consoleBuffer, sizeof(consoleBuffer), "  - LIGHT_%s", luces[i].name.c_str());
+    consolePrint(consoleBuffer);
   }
-  consolePrint("\nPuertas:");
+  consolePrint(F("\nPuertas:"));
   for (int i = 0; i < 8; i++) {
-    consolePrint("  - DOOR_" + puertas[i].name);
+    snprintf(consoleBuffer, sizeof(consoleBuffer), "  - DOOR_%s", puertas[i].name.c_str());
+    consolePrint(consoleBuffer);
   }
-  consolePrint("\nActuadores:");
-  consolePrint("  - VENTILADOR\n");
+  consolePrint(F("\nActuadores:"));
+  consolePrint(F("  - VENTILADOR\n"));
 }
 
 void loop() {

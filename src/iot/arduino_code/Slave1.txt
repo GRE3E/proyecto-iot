@@ -9,7 +9,7 @@
 const int ledPins[9] = {2, 3, 4, 5, 6, 7, 8, 9, 10};
 bool estadoLuces[9] = {false};
 
-void consolePrint(String message) {
+void consolePrint(const char* message) {
   Serial.println(message);
 }
 
@@ -24,13 +24,13 @@ void setup() {
     digitalWrite(ledPins[i], LOW);
   }
   
-  consolePrint("=== SLAVE 1 - Control de Luces");
-  consolePrint("Direccion I2C: 8");
-  consolePrint("9 luces disponibles (0-8)");
-  consolePrint("0=GARAJE, 1=PASILLO, 2=H.INVITADOS, 3=B.INVITADOS");
-  consolePrint("4=LAVANDERIA, 5=B.PRINCIPAL, 6=H.PRINCIPAL, 7=COCINA, 8=SALA");
-  consolePrint("Pines: 2-10");
-  consolePrint("Sistema listo");
+  consolePrint(F("=== SLAVE 1 - Control de Luces"));
+  consolePrint(F("Direccion I2C: 8"));
+  consolePrint(F("9 luces disponibles (0-8)"));
+  consolePrint(F("0=GARAJE, 1=PASILLO, 2=H.INVITADOS, 3=B.INVITADOS"));
+  consolePrint(F("4=LAVANDERIA, 5=B.PRINCIPAL, 6=H.PRINCIPAL, 7=COCINA, 8=SALA"));
+  consolePrint(F("Pines: 2-10"));
+  consolePrint(F("Sistema listo"));
 }
 
 void loop() {
@@ -38,48 +38,57 @@ void loop() {
 }
 
 void receiveEvent(int howMany) {
-  String cmd = "";
-  int count = 0;
+  char cmd[MAX_CMD_LENGTH + 1];
+  int i = 0;
   
-  while (Wire.available() && count < MAX_CMD_LENGTH) {
-    cmd += (char)Wire.read();
-    count++;
+  while (Wire.available() && i < MAX_CMD_LENGTH) {
+    cmd[i++] = Wire.read();
   }
+  cmd[i] = '\0'; // Null-terminate the string
   
+  // Clear any remaining bytes in the buffer
   while (Wire.available()) {
     Wire.read();
   }
   
-  cmd.trim();
-  cmd.toUpperCase();
+  // Convert to uppercase (in-place)
+  for (int j = 0; cmd[j]; j++) {
+    cmd[j] = toupper(cmd[j]);
+  }
   
-  int guion = cmd.indexOf('_');
+  char* guion_ptr = strchr(cmd, '_');
   
-  if (guion != -1 && guion > 0 && guion < cmd.length() - 1) {
-    int index = cmd.substring(0, guion).toInt();
-    String accion = cmd.substring(guion + 1);
-    accion.trim();
+  if (guion_ptr != NULL && guion_ptr != cmd && *(guion_ptr + 1) != '\0') {
+    *guion_ptr = '\0'; // Split the string at the underscore
+    int index = atoi(cmd);
+    char* accion = guion_ptr + 1;
+    
+    char consoleBuffer[60];
     
     if (index >= 0 && index < 9) {
-      if (accion == "ENCENDER") {
+      if (strcmp(accion, "ENCENDER") == 0) {
         estadoLuces[index] = true;
         digitalWrite(ledPins[index], HIGH);
-        consolePrint("Luz " + String(index) + " ENCENDIDA [Pin " + String(ledPins[index]) + "]");
-      } 
-      else if (accion == "APAGAR") {
+        sprintf(consoleBuffer, "Luz %d ENCENDIDA [Pin %d]", index, ledPins[index]);
+        consolePrint(consoleBuffer);
+      }
+      else if (strcmp(accion, "APAGAR") == 0) {
         estadoLuces[index] = false;
         digitalWrite(ledPins[index], LOW);
-        consolePrint("Luz " + String(index) + " APAGADA [Pin " + String(ledPins[index]) + "]");
+        sprintf(consoleBuffer, "Luz %d APAGADA [Pin %d]", index, ledPins[index]);
+        consolePrint(consoleBuffer);
       }
       else {
-        consolePrint("ERROR: Accion desconocida: " + accion);
+        sprintf(consoleBuffer, "ERROR: Accion desconocida: %s", accion);
+        consolePrint(consoleBuffer);
       }
     } else {
-      consolePrint("ERROR: Indice de luz invalido: " + String(index) + " (rango: 0-8)");
+      sprintf(consoleBuffer, "ERROR: Indice de luz invalido: %d (rango: 0-8)", index);
+      consolePrint(consoleBuffer);
     }
   } else {
-    consolePrint("ERROR: Formato de comando invalido: " + cmd);
-    consolePrint("Formato esperado: NUMERO_ACCION (ej: 3_ENCENDER)");
+    consolePrint(F("ERROR: Formato de comando invalido"));
+    consolePrint(F("Formato esperado: NUMERO_ACCION (ej: 3_ENCENDER)"));
   }
 }
 
@@ -87,5 +96,5 @@ void requestEvent() {
   for (int i = 0; i < 9; i++) {
     Wire.write(estadoLuces[i] ? '1' : '0');
   }
-  consolePrint("Estados enviados al Master");
+  consolePrint(F("Estados enviados al Master"));
 }

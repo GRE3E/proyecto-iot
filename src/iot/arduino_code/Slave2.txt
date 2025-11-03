@@ -17,7 +17,7 @@ bool ventilador = false;
 unsigned long ultimaLecturaSensor = 0;
 const unsigned long intervaloSensor = 500;
 
-void consolePrint(String message) {
+void consolePrint(const char* message) {
   Serial.println(message);
 }
 
@@ -33,12 +33,12 @@ void setup() {
   digitalWrite(trig, LOW);
   analogWrite(fan, 0);
   
-  consolePrint("=== SLAVE 2 - Sensores y Actuadores ===");
-  consolePrint("Direccion I2C: 9");
-  consolePrint("Sensor temperatura: A0 (LM35)");
-  consolePrint("Sensor distancia: Trig=4, Echo=3 (HC-SR04)");
-  consolePrint("Ventilador: Pin 5 (PWM)");
-  consolePrint("Sistema listo");
+  consolePrint(F("=== SLAVE 2 - Sensores y Actuadores ==="));
+  consolePrint(F("Direccion I2C: 9"));
+  consolePrint(F("Sensor temperatura: A0 (LM35)"));
+  consolePrint(F("Sensor distancia: Trig=4, Echo=3 (HC-SR04)"));
+  consolePrint(F("Ventilador: Pin 5 (PWM)"));
+  consolePrint(F("Sistema listo"));
 }
 
 void loop() {
@@ -50,65 +50,82 @@ void loop() {
     static unsigned long ultimoReporte = 0;
     if (millis() - ultimoReporte >= 5000) {
       ultimoReporte = millis();
-      consolePrint("--- Lecturas Actuales ---");
-      consolePrint("Temperatura: " + String(temperatura, 1) + "C");
-      consolePrint("Distancia: " + String(distancia) + " cm");
-      consolePrint("Ventilador: " + String(ventilador ? "ON" : "OFF"));
-      consolePrint("------------------------");
+      char consoleBuffer[60];
+      consolePrint(F("--- Lecturas Actuales ---"));
+      sprintf(consoleBuffer, "Temperatura: %.1fC", temperatura);
+      consolePrint(consoleBuffer);
+      sprintf(consoleBuffer, "Distancia: %ld cm", distancia);
+      consolePrint(consoleBuffer);
+      sprintf(consoleBuffer, "Ventilador: %s", ventilador ? "ON" : "OFF");
+      consolePrint(consoleBuffer);
+      consolePrint(F("------------------------"));
     }
   }
 }
 
 void receiveEvent(int howMany) {
-  String cmd = "";
-  int count = 0;
-  const int MAX_CMD_LENGTH = 32;
+  char cmd[MAX_CMD_LENGTH + 1];
+  int i = 0;
   
-  while (Wire.available() && count < MAX_CMD_LENGTH) {
-    cmd += (char)Wire.read();
-    count++;
+  while (Wire.available() && i < MAX_CMD_LENGTH) {
+    cmd[i++] = Wire.read();
   }
+  cmd[i] = '\0'; // Null-terminate the string
   
+  // Clear any remaining bytes in the buffer
   while (Wire.available()) {
     Wire.read();
   }
   
-  cmd.trim();
-  cmd.toUpperCase();
+  // Convert to uppercase (in-place)
+  for (int j = 0; cmd[j]; j++) {
+    cmd[j] = toupper(cmd[j]);
+  }
   
-  if (cmd == "VENTILADOR_ENCENDER") {
+  char consoleBuffer[60];
+  
+  if (strcmp(cmd, "VENTILADOR_ENCENDER") == 0) {
     analogWrite(fan, 200);
     ventilador = true;
-    consolePrint("Ventilador ENCENDIDO (PWM: 200/255)");
-  } 
-  else if (cmd == "VENTILADOR_APAGAR") {
+    consolePrint(F("Ventilador ENCENDIDO (PWM: 200/255)"));
+  }
+  else if (strcmp(cmd, "VENTILADOR_APAGAR") == 0) {
     analogWrite(fan, 0);
     ventilador = false;
-    consolePrint("Ventilador APAGADO");
+    consolePrint(F("Ventilador APAGADO"));
+  }
+  else if (strcmp(cmd, "TEMP") == 0) {
+    // No action needed here, requestEvent will handle sending temperature
   }
   else {
-    consolePrint("ERROR: Comando no reconocido: " + cmd);
-    consolePrint("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR");
+    sprintf(consoleBuffer, "ERROR: Comando no reconocido: %s", cmd);
+    consolePrint(consoleBuffer);
+    consolePrint(F("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR, TEMP"));
   }
 }
 
 void requestEvent() {
-  String data = "";
+  char data[20]; // Buffer para los datos a enviar
   
   int tempInt = (int)temperatura;
   int distInt = (int)distancia;
   if (distInt > 999) distInt = 999;
   if (distInt < 0) distInt = 0;
   
-  data = "T:" + String(tempInt) + ",D:" + String(distInt) + ",V:" + (ventilador ? "1" : "0");
+  sprintf(data, "T:%d,D:%d,V:%d", tempInt, distInt, ventilador ? 1 : 0);
   
-  if (data.length() <= 16) {
-    Wire.write(data.c_str());
-    consolePrint("Datos enviados: " + data);
+  if (strlen(data) <= 16) {
+    Wire.write(data);
+    char consoleBuffer[50];
+    sprintf(consoleBuffer, "Datos enviados: %s", data);
+    consolePrint(consoleBuffer);
   } else {
-    String fallback = "T:" + String(tempInt) + ",D:0,V:0";
-    Wire.write(fallback.c_str());
-    Serial.println("WARN: Datos truncados: " + fallback);
+    char fallback[20];
+    sprintf(fallback, "T:%d,D:0,V:0", tempInt);
+    Wire.write(fallback);
+    char consoleBuffer[50];
+    sprintf(consoleBuffer, "WARN: Datos truncados: %s", fallback);
+    consolePrint(consoleBuffer);
   }
 }
 

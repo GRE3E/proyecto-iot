@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { Bell, X } from "lucide-react";
 import { useNotifications } from "../../hooks/useNotification";
 import { initialNotifications } from "../../utils/notificationsUtils";
@@ -9,16 +10,32 @@ interface ProfileNotificationsProps {
 
 export default function ProfileNotifications({ userName = "Usuario" }: ProfileNotificationsProps) {
   const { notifications, open, closing, remove, clearAll, toggle } = useNotifications(initialNotifications);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node) && open) toggle();
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, toggle]);
 
   return (
-    <div className="flex items-center gap-3 md:gap-4">
+    <div className="flex items-center gap-3 md:gap-4 relative" ref={ref}>
       {/* Usuario */}
-      <div className="flex md:hidden">
+      <div
+        className="
+          flex md:hidden -translate-y-[18px]
+          absolute left-58 top-3
+        "
+      >
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
           {userName[0].toUpperCase()}
         </div>
       </div>
-      <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20">
+
+      {/* Usuario para escritorio */}
+      <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/30 border border-slate-600/20 -translate-y-[18px]">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
           {userName[0].toUpperCase()}
         </div>
@@ -26,10 +43,15 @@ export default function ProfileNotifications({ userName = "Usuario" }: ProfileNo
       </div>
 
       {/* Notificaciones */}
-      <div className="relative">
+      <div
+        className="
+          relative
+          md:static absolute left-69 top-2.5   
+        "
+      >
         <button
           onClick={toggle}
-          className="relative p-2 md:p-3 rounded-xl bg-slate-800/30 hover:bg-slate-700/40 transition-colors border border-slate-600/20"
+          className="relative p-2 md:p-3 rounded-xl -translate-y-[18px] bg-slate-800/30 hover:bg-slate-700/40 transition-colors border border-slate-600/20"
         >
           <Bell className="w-5 md:w-6 h-5 md:h-6 text-white" />
           {notifications.length > 0 && (
@@ -43,7 +65,7 @@ export default function ProfileNotifications({ userName = "Usuario" }: ProfileNo
         {open && (
           <div
             className={`absolute mt-3 w-[90vw] max-w-xs sm:w-80 bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/40 p-4 z-50
-              left-[-279%] -translate-x-[55%] sm:left-auto sm:translate-x-0 sm:right-0
+              right-0 md:left-[-279%] md:-translate-x-[55%] md:sm:left-auto md:sm:translate-x-0 md:sm:right-0
               ${closing ? "opacity-0 scale-95" : "opacity-100 scale-100"} transition-all duration-300 ease-out max-h-[60vh] overflow-hidden
             `}
           >
@@ -53,14 +75,21 @@ export default function ProfileNotifications({ userName = "Usuario" }: ProfileNo
                 <X className="w-4 h-4 text-slate-400 hover:text-red-400" />
               </button>
             </div>
+
             {notifications.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-4">No tienes notificaciones</p>
             ) : (
               <ul className="space-y-3 max-h-48 sm:max-h-64 overflow-y-auto pr-2">
                 {notifications.map((n) => (
-                  <li key={n.id} className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all">
+                  <li
+                    key={n.id}
+                    className="relative p-3 rounded-lg bg-slate-800/60 border border-slate-700/40 shadow-sm hover:shadow-md transition-all"
+                  >
                     <p className="text-sm text-slate-200">{n.message}</p>
-                    <button onClick={() => remove(n.id)} className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors">
+                    <button
+                      onClick={() => remove(n.id)}
+                      className="absolute top-2 right-2 text-slate-400 hover:text-red-400 transition-colors"
+                    >
                       <X className="w-4 h-4" />
                     </button>
                   </li>

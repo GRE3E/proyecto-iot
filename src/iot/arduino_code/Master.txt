@@ -59,7 +59,8 @@ void consolePrint(String message) {
   
   // Enviar al módulo WiFi para publicar en MQTT
   Wire.beginTransmission(WIFI_ADDRESS);
-  Wire.write((F("CONSOLE|MASTER|") + message).c_str());
+  Wire.print(F("CONSOLE|MASTER|"));
+  Wire.print(message);
   Wire.endTransmission();
 }
 
@@ -159,7 +160,7 @@ String getPuertaName(int index) {
 
 void solicitarTemperatura() {
   Wire.beginTransmission(SLAVE_SENSORES_ADDRESS);
-  Wire.write(F("TEMP"));
+  Wire.print(F("TEMP"));
   Wire.endTransmission();
   
   delay(100); // Dar tiempo al esclavo para preparar la respuesta

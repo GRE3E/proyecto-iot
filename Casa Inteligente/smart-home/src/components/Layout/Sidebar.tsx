@@ -75,11 +75,16 @@ export default function HamburgerMenu({
         ref={sidebarRef}
         className={`fixed left-0 top-0 h-full 
           ${isSidebarOpen ? "w-[86vw] sm:w-72 md:w-80" : "w-0 md:w-24"}
-          ${colors.cardBg} 
+          ${colors.cardBg}
           border-r-2 border-cyan-500/20 shadow-[6px_0_20px_rgba(0,0,0,0.5)]
           flex flex-col items-center justify-between py-8 px-6
-          transition-transform duration-500 ease-in-out z-50 overflow-y-auto
-          md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+          pt-[2.5rem] pb-6 pl-4 pr-4 
+          transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+          z-50 transform
+          ${isSidebarOpen 
+            ? "translate-x-0 opacity-100 w-[86vw] sm:w-72 md:w-80" 
+            : "-translate-x-full md:translate-x-0 opacity-95 w-20"}`
+        }
         style={{
           boxShadow:
             "8px 0 25px rgba(0,0,0,0.4), inset -1px 0 0 rgba(0,255,255,0.1)",

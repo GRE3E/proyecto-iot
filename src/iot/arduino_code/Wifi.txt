@@ -121,7 +121,7 @@ void setup_wifi() {
   if (WiFi.status() == WL_CONNECTED) {
     consolePrint("\nWiFi conectado");
     Serial.print("IP: ");
-    consolePrint(WiFi.localIP());
+    consolePrint(WiFi.localIP().toString());
   } else {
     consolePrint("\nERROR: No se pudo conectar a WiFi");
   }
@@ -231,175 +231,73 @@ void procesarComando(String cmd) {
   
   consolePrint("Procesando: " + cmd);
   
-  if (cmd.indexOf("IOT/LIGHTS/") != -1 && cmd.indexOf("/STATUS/GET") != -1) {
+  // Enviar el comando completo al Master
+  enviarComandoI2C(cmd);
+  
+  // Extraer información para la confirmación
+  String tipo = "";
+  String dispositivo = "";
+  String accion = "";
+  String estado = "";
+  
+  if (cmd.indexOf("IOT/LIGHTS/") != -1) {
+    tipo = "LIGHT";
     int start = cmd.indexOf("LIGHT_") + 6;
-    int end = cmd.indexOf("/STATUS/GET");
+    int end = cmd.indexOf("/COMMAND");
     if (start > 6 && end != -1) {
-      String nombre = cmd.substring(start, end);
-      int luzIndex = getLuzIndex(nombre);
-      if (luzIndex != -1) {
-        leerEstadoLuz(luzIndex);
-        return;
-      }
+      dispositivo = cmd.substring(start, end);
+    }
+    int pipePos = cmd.indexOf("|");
+    if (pipePos != -1) {
+      accion = cmd.substring(pipePos + 1);
+      estado = accion;
     }
   }
-  
-  if (cmd.indexOf("IOT/DOORS/") != -1 && cmd.indexOf("/STATUS/GET") != -1) {
+  else if (cmd.indexOf("IOT/DOORS/") != -1) {
+    tipo = "DOOR";
     int start = cmd.indexOf("DOOR_") + 5;
-    int end = cmd.indexOf("/STATUS/GET");
+    int end = cmd.indexOf("/COMMAND");
     if (start > 5 && end != -1) {
-      String nombre = cmd.substring(start, end);
-      int puertaIndex = getPuertaIndex(nombre);
-      if (puertaIndex != -1) {
-        leerEstadoPuerta(puertaIndex);
-        return;
-      }
+      dispositivo = cmd.substring(start, end);
+    }
+    int pipePos = cmd.indexOf("|");
+    if (pipePos != -1) {
+      accion = cmd.substring(pipePos + 1);
+      estado = accion;
+    }
+  }
+  else if (cmd.indexOf("IOT/ACTUATORS/VENTILADOR") != -1) {
+    tipo = "ACTUATOR";
+    dispositivo = "VENTILADOR";
+    int pipePos = cmd.indexOf("|");
+    if (pipePos != -1) {
+      accion = cmd.substring(pipePos + 1);
+      estado = accion;
+    }
+  }
+  else if (cmd.indexOf("IOT/SYSTEM/COMMAND") != -1) {
+    tipo = "SYSTEM";
+    dispositivo = "COMMAND";
+    int pipePos = cmd.indexOf("|");
+    if (pipePos != -1) {
+      accion = cmd.substring(pipePos + 1);
+      estado = accion;
     }
   }
   
-  if (cmd.indexOf("IOT/ACTUATORS/VENTILADOR/STATUS/GET") != -1) {
-    leerEstadoVentilador();
-    return;
-  }
-  
-  if (cmd.indexOf("IOT/LIGHTS/") != -1 || cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1) {
-    int luzIndex = -1;
-    String accion = "";
-    
-    if (cmd.indexOf("IOT/LIGHTS/") != -1) {
-      int start = cmd.indexOf("LIGHT_") + 6;
-      int end = cmd.indexOf("/COMMAND");
-      if (start > 6 && end != -1) {
-        String nombre = cmd.substring(start, end);
-        luzIndex = getLuzIndex(nombre);
-      }
-      int pipePos = cmd.indexOf("|");
-      if (pipePos != -1 && pipePos + 1 < cmd.length()) {
-        accion = cmd.substring(pipePos + 1);
-      }
-    } else {
-      luzIndex = getLuzIndex(cmd);
-    }
-    
-    if (luzIndex == -1) {
-      consolePrint("Luz no encontrada");
-      publicarConfirmacion("LIGHT", "UNKNOWN", "ERROR", "NOT_FOUND", false);
-      return;
-    }
-    
-    if (accion.length() == 0 || accion == "ON" || accion == "OFF") {
-      if (cmd.indexOf("ENCENDER") != -1 || accion == "ON" || cmd.indexOf("PRENDER") != -1) {
-        accion = "ENCENDER";
-      } else if (cmd.indexOf("APAGAR") != -1 || accion == "OFF") {
-        accion = "APAGAR";
-      } else {
-        consolePrint("Accion no reconocida");
-        publicarConfirmacion("LIGHT", getLuzName(luzIndex), "ERROR", "INVALID_ACTION", false);
-        return;
-      }
-    }
-    
-    String comando = String(luzIndex) + "_" + accion;
-    enviarComandoI2C(SLAVE_LUCES_ADDRESS, comando);
-    
-    String nombreLuz = getLuzName(luzIndex);
-    String estado = (accion == "ENCENDER") ? "ON" : "OFF";
-    consolePrint("OK: Luz " + nombreLuz + " " + accion);
-    
-    String topic = "iot/lights/LIGHT_" + nombreLuz + "/status";
-    client.publish(topic.c_str(), estado.c_str());
-    publicarConfirmacion("LIGHT", nombreLuz, accion, estado, true);
-  }
-  
-  else if (cmd.indexOf("IOT/DOORS/") != -1 || cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
-    int puertaIndex = -1;
-    String accion = "";
-    
-    if (cmd.indexOf("IOT/DOORS/") != -1) {
-      int start = cmd.indexOf("DOOR_") + 5;
-      int end = cmd.indexOf("/COMMAND");
-      if (start > 5 && end != -1) {
-        String nombre = cmd.substring(start, end);
-        puertaIndex = getPuertaIndex(nombre);
-      }
-      int pipePos = cmd.indexOf("|");
-      if (pipePos != -1 && pipePos + 1 < cmd.length()) {
-        accion = cmd.substring(pipePos + 1);
-      }
-    } else {
-      puertaIndex = getPuertaIndex(cmd);
-    }
-    
-    if (puertaIndex == -1) {
-      consolePrint("Puerta no encontrada");
-      publicarConfirmacion("DOOR", "UNKNOWN", "ERROR", "NOT_FOUND", false);
-      return;
-    }
-    
-    if (accion.length() == 0 || accion == "OPEN" || accion == "CLOSE") {
-      if (cmd.indexOf("ABRIR") != -1 || accion == "OPEN") {
-        accion = "ABRIR";
-      } else if (cmd.indexOf("CERRAR") != -1 || accion == "CLOSE") {
-        accion = "CERRAR";
-      } else {
-        consolePrint("Accion no reconocida");
-        publicarConfirmacion("DOOR", getPuertaName(puertaIndex), "ERROR", "INVALID_ACTION", false);
-        return;
-      }
-    }
-    
-    String comando = String(puertaIndex) + "_" + accion;
-    enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
-    
-    String nombrePuerta = getPuertaName(puertaIndex);
-    String estado = (accion == "ABRIR") ? "OPEN" : "CLOSED";
-    consolePrint("OK: Puerta " + nombrePuerta + " " + accion);
-    
-    String topic = "iot/doors/DOOR_" + nombrePuerta + "/status";
-    client.publish(topic.c_str(), estado.c_str());
-    publicarConfirmacion("DOOR", nombrePuerta, accion, estado, true);
-  }
-  
-  else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1) {
-    String accion = "";
-    
-    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("|ON") != -1) {
-      accion = "VENTILADOR_ENCENDER";
-    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("|OFF") != -1) {
-      accion = "VENTILADOR_APAGAR";
-    } else {
-      consolePrint("Accion no reconocida");
-      publicarConfirmacion("ACTUATOR", "VENTILADOR", "ERROR", "INVALID_ACTION", false);
-      return;
-    }
-    
-    enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
-    String estado = (accion == "VENTILADOR_ENCENDER") ? "ON" : "OFF";
-    consolePrint("OK: " + accion);
-    
-    client.publish("iot/actuators/VENTILADOR/status", estado.c_str());
-    publicarConfirmacion("ACTUATOR", "VENTILADOR", accion, estado, true);
-  }
-  
-  else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
-    consolePrint("Consultando estados generales...");
-    leerYPublicarEstados();
-  }
-  
-  else {
-    consolePrint("Comando no reconocido");
-    publicarConfirmacion("SYSTEM", "UNKNOWN", "ERROR", "INVALID_COMMAND", false);
+  if (tipo.length() > 0) {
+    publicarConfirmacion(tipo, dispositivo, accion, estado, true);
   }
 }
 
-void enviarComandoI2C(int address, String comando) {
-  Wire.beginTransmission(address);
+void enviarComandoI2C(String comando) {
+  Wire.beginTransmission(1); // Dirección del Master
   Wire.write((const uint8_t*)comando.c_str(), comando.length());
   byte error = Wire.endTransmission();
   
   if (error != 0) {
-    consolePrint("ERROR I2C Slave " + String(address) + " (codigo: " + String(error) + ")");
-    client.publish("iot/system/gateway/error", ("I2C Error: " + String(address)).c_str());
+    consolePrint("ERROR I2C Master (codigo: " + String(error) + ")");
+    client.publish("iot/system/gateway/error", "I2C Error: No se pudo enviar comando al Master");
   }
   delay(50);
 }
@@ -430,14 +328,26 @@ void leerSerial() {
   }
 }
 
-void receiveEvent(int howMany) {
+voidvoid receiveEvent(int howMany) {
   String receivedMessage = "";
   while (Wire.available()) {
     char c = Wire.read();
     receivedMessage += c;
   }
+  
   if (receivedMessage.length() > 0) {
-    consolePrint("[I2C_MASTER_CONSOLE] " + receivedMessage);
+    if (receivedMessage.startsWith("CONSOLE|")) {
+      // Extraer el mensaje de consola
+      int firstPipe = receivedMessage.indexOf('|');
+      int secondPipe = receivedMessage.indexOf('|', firstPipe + 1);
+      if (secondPipe != -1) {
+        String source = receivedMessage.substring(firstPipe + 1, secondPipe);
+        String message = receivedMessage.substring(secondPipe + 1);
+        client.publish("iot/system/console", ("[" + source + "] " + message).c_str());
+      }
+    }
+  }
+}
   }
 }
 

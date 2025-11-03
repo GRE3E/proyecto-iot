@@ -253,8 +253,6 @@ async def _initialize_mqtt_client() -> None:
     mqtt_broker = os.getenv("MQTT_BROKER")
     mqtt_port = os.getenv("MQTT_PORT")
 
-    def _on_console_message(payload):
-        logger.info(f"[ARDUINO CONSOLE]: {payload}")
 
     if mqtt_broker and mqtt_port:
         async with get_db() as db:
@@ -270,7 +268,6 @@ async def _initialize_mqtt_client() -> None:
                 context="initialize_nlp.mqtt_connect"
             )
             await _mqtt_client._online_event.wait()
-            _mqtt_client.subscribe("iot/system/console", _on_console_message)
             logger.info(f"MQTTClient inicializado y conectado en {mqtt_broker}:{mqtt_port}. Online: {_mqtt_client.is_connected}")
     else:
         logger.info("Variables de entorno MQTT_BROKER o MQTT_PORT no configuradas. MQTTClient no se inicializará.")

@@ -11,9 +11,6 @@ bool estadoLuces[9] = {false};
 
 void consolePrint(String message) {
   Serial.println(message);
-  Wire.beginTransmission(7); // Direccion del ESP8266
-  Wire.write((const uint8_t*)message.c_str(), message.length());
-  Wire.endTransmission();
 }
 
 void setup() {

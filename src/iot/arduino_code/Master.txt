@@ -3,9 +3,12 @@
 // ========================================
 #include <Wire.h>
 
-#define SLAVE_LUCES_ADDRESS 8
-#define SLAVE_SENSORES_ADDRESS 9
-#define SLAVE_PUERTAS_ADDRESS 10
+// Direcciones I2C
+const int MASTER_ADDRESS = 1;
+const int SLAVE_LUCES_ADDRESS = 8;
+const int SLAVE_SENSORES_ADDRESS = 9;
+const int SLAVE_PUERTAS_ADDRESS = 10;
+const int WIFI_ADDRESS = 7;
 
 struct DeviceMap {
   String name;
@@ -41,6 +44,11 @@ const unsigned long intervaloLectura = 5000;
 
 void consolePrint(String message) {
   Serial.println(message);
+  
+  // Enviar al módulo WiFi para publicar en MQTT
+  Wire.beginTransmission(WIFI_ADDRESS);
+  Wire.write(("CONSOLE|MASTER|" + message).c_str());
+  Wire.endTransmission();
 }
 
 void setup() {
@@ -87,23 +95,36 @@ void leerSerial() {
   }
 }
 
-int getLuzIndex(String nombre) {
-  nombre.toUpperCase();
-  for (int i = 0; i < 9; i++) {
-    if (nombre.indexOf(luces[i].name) != -1) {
-      return luces[i].index;
-    }
+void requestEvent() {
+  // Si hay datos de temperatura disponibles, enviarlos
+  if (ultimaTemperatura.length() > 0) {
+    Wire.write(ultimaTemperatura.c_str());
+    ultimaTemperatura = ""; // Limpiar después de enviar
   }
+}
+
+int getLuzIndex(String nombre) {
+  if (nombre == "GARAJE") return 0;
+  if (nombre == "PASILLO") return 1;
+  if (nombre == "HABITACION_INVITADOS") return 2;
+  if (nombre == "BANO_INVITADOS") return 3;
+  if (nombre == "LAVANDERIA") return 4;
+  if (nombre == "BANO_PRINCIPAL") return 5;
+  if (nombre == "HABITACION_PRINCIPAL") return 6;
+  if (nombre == "COCINA") return 7;
+  if (nombre == "SALA") return 8;
   return -1;
 }
 
 int getPuertaIndex(String nombre) {
-  nombre.toUpperCase();
-  for (int i = 0; i < 8; i++) {
-    if (nombre.indexOf(puertas[i].name) != -1) {
-      return puertas[i].index;
-    }
-  }
+  if (nombre == "PRINCIPAL") return 0;
+  if (nombre == "GARAJE") return 1;
+  if (nombre == "PASILLO") return 2;
+  if (nombre == "HABITACION_INVITADOS") return 3;
+  if (nombre == "BANO_INVITADOS") return 4;
+  if (nombre == "LAVANDERIA") return 5;
+  if (nombre == "BANO_PRINCIPAL") return 6;
+  if (nombre == "HABITACION_PRINCIPAL") return 7;
   return -1;
 }
 
@@ -117,25 +138,27 @@ String getPuertaName(int index) {
   return "DESCONOCIDA";
 }
 
+String ultimaTemperatura = "";
+
 void solicitarTemperatura() {
-  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16); // Solicitar hasta 16 bytes del esclavo de sensores
-  delay(50);
-  String datos = "";
+  Wire.beginTransmission(SLAVE_SENSORES_ADDRESS);
+  Wire.write("TEMP");
+  Wire.endTransmission();
+  
+  delay(100); // Dar tiempo al esclavo para preparar la respuesta
+  
+  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 32);
+  String respuesta = "";
   while (Wire.available()) {
-    datos += (char)Wire.read();
+    char c = Wire.read();
+    respuesta += c;
   }
-
-  if (datos.length() > 5) { // Longitud mínima para "T:XX,D:YY,V:Z"
-    int c1 = datos.indexOf(',');
-
-    if (c1 > 2) { // Asegurarse de que la parte "T:XX" exista
-      String temp = datos.substring(2, c1); // Extraer la temperatura
-      consolePrint("SENSOR|TEMPERATURA|" + temp + "C");
-    } else {
-      consolePrint("[ERROR] Formato de datos de temperatura invalido: " + datos);
-    }
+  
+  if (respuesta.length() > 0) {
+    ultimaTemperatura = respuesta;
+    consolePrint("Temperatura recibida: " + respuesta);
   } else {
-    consolePrint("[ERROR] No se recibieron datos de temperatura del sensor");
+    consolePrint("Error al leer temperatura");
   }
 }
 
@@ -144,7 +167,6 @@ void procesarComando(String cmd) {
   if (cmd.length() == 0) return;
   
   cmd.toUpperCase();
-  
   consolePrint("\n[PROCESANDO]: " + cmd);
   
   if (cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1 || cmd.indexOf("LAMPARA") != -1) {

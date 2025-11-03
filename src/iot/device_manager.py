@@ -84,18 +84,45 @@ async def process_mqtt_message_and_update_state(db: AsyncSession, mqtt_topic: st
         elif topic_parts[1] == "actuators":
             device_type = "actuador"
             device_name = topic_parts[2]
-        elif topic_parts[1] == "system" and topic_parts[2] == "console":
-            logger.info(f"Mensaje de consola recibido: {command_payload}")
-            return
-        elif topic_parts[1] == "system" and topic_parts[2] == "status":
-            logger.info(f"Mensaje de estado del sistema recibido: {command_payload}")
-            return
-        elif topic_parts[1] == "system" and topic_parts[2] == "command":
-            logger.info(f"Comando del sistema recibido: {command_payload}")
-            return
+        elif topic_parts[1] == "sensors":
+            device_type = "sensor"
+            device_name = topic_parts[2]
+        elif topic_parts[1] == "system":
+            if topic_parts[2] == "console":
+                logger.info(f"[ESP8266 CONSOLE] {command_payload}")
+                return
+            elif topic_parts[2] == "confirmations":
+                parts = command_payload.split('|')
+                if len(parts) >= 5:
+                    tipo = parts[0]
+                    dispositivo = parts[1]
+                    accion = parts[2]
+                    estado = parts[3]
+                    resultado = parts[4]
+                    logger.info(f"[CONFIRMACION] {tipo} {dispositivo}: {accion} -> {estado} ({resultado})")
+                return
+            elif topic_parts[2] == "gateway":
+                logger.info(f"[GATEWAY STATUS] {command_payload}")
+                return
+            elif topic_parts[2] == "status":
+                logger.info(f"[SYSTEM STATUS] {command_payload}")
+                return
+            elif topic_parts[2] == "command":
+                logger.info(f"[SYSTEM COMMAND] {command_payload}")
+                return
+            else:
+                logger.info(f"[SYSTEM] {mqtt_topic}: {command_payload}")
+                return
 
     if device_name and device_type:
         state_json = {"status": state_value}
+        
+        if device_type == "sensor":
+            try:
+                state_json["value"] = float(state_value) if state_value.replace('.','',1).replace('-','',1).isdigit() else state_value
+            except (ValueError, AttributeError):
+                state_json["value"] = state_value
+        
         await update_device_state(db, device_name, state_json, device_type)
         logger.info(f"Estado del dispositivo {device_name} ({device_type}) actualizado a {state_value} desde MQTT.")
     else:

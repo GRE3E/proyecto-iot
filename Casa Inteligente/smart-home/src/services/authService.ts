@@ -101,6 +101,7 @@ export interface LoginResponse {
 
 export const authService = {
   async login(username: string, password: string): Promise<LoginResponse> {
+    console.log("Intentando iniciar sesión con:", username); // <-- Añadido para depuración
     try {
       const response = await axiosInstance.post(
         `/auth/auth/login`,

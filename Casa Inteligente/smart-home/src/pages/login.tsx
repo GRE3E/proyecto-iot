@@ -4,6 +4,7 @@
 import React from "react";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
 import { useLogin } from "../hooks/useLogin";
+import { useAuth } from "../hooks/useAuth";
 import { useThemeByTime } from "../hooks/useThemeByTime"; // lo usamos para pasar el theme a la transición
 import "../styles/animations.css"; // Asegúrate que la ruta coincide con tu estilo global
 
@@ -91,6 +92,7 @@ const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ th
 };
 
 export default function Login({ onLogin}: LoginProps) {
+  const { login } = useAuth();
   const {
     username,
     setUsername,
@@ -103,7 +105,7 @@ export default function Login({ onLogin}: LoginProps) {
     showDoorTransition,
     handleLogin,
     handleKeyPress,
-  } = useLogin(onLogin);
+  } = useLogin(onLogin, login);
 
   const { theme: themeByTime } = useThemeByTime();
 

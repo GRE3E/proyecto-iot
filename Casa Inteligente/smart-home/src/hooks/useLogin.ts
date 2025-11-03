@@ -4,7 +4,7 @@ import { useThemeByTime } from "./useThemeByTime";
 
 export type ThemeMode = "day" | "afternoon" | "night";
 
-export function useLogin(onLogin: () => void) {
+export function useLogin(onLogin: () => void, login: (username: string, password: string) => Promise<void>) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,30 +25,29 @@ export function useLogin(onLogin: () => void) {
       setError("");
       setIsLoading(true);
 
-      const isValid = username === "admin" && password === "1234";
-      await new Promise((r) => setTimeout(r, 600));
+      try {
+        // Llamada a la función de login real del backend
+        await login(username, password);
+        console.log("✅ Inicio de sesión exitoso con backend");
+        setShowDoorTransition(true);
 
-      if (!isValid) {
-        setError("⌀ Usuario o contraseña incorrectos");
+        // Inicia efecto de zoom o animación
+        setTimeout(() => {
+          console.log("🔵 Iniciando zoom...");
+        }, 2600);
+
+        // Termina animación → login final
+        setTimeout(() => {
+          console.log("🟢 Ejecutando onLogin()");
+          onLogin(); // <-- Este sí viene del App.tsx
+        }, 4000);
+      } catch (error: any) {
+        setError(error.message || "⌀ Usuario o contraseña incorrectos");
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      console.log("✅ Credenciales correctas");
-      setShowDoorTransition(true);
-
-      // Inicia efecto de zoom o animación
-      setTimeout(() => {
-        console.log("🔵 Iniciando zoom...");
-      }, 2600);
-
-      // Termina animación → login final
-      setTimeout(() => {
-        console.log("🟢 Ejecutando onLogin()");
-        onLogin(); // <-- Este sí viene del App.tsx
-      }, 4000);
     },
-    [username, password, onLogin]
+    [username, password, onLogin, login]
   );
 
   const handleKeyPress = useCallback(

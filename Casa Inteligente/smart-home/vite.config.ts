@@ -5,6 +5,6 @@ import react from "@vitejs/plugin-react-swc";
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ["https://administered-guest-attractive-favors.trycloudflare.com/"],
+    allowedHosts: ["https://administered-guest-attractive-favors.trycloudflare.com"],
   },
 });

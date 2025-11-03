@@ -46,7 +46,7 @@ export default function Inicio({
   return (
     <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 relative">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
         <div className="flex items-center gap-4 -mt-6 md:-mt-7">
           <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
             <Home className="w-8 md:w-10 h-8 md:h-10 text-white" />

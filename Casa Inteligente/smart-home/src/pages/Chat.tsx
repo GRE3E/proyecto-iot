@@ -2,14 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Mic,
-  Send,
-  Volume2,
-  VolumeX,
-  Bot,
-  Trash2,
-} from "lucide-react";
+import { Mic, Send, Bot, Trash2 } from "lucide-react";
 import ProfileNotifications from "../components/UI/ProfileNotifications";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 
@@ -20,7 +13,6 @@ export default function Chat() {
     setText,
     listening,
     isTyping,
-    voiceActive,
     toggleVoiceActive,
     sendMessage,
     clearMessages,
@@ -64,7 +56,7 @@ export default function Chat() {
       <div className="flex flex-col w-full h-[78vh] bg-slate-900/60 backdrop-blur-md rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
 
         {/* Sub-header dentro del chat */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/70">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-800 bg-slate-900/70">
           <div className="flex items-center gap-2 text-gray-200 font-medium text-lg">
             <Bot className="w-5 h-5 text-blue-400" />
             <span>Asistente CasaIA</span>
@@ -117,11 +109,11 @@ export default function Chat() {
         </div>
 
         {/* 🔹 INPUT BAR */}
-        <div className="flex items-center gap-3 px-6 py-3 border-t border-slate-800 bg-slate-900/70 backdrop-blur-sm">
+        <div className="flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t border-slate-800 bg-slate-900/70 backdrop-blur-sm">
           {/* Mic */}
           <button
             onClick={toggleVoiceActive}
-            className={`p-2 rounded-full transition-all ${
+            className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition-all ${
               listening
                 ? "bg-red-600 text-white animate-pulse"
                 : "bg-slate-800 text-gray-400 hover:text-blue-400"
@@ -145,25 +137,13 @@ export default function Chat() {
           <button
             onClick={() => canSend && sendMessage()}
             disabled={!canSend}
-            className={`p-2 rounded-full transition ${
+            className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition ${
               canSend
                 ? "bg-blue-600 hover:bg-blue-700 text-white"
                 : "bg-slate-800 text-gray-500 cursor-not-allowed"
             }`}
           >
             <Send className="w-5 h-5" />
-          </button>
-
-          {/* Volumen */}
-          <button
-            onClick={toggleVoiceActive}
-            className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-gray-300 transition"
-          >
-            {voiceActive ? (
-              <Volume2 className="w-5 h-5 text-blue-400" />
-            ) : (
-              <VolumeX className="w-5 h-5" />
-            )}
           </button>
         </div>
       </div>

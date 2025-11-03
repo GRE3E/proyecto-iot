@@ -20,7 +20,7 @@ class MQTTClient:
 
         self.is_connected = False
         self._online_event = asyncio.Event()
-        self.subscriptions = {}
+        self.subscriptions = {"iot/system/console": self._log_arduino_console_output}
         self.loop = asyncio.get_event_loop()
 
         self.reconnect_delay_sec = 5
@@ -134,6 +134,9 @@ class MQTTClient:
                     logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
+
+    def _log_arduino_console_output(self, topic, payload):
+        logger.info(f"[ARDUINO CONSOLE] Topic: {topic}, Message: {payload}")
 
     def disconnect(self):
         if self.is_connected:

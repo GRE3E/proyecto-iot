@@ -28,7 +28,8 @@ async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = D
         logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
         raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
 
-    await device_manager.process_mqtt_message_and_update_state(db, command.mqtt_topic, command.command_payload)
+    async with db as session:
+        await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
 
     return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
 
@@ -37,7 +38,8 @@ async def get_all_device_states(db: AsyncSession = Depends(get_db)):
     """
     Obtiene el estado de todos los dispositivos IoT almacenados en la base de datos.
     """
-    device_states = await device_manager.get_all_device_states(db)
+    async with db as session:
+        device_states = await device_manager.get_all_device_states(session)
     return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)

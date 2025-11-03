@@ -126,11 +126,12 @@ class MQTTClient:
                     logger.info(f"Device state updated for {device_type}/{device_name}: {state_value}")
                 else:
                     logger.warning("Database session or device manager not available for state update.")
-            else:
-                logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
 
-            if self.on_message_callback:
-                self.on_message_callback(msg.topic, msg.payload.decode())
+                if msg.topic in self.subscriptions:
+                    callback = self.subscriptions[msg.topic]
+                    callback(msg.topic, msg.payload.decode())
+                else:
+                    logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
 

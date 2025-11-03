@@ -140,7 +140,7 @@ void setup_wifi() {
   if (WiFi.status() == WL_CONNECTED) {
     consolePrint("\nWiFi conectado");
     Serial.print("IP: ");
-    consolePrint(WiFi.localIP());
+    consolePrint(WiFi.localIP().toString());
   } else {
     consolePrint("\nERROR: No se pudo conectar a WiFi");
   }

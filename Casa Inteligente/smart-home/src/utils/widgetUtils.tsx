@@ -27,13 +27,14 @@ export function getWeatherData(temperature: number) {
 }
 
 // -------- Partículas HUD --------
-export function generateParticles(count = 50) {
+export function generateParticles(count = 12) {
+  // fewer, smaller and slower particles to reduce visual clutter
   return Array.from({ length: count }, () => ({
     x: Math.random() * 100,
     y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    speedX: (Math.random() - 0.5) * 0.1,
-    speedY: (Math.random() - 0.5) * 0.1,
+    size: Math.random() * 2 + 0.5,
+    speedX: (Math.random() - 0.5) * 0.05,
+    speedY: (Math.random() - 0.5) * 0.05,
   }))
 }
 

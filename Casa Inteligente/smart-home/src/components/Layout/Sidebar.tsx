@@ -78,7 +78,7 @@ export default function HamburgerMenu({
           ${colors.cardBg}
           border-r-2 border-cyan-500/20 shadow-[6px_0_20px_rgba(0,0,0,0.5)]
           flex flex-col items-center justify-between py-8 px-6
-          pt-[2.5rem] pb-6 pl-4 pr-4 
+          pt-[2rem] pb-6 pl-4 pr-4 
           transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
           z-50 transform
           ${isSidebarOpen 

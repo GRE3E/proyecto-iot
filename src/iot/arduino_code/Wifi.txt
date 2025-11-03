@@ -189,14 +189,14 @@ void reconnect() {
     if (client.connect(mqtt_client_id)) {
       consolePrint(F(" Conectado!"));
       
-      client.subscribe(F("iot/lights/+/command"));
-      client.subscribe(F("iot/lights/+/status/get"));
-      client.subscribe(F("iot/doors/+/command"));
-      client.subscribe(F("iot/doors/+/status/get"));
-      client.subscribe(F("iot/actuators/VENTILADOR/command"));
-      client.subscribe(F("iot/actuators/VENTILADOR/status/get"));
-      client.subscribe(F("iot/system/command"));
-      client.subscribe(F("iot/system/console/get"));
+      client.subscribe((const char*)F("iot/lights/+/command"));
+      client.subscribe((const char*)F("iot/lights/+/status/get"));
+      client.subscribe((const char*)F("iot/doors/+/command"));
+      client.subscribe((const char*)F("iot/doors/+/status/get"));
+      client.subscribe((const char*)F("iot/actuators/VENTILADOR/command"));
+      client.subscribe((const char*)F("iot/actuators/VENTILADOR/status/get"));
+      client.subscribe((const char*)F("iot/system/command"));
+      client.subscribe((const char*)F("iot/system/console/get"));
       
       consolePrint(F("Suscrito a topicos"));
       client.publish(F("iot/system/gateway/status"), F("ONLINE"));

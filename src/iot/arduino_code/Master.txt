@@ -10,6 +10,8 @@ const int SLAVE_SENSORES_ADDRESS = 9;
 const int SLAVE_PUERTAS_ADDRESS = 10;
 const int WIFI_ADDRESS = 7;
 
+String ultimaTemperatura = "";
+
 struct DeviceMap {
   String name;
   int index;
@@ -137,8 +139,6 @@ String getPuertaName(int index) {
   if (index >= 0 && index < 8) return puertas[index].name;
   return "DESCONOCIDA";
 }
-
-String ultimaTemperatura = "";
 
 void solicitarTemperatura() {
   Wire.beginTransmission(SLAVE_SENSORES_ADDRESS);

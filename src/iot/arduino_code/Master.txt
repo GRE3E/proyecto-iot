@@ -13,11 +13,11 @@ const int WIFI_ADDRESS = 7;
 String ultimaTemperatura = "";
 
 struct DeviceMap {
-  String name;
+  const char* name;
   int index;
 };
 
-DeviceMap luces[] = {
+const DeviceMap luces[] PROGMEM = {
   {"GARAJE", 0},
   {"PASILLO", 1},
   {"HABITACION_INVITADOS", 2},
@@ -29,7 +29,7 @@ DeviceMap luces[] = {
   {"SALA", 8}
 };
 
-DeviceMap puertas[] = {
+const DeviceMap puertas[] PROGMEM = {
   {"PRINCIPAL", 0},
   {"GARAJE", 1},
   {"PASILLO", 2},
@@ -44,12 +44,22 @@ String serialBuffer = "";
 unsigned long ultimaLectura = 0;
 const unsigned long intervaloLectura = 5000;
 
+void consolePrint(const char* message) {
+  Serial.println(message);
+  
+  // Enviar al módulo WiFi para publicar en MQTT
+  Wire.beginTransmission(WIFI_ADDRESS);
+  Wire.write("CONSOLE|MASTER|");
+  Wire.write(message);
+  Wire.endTransmission();
+}
+
 void consolePrint(String message) {
   Serial.println(message);
   
   // Enviar al módulo WiFi para publicar en MQTT
   Wire.beginTransmission(WIFI_ADDRESS);
-  Wire.write(("CONSOLE|MASTER|" + message).c_str());
+  Wire.write((F("CONSOLE|MASTER|") + message).c_str());
   Wire.endTransmission();
 }
 
@@ -58,21 +68,27 @@ void setup() {
   Wire.begin();
   Wire.setClock(100000);
   
-  consolePrint("=== Arduino MASTER I2C ===");
-  consolePrint("Sistema de control domotico");
-  consolePrint("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc.");
-  consolePrint("\nDispositivos disponibles:");
-  consolePrint("\nLuces:");
+  consolePrint(F("=== Arduino MASTER I2C ==="));
+  consolePrint(F("Sistema de control domotico"));
+  consolePrint(F("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc."));
+  consolePrint(F("\nDispositivos disponibles:"));
+  consolePrint(F("\nLuces:"));
   for (int i = 0; i < 9; i++) {
-    consolePrint("  - " + luces[i].name);
+    DeviceMap currentLuz;
+    memcpy_P(&currentLuz, &luces[i], sizeof(DeviceMap));
+    Serial.print(F("  - "));
+    Serial.println(currentLuz.name);
   }
-  consolePrint("\nPuertas:");
+  consolePrint(F("\nPuertas:"));
   for (int i = 0; i < 8; i++) {
-    consolePrint("  - " + puertas[i].name);
+    DeviceMap currentPuerta;
+    memcpy_P(&currentPuerta, &puertas[i], sizeof(DeviceMap));
+    Serial.print(F("  - "));
+    Serial.println(currentPuerta.name);
   }
-  consolePrint("\nActuadores:");
-  consolePrint("  - VENTILADOR");
-  consolePrint("\nSistema listo\n");
+  consolePrint(F("\nActuadores:"));
+  consolePrint(F("  - VENTILADOR"));
+  consolePrint(F("\nSistema listo\n"));
 }
 
 void loop() {
@@ -106,59 +122,61 @@ void requestEvent() {
 }
 
 int getLuzIndex(String nombre) {
-  if (nombre == "GARAJE") return 0;
-  if (nombre == "PASILLO") return 1;
-  if (nombre == "HABITACION_INVITADOS") return 2;
-  if (nombre == "BANO_INVITADOS") return 3;
-  if (nombre == "LAVANDERIA") return 4;
-  if (nombre == "BANO_PRINCIPAL") return 5;
-  if (nombre == "HABITACION_PRINCIPAL") return 6;
-  if (nombre == "COCINA") return 7;
-  if (nombre == "SALA") return 8;
+  for (int i = 0; i < 9; i++) {
+    DeviceMap currentLuz;
+    memcpy_P(&currentLuz, &luces[i], sizeof(DeviceMap));
+    if (nombre == String(currentLuz.name)) return currentLuz.index;
+  }
   return -1;
 }
 
 int getPuertaIndex(String nombre) {
-  if (nombre == "PRINCIPAL") return 0;
-  if (nombre == "GARAJE") return 1;
-  if (nombre == "PASILLO") return 2;
-  if (nombre == "HABITACION_INVITADOS") return 3;
-  if (nombre == "BANO_INVITADOS") return 4;
-  if (nombre == "LAVANDERIA") return 5;
-  if (nombre == "BANO_PRINCIPAL") return 6;
-  if (nombre == "HABITACION_PRINCIPAL") return 7;
+  for (int i = 0; i < 8; i++) {
+    DeviceMap currentPuerta;
+    memcpy_P(&currentPuerta, &puertas[i], sizeof(DeviceMap));
+    if (nombre == String(currentPuerta.name)) return currentPuerta.index;
+  }
   return -1;
 }
 
 String getLuzName(int index) {
-  if (index >= 0 && index < 9) return luces[index].name;
+  if (index >= 0 && index < 9) {
+    DeviceMap currentLuz;
+    memcpy_P(&currentLuz, &luces[index], sizeof(DeviceMap));
+    return String(currentLuz.name);
+  }
   return "DESCONOCIDA";
 }
 
 String getPuertaName(int index) {
-  if (index >= 0 && index < 8) return puertas[index].name;
+  if (index >= 0 && index < 8) {
+    DeviceMap currentPuerta;
+    memcpy_P(&currentPuerta, &puertas[index], sizeof(DeviceMap));
+    return String(currentPuerta.name);
+  }
   return "DESCONOCIDA";
 }
 
 void solicitarTemperatura() {
   Wire.beginTransmission(SLAVE_SENSORES_ADDRESS);
-  Wire.write("TEMP");
+  Wire.write(F("TEMP"));
   Wire.endTransmission();
   
   delay(100); // Dar tiempo al esclavo para preparar la respuesta
   
   Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 32);
-  String respuesta = "";
-  while (Wire.available()) {
-    char c = Wire.read();
-    respuesta += c;
+  char respuestaBuffer[33]; // 32 caracteres + null terminator
+  int i = 0;
+  while (Wire.available() && i < 32) {
+    respuestaBuffer[i++] = Wire.read();
   }
+  respuestaBuffer[i] = '\0'; // Null-terminate the string
   
-  if (respuesta.length() > 0) {
-    ultimaTemperatura = respuesta;
-    consolePrint("Temperatura recibida: " + respuesta);
+  if (i > 0) {
+    ultimaTemperatura = String(respuestaBuffer);
+    consolePrint(String(F("Temperatura recibida: ")) + ultimaTemperatura);
   } else {
-    consolePrint("Error al leer temperatura");
+    consolePrint(F("Error al leer temperatura"));
   }
 }
 
@@ -167,99 +185,105 @@ void procesarComando(String cmd) {
   if (cmd.length() == 0) return;
   
   cmd.toUpperCase();
-  consolePrint("\n[PROCESANDO]: " + cmd);
+  char consoleBuffer[50];
+  sprintf(consoleBuffer, "%s %s", F("[PROCESANDO]:"), cmd.c_str());
+  consolePrint(consoleBuffer);
   
-  if (cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1 || cmd.indexOf("LAMPARA") != -1) {
+  if (cmd.indexOf(F("LUZ")) != -1 || cmd.indexOf(F("LIGHT")) != -1 || cmd.indexOf(F("LAMPARA")) != -1) {
     int luzIndex = getLuzIndex(cmd);
     
     if (luzIndex == -1) {
-      consolePrint("[ERROR] Luz no encontrada");
+      consolePrint(F("[ERROR] Luz no encontrada"));
       return;
     }
     
     String accion = "";
-    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "ENCENDER";
-    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "APAGAR";
+    if (cmd.indexOf(F("ENCENDER")) != -1 || cmd.indexOf(F("ON")) != -1 || cmd.indexOf(F("PRENDER")) != -1 || cmd.indexOf(F("ACTIVAR")) != -1) {
+      accion = F("ENCENDER");
+    } else if (cmd.indexOf(F("APAGAR")) != -1 || cmd.indexOf(F("OFF")) != -1 || cmd.indexOf(F("DESACTIVAR")) != -1) {
+      accion = F("APAGAR");
     } else {
-      consolePrint("[ERROR] Accion no reconocida para luz");
+      consolePrint(F("[ERROR] Accion no reconocida para luz"));
       return;
     }
     
-    String comando = String(luzIndex) + "_" + accion;
-    enviarComandoI2C(SLAVE_LUCES_ADDRESS, comando);
-    consolePrint("[OK] Luz " + getLuzName(luzIndex) + " " + accion);
+    char comandoBuffer[20];
+    sprintf(comandoBuffer, "%d_%s", luzIndex, accion.c_str());
+    enviarComandoI2C(SLAVE_LUCES_ADDRESS, comandoBuffer);
+    sprintf(consoleBuffer, "%s %s %s", F("[OK] Luz"), getLuzName(luzIndex), accion.c_str());
+    consolePrint(consoleBuffer);
   }
   
-  else if (cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
+  else if (cmd.indexOf(F("PUERTA")) != -1 || cmd.indexOf(F("DOOR")) != -1) {
     int puertaIndex = getPuertaIndex(cmd);
     
     if (puertaIndex == -1) {
-      consolePrint("[ERROR] Puerta no encontrada");
+      consolePrint(F("[ERROR] Puerta no encontrada"));
       return;
     }
     
     String accion = "";
-    if (cmd.indexOf("ABRIR") != -1 || cmd.indexOf("OPEN") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "ABRIR";
-    } else if (cmd.indexOf("CERRAR") != -1 || cmd.indexOf("CLOSE") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "CERRAR";
+    if (cmd.indexOf(F("ABRIR")) != -1 || cmd.indexOf(F("OPEN")) != -1 || cmd.indexOf(F("ACTIVAR")) != -1) {
+      accion = F("ABRIR");
+    } else if (cmd.indexOf(F("CERRAR")) != -1 || cmd.indexOf(F("CLOSE")) != -1 || cmd.indexOf(F("DESACTIVAR")) != -1) {
+      accion = F("CERRAR");
     } else {
-      consolePrint("[ERROR] Accion no reconocida para puerta");
+      consolePrint(F("[ERROR] Accion no reconocida para puerta"));
       return;
     }
     
-    String comando = String(puertaIndex) + "_" + accion;
-    enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
-    consolePrint("[OK] Puerta " + getPuertaName(puertaIndex) + " " + accion);
+    char comandoBuffer[20];
+    sprintf(comandoBuffer, "%d_%s", puertaIndex, accion.c_str());
+    enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comandoBuffer);
+    sprintf(consoleBuffer, "%s %s %s", F("[OK] Puerta"), getPuertaName(puertaIndex), accion.c_str());
+    consolePrint(consoleBuffer);
   }
   
-  else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1 || cmd.indexOf("VENTILACION") != -1 || cmd.indexOf("AIRE") != -1) {
+  else if (cmd.indexOf(F("VENTILADOR")) != -1 || cmd.indexOf(F("FAN")) != -1 || cmd.indexOf(F("VENTILACION")) != -1 || cmd.indexOf(F("AIRE")) != -1) {
     String accion = "";
-    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "VENTILADOR_ENCENDER";
-    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "VENTILADOR_APAGAR";
+    if (cmd.indexOf(F("ENCENDER")) != -1 || cmd.indexOf(F("ON")) != -1 || cmd.indexOf(F("PRENDER")) != -1 || cmd.indexOf(F("ACTIVAR")) != -1) {
+      accion = F("VENTILADOR_ENCENDER");
+    } else if (cmd.indexOf(F("APAGAR")) != -1 || cmd.indexOf(F("OFF")) != -1 || cmd.indexOf(F("DESACTIVAR")) != -1) {
+      accion = F("VENTILADOR_APAGAR");
     } else {
-      consolePrint("[ERROR] Accion no reconocida para ventilador");
+      consolePrint(F("[ERROR] Accion no reconocida para ventilador"));
       return;
     }
     
-    enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
-    String estado = (accion == "VENTILADOR_ENCENDER") ? "ON" : "OFF";
-    consolePrint("[OK] " + accion);
+    enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion.c_str());
+    sprintf(consoleBuffer, "%s %s", F("[OK]"), accion.c_str());
+    consolePrint(consoleBuffer);
   }
   
-  else if (cmd.indexOf("TEMPERATURA") != -1 || cmd.indexOf("TEMP") != -1) {
-    consolePrint("[INFO] Solicitando temperatura...");
+  else if (cmd.indexOf(F("TEMPERATURA")) != -1 || cmd.indexOf(F("TEMP")) != -1) {
+    consolePrint(F("[INFO] Solicitando temperatura..."));
     solicitarTemperatura();
   }
   
-  else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
-    consolePrint("[INFO] Consultando estados...");
+  else if (cmd.indexOf(F("STATUS")) != -1 || cmd.indexOf(F("ESTADO")) != -1) {
+    consolePrint(F("[INFO] Consultando estados..."));
     leerYEnviarEstados();
   }
   
-  else if (cmd.indexOf("HELP") != -1 || cmd.indexOf("AYUDA") != -1) {
-    consolePrint("\n=== COMANDOS DISPONIBLES ===");
-    consolePrint("Luces: 'encender/apagar luz [NOMBRE]' ");
-    consolePrint("Puertas: 'abrir/cerrar puerta [NOMBRE]' ");
-    consolePrint("Ventilador: 'encender/apagar ventilador' ");
-    consolePrint("Temperatura: 'temperatura' o 'temp' ");
-    consolePrint("Estado: 'status' o 'estado' ");
-    consolePrint("============================\n");
+  else if (cmd.indexOf(F("HELP")) != -1 || cmd.indexOf(F("AYUDA")) != -1) {
+    consolePrint(F("\n=== COMANDOS DISPONIBLES ==="));
+    consolePrint(F("Luces: 'encender/apagar luz [NOMBRE]' "));
+    consolePrint(F("Puertas: 'abrir/cerrar puerta [NOMBRE]' "));
+    consolePrint(F("Ventilador: 'encender/apagar ventilador' "));
+    consolePrint(F("Temperatura: 'temperatura' o 'temp' "));
+    consolePrint(F("Estado: 'status' o 'estado' "));
+    consolePrint(F("============================\n"));
   }
   
   else {
-    consolePrint("[ERROR] Comando no entendido");
-    consolePrint("Escribe 'help' para ver comandos disponibles");
+    consolePrint(F("[ERROR] Comando no entendido"));
+    consolePrint(F("Escribe 'help' para ver comandos disponibles"));
   }
 }
 
-void enviarComandoI2C(int address, String comando) {
+void enviarComandoI2C(int address, const char* comando) {
   Wire.beginTransmission(address);
-  Wire.write((const uint8_t*)comando.c_str(), comando.length());
+  Wire.write(comando);
   byte error = Wire.endTransmission();
   
   if (error != 0) {
@@ -274,60 +298,76 @@ void leerYEnviarEstados() {
   Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
   delay(50);
   int lucesRecibidas = 0;
+  char estadoStr[4]; // "ON", "OFF", "\0"
+  char msgBuffer[50];
+  char stateMsgBuffer[60];
   for (int i = 0; i < 9 && Wire.available(); i++) {
     byte estado = Wire.read();
-    String estadoStr = ((estado == '1') ? "ON" : "OFF");
-    String msg = "LIGHT|" + getLuzName(i) + "|" + estadoStr;
-    consolePrint(msg);
+    strcpy(estadoStr, ((estado == '1') ? "ON" : "OFF"));
+    sprintf(msgBuffer, "LIGHT|%s|%s", getLuzName(i), estadoStr);
+    consolePrint(msgBuffer);
+    sprintf(stateMsgBuffer, "STATE|%s", msgBuffer);
     Wire.beginTransmission(WIFI_ADDRESS);
-    Wire.write(("STATE|" + msg).c_str());
+    Wire.write(stateMsgBuffer);
     Wire.endTransmission();
     lucesRecibidas++;
   }
   if (lucesRecibidas == 0) {
-    consolePrint("[ERROR] No se recibieron estados de luces");
+    consolePrint(F("[ERROR] No se recibieron estados de luces"));
   }
   
   Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
   delay(50);
-  String datos = "";
-  while (Wire.available()) {
-    datos += (char)Wire.read();
+  char datosBuffer[17]; // 16 caracteres + null terminator
+  int bytesRead = 0;
+  while (Wire.available() && bytesRead < 16) {
+    datosBuffer[bytesRead++] = (char)Wire.read();
   }
+  datosBuffer[bytesRead] = '\0'; // Null-terminate the string
   
-  if (datos.length() > 5) {
-    int c1 = datos.indexOf(',');
-    int c2 = datos.indexOf(',', c1 + 1);
-    
-    if (c1 > 2 && c2 > c1 + 3 && c2 + 3 < datos.length()) {
-      String temp = datos.substring(2, c1);
-      String dist = datos.substring(c1 + 3, c2);
-      String vent = datos.substring(c2 + 3);
-      
-      String tempMsg = "SENSOR|TEMPERATURA|" + temp + "C";
-      consolePrint(tempMsg);
-      Wire.beginTransmission(WIFI_ADDRESS);
-      Wire.write(("STATE|" + tempMsg).c_str());
-      Wire.endTransmission();
-
-      String distMsg = "SENSOR|DISTANCIA|" + dist + "cm";
-      consolePrint(distMsg);
-      Wire.beginTransmission(WIFI_ADDRESS);
-      Wire.write(("STATE|" + distMsg).c_str());
-      Wire.endTransmission();
-
-      String estadoVent = (vent == "1") ? "ON" : "OFF";
-      String ventMsg = "ACTUATOR|VENTILADOR|" + estadoVent;
-      consolePrint(ventMsg);
-      Wire.beginTransmission(WIFI_ADDRESS);
-      Wire.write(("STATE|" + ventMsg).c_str());
-      Wire.endTransmission();
-
-    } else {
-      consolePrint("[ERROR] Formato de datos de sensores invalido: " + datos);
+  if (bytesRead > 5) {
+    // Buscar los delimitadores ','
+    char* c1_ptr = strchr(datosBuffer, ',');
+    if (c1_ptr == NULL) {
+      consolePrint(F("[ERROR] Formato de datos de sensores incorrecto (c1)"));
+      return;
     }
+    *c1_ptr = '\0'; // Terminar la primera parte para obtener la temperatura
+    char* c2_ptr = strchr(c1_ptr + 1, ',');
+    if (c2_ptr == NULL) {
+      consolePrint(F("[ERROR] Formato de datos de sensores incorrecto (c2)"));
+      return;
+    }
+    *c2_ptr = '\0'; // Terminar la segunda parte para obtener la distancia
+
+    char* temp_str = datosBuffer + 2; // Saltar "T:"
+    char* dist_str = c1_ptr + 3; // Saltar ",D:"
+    char* vent_str = c2_ptr + 3; // Saltar ",V:"
+      
+    sprintf(msgBuffer, "SENSOR|TEMPERATURA|%sC", temp_str);
+    consolePrint(msgBuffer);
+    sprintf(stateMsgBuffer, "STATE|%s", msgBuffer);
+    Wire.beginTransmission(WIFI_ADDRESS);
+    Wire.write(stateMsgBuffer);
+    Wire.endTransmission();
+
+    sprintf(msgBuffer, "SENSOR|DISTANCIA|%scm", dist_str);
+    consolePrint(msgBuffer);
+    sprintf(stateMsgBuffer, "STATE|%s", msgBuffer);
+    Wire.beginTransmission(WIFI_ADDRESS);
+    Wire.write(stateMsgBuffer);
+    Wire.endTransmission();
+
+    const char* estadoVent = (strcmp(vent_str, "1") == 0) ? "ON" : "OFF";
+    sprintf(msgBuffer, "ACTUATOR|VENTILADOR|%s", estadoVent);
+    consolePrint(msgBuffer);
+    sprintf(stateMsgBuffer, "STATE|%s", msgBuffer);
+    Wire.beginTransmission(WIFI_ADDRESS);
+    Wire.write(stateMsgBuffer);
+    Wire.endTransmission();
+
   } else {
-    consolePrint("[ERROR] No se recibieron datos de sensores");
+    consolePrint(F("[ERROR] Datos de sensores incompletos"));
   }
   
   Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);

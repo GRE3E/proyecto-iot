@@ -199,7 +199,7 @@ void reconnect() {
       client.subscribe((const char*)F("iot/system/console/get"));
       
       consolePrint(F("Suscrito a topicos"));
-      client.publish(F("iot/system/gateway/status"), F("ONLINE"));
+      client.publish((const char*)F("iot/system/gateway/status"), (const char*)F("ONLINE"));
       
     } else {
       char consoleBuffer[100];

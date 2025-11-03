@@ -4,6 +4,11 @@
 #include <Wire.h>
 
 #define SLAVE_ADDRESS 9
+#define MAX_CMD_LENGTH 32
+
+void consolePrint(const __FlashStringHelper* message) {
+  Serial.println(message);
+}
 
 const int pinTemp = A0;
 const int trig = 4;

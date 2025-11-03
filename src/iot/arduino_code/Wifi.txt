@@ -89,6 +89,13 @@ void consolePrint(const char* message) {
   }
 }
 
+void consolePrint(const __FlashStringHelper* message) {
+  Serial.println(message);
+  if (!dentroCallback && client.connected()) {
+    client.publish("iot/system/console", (const char*)message);
+  }
+}
+
 void publicarConfirmacion(const char* tipo, const char* dispositivo, const char* accion, const char* estado, bool exito) {
   char mensaje[200]; // Buffer para el mensaje de confirmación
   snprintf(mensaje, sizeof(mensaje), "%s|%s|%s|%s|%s|%lu",

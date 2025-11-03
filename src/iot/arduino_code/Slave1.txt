@@ -13,6 +13,10 @@ void consolePrint(const char* message) {
   Serial.println(message);
 }
 
+void consolePrint(const __FlashStringHelper* message) {
+  Serial.println(message);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(SLAVE_ADDRESS);

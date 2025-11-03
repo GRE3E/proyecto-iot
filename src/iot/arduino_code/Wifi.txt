@@ -328,7 +328,7 @@ void leerSerial() {
   }
 }
 
-voidvoid receiveEvent(int howMany) {
+void receiveEvent(int howMany) {
   String receivedMessage = "";
   while (Wire.available()) {
     char c = Wire.read();
@@ -345,11 +345,39 @@ voidvoid receiveEvent(int howMany) {
         String message = receivedMessage.substring(secondPipe + 1);
         client.publish("iot/system/console", ("[" + source + "] " + message).c_str());
       }
+    } else if (receivedMessage.startsWith("STATE|")) {
+      // Extraer el mensaje de estado
+      int firstPipe = receivedMessage.indexOf('|');
+      String stateMessage = receivedMessage.substring(firstPipe + 1);
+      
+      int typeEnd = stateMessage.indexOf('|');
+      String type = stateMessage.substring(0, typeEnd);
+      
+      int deviceEnd = stateMessage.indexOf('|', typeEnd + 1);
+      String device = stateMessage.substring(typeEnd + 1, deviceEnd);
+      
+      String state = stateMessage.substring(deviceEnd + 1);
+      
+      String topic = "";
+      if (type == "LIGHT") {
+        topic = "iot/lights/LIGHT_" + device + "/status";
+      } else if (type == "DOOR") {
+        topic = "iot/doors/DOOR_" + device + "/status";
+      } else if (type == "SENSOR" && device == "TEMPERATURA") {
+        topic = "iot/sensors/TEMPERATURE/status";
+      } else if (type == "SENSOR" && device == "DISTANCIA") {
+        topic = "iot/sensors/DISTANCE/status";
+      } else if (type == "ACTUATOR" && device == "VENTILADOR") {
+        topic = "iot/actuators/VENTILADOR/status";
+      }
+      
+      if (topic.length() > 0) {
+        client.publish(topic.c_str(), state.c_str());
+      }
     }
   }
 }
-  }
-}
+
 
 void setup() {
   Serial.begin(115200);

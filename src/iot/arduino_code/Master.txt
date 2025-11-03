@@ -276,7 +276,12 @@ void leerYEnviarEstados() {
   int lucesRecibidas = 0;
   for (int i = 0; i < 9 && Wire.available(); i++) {
     byte estado = Wire.read();
-    consolePrint("LIGHT|" + getLuzName(i) + "|" + ((estado == '1') ? "ON" : "OFF"));
+    String estadoStr = ((estado == '1') ? "ON" : "OFF");
+    String msg = "LIGHT|" + getLuzName(i) + "|" + estadoStr;
+    consolePrint(msg);
+    Wire.beginTransmission(WIFI_ADDRESS);
+    Wire.write(("STATE|" + msg).c_str());
+    Wire.endTransmission();
     lucesRecibidas++;
   }
   if (lucesRecibidas == 0) {
@@ -299,10 +304,25 @@ void leerYEnviarEstados() {
       String dist = datos.substring(c1 + 3, c2);
       String vent = datos.substring(c2 + 3);
       
-      consolePrint("SENSOR|TEMPERATURA|" + temp + "C");
-      consolePrint("SENSOR|DISTANCIA|" + dist + "cm");
+      String tempMsg = "SENSOR|TEMPERATURA|" + temp + "C";
+      consolePrint(tempMsg);
+      Wire.beginTransmission(WIFI_ADDRESS);
+      Wire.write(("STATE|" + tempMsg).c_str());
+      Wire.endTransmission();
+
+      String distMsg = "SENSOR|DISTANCIA|" + dist + "cm";
+      consolePrint(distMsg);
+      Wire.beginTransmission(WIFI_ADDRESS);
+      Wire.write(("STATE|" + distMsg).c_str());
+      Wire.endTransmission();
+
       String estadoVent = (vent == "1") ? "ON" : "OFF";
-      consolePrint("ACTUATOR|VENTILADOR|" + estadoVent);
+      String ventMsg = "ACTUATOR|VENTILADOR|" + estadoVent;
+      consolePrint(ventMsg);
+      Wire.beginTransmission(WIFI_ADDRESS);
+      Wire.write(("STATE|" + ventMsg).c_str());
+      Wire.endTransmission();
+
     } else {
       consolePrint("[ERROR] Formato de datos de sensores invalido: " + datos);
     }
@@ -315,7 +335,12 @@ void leerYEnviarEstados() {
   int puertasRecibidas = 0;
   for (int i = 0; i < 8 && Wire.available(); i++) {
     byte estado = Wire.read();
-    consolePrint("DOOR|" + getPuertaName(i) + "|" + ((estado == '1') ? "OPEN" : "CLOSED"));
+    String estadoStr = ((estado == '1') ? "OPEN" : "CLOSED");
+    String msg = "DOOR|" + getPuertaName(i) + "|" + estadoStr;
+    consolePrint(msg);
+    Wire.beginTransmission(WIFI_ADDRESS);
+    Wire.write(("STATE|" + msg).c_str());
+    Wire.endTransmission();
     puertasRecibidas++;
   }
   if (puertasRecibidas == 0) {

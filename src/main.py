@@ -6,6 +6,7 @@ import warnings
 from dotenv import load_dotenv
 from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router
 from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
 from src.api.utils import (
@@ -33,6 +34,18 @@ if os.name == 'nt':
 
 logger = logging.getLogger("MainApp")
 app = FastAPI(title="Casa Inteligente API")
+
+origins = [
+    "*"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 @ErrorHandler.handle_async_exceptions

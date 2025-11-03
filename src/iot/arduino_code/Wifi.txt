@@ -5,27 +5,22 @@
 #include <PubSubClient.h>
 #include <Wire.h>
 
-// ======= CONFIGURACION WIFI =======
 const char* ssid = "IoT_Murphy_Home";
 const char* password = "Home_IoT_Murphy";
 
-// ======= CONFIGURACION MQTT =======
 const char* mqtt_server = "192.168.137.1";
 const int mqtt_port = 1883;
 const char* mqtt_client_id = "ESP8266_HomeGateway";
 
-// === Direcciones I2C de los esclavos ===
 #define SLAVE_LUCES_ADDRESS 8
 #define SLAVE_SENSORES_ADDRESS 9
 #define SLAVE_PUERTAS_ADDRESS 10
 
-// === Mapeo de nombres a indices ===
 struct DeviceMap {
   String name;
   int index;
 };
 
-// Luces (9 luces: 0-8)
 DeviceMap luces[] = {
   {"GARAJE", 0},
   {"PASILLO", 1},
@@ -38,7 +33,6 @@ DeviceMap luces[] = {
   {"SALA", 8}
 };
 
-// Puertas (8 puertas: 0-7)
 DeviceMap puertas[] = {
   {"PRINCIPAL", 0},
   {"GARAJE", 1},
@@ -50,18 +44,14 @@ DeviceMap puertas[] = {
   {"HABITACION_PRINCIPAL", 7}
 };
 
-// === Objetos WiFi y MQTT ===
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// === Variables de control ===
 String serialBuffer = "";
 unsigned long ultimaLectura = 0;
 const unsigned long intervaloLectura = 5000;
+bool dentroCallback = false;
 
-// ========================================
-// FUNCIONES DE MAPEO
-// ========================================
 int getLuzIndex(String nombre) {
   nombre.toUpperCase();
   for (int i = 0; i < 9; i++) {
@@ -92,19 +82,13 @@ String getPuertaName(int index) {
   return "DESCONOCIDA";
 }
 
-// ========================================
-// FUNCION DE IMPRESION EN CONSOLA Y MQTT
-// ========================================
 void consolePrint(String message) {
   Serial.println(message);
-  if (client.connected()) {
+  if (!dentroCallback && client.connected()) {
     client.publish("iot/system/console", message.c_str());
   }
 }
 
-// ========================================
-// PUBLICAR MENSAJE DE CONFIRMACION
-// ========================================
 void publicarConfirmacion(String tipo, String dispositivo, String accion, String estado, bool exito) {
   String mensaje = tipo + "|" + dispositivo + "|" + accion + "|" + estado + "|" + (exito ? "OK" : "ERROR") + "|" + String(millis());
   client.publish("iot/system/confirmations", mensaje.c_str());
@@ -118,9 +102,6 @@ void publicarConfirmacion(String tipo, String dispositivo, String accion, String
   consolePrint("====================\n");
 }
 
-// ========================================
-// SETUP WIFI
-// ========================================
 void setup_wifi() {
   delay(1000);
   consolePrint("\nIniciando conexion WiFi...");
@@ -140,39 +121,38 @@ void setup_wifi() {
   if (WiFi.status() == WL_CONNECTED) {
     consolePrint("\nWiFi conectado");
     Serial.print("IP: ");
-    consolePrint(WiFi.localIP().toString());
+    consolePrint(WiFi.localIP());
   } else {
     consolePrint("\nERROR: No se pudo conectar a WiFi");
   }
 }
 
-// ========================================
-// CALLBACK MQTT
-// ========================================
 void callback(char* topic, byte* payload, unsigned int length) {
+  dentroCallback = true;
+  
   Serial.print("\nMQTT recibido en [");
   Serial.print(topic);
-  consolePrint("]");
+  Serial.println("]");
   
   String message = "";
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
   message.trim();
-  message.toUpperCase();
   
   Serial.print("Comando: ");
-  consolePrint(message);
+  Serial.println(message);
   
   String topicStr = String(topic);
   topicStr.toUpperCase();
+  message.toUpperCase();
+  
   String comando = topicStr + "|" + message;
   procesarComando(comando);
+  
+  dentroCallback = false;
 }
 
-// ========================================
-// RECONEXION MQTT
-// ========================================
 void reconnect() {
   while (!client.connected() && WiFi.status() == WL_CONNECTED) {
     Serial.print("Conectando a MQTT broker...");
@@ -187,7 +167,7 @@ void reconnect() {
       client.subscribe("iot/actuators/VENTILADOR/command");
       client.subscribe("iot/actuators/VENTILADOR/status/get");
       client.subscribe("iot/system/command");
-      client.subscribe("iot/system/console/get"); // Nuevo: Suscripción para obtener la consola
+      client.subscribe("iot/system/console/get");
       
       consolePrint("Suscrito a topicos");
       client.publish("iot/system/gateway/status", "ONLINE");
@@ -201,89 +181,43 @@ void reconnect() {
   }
 }
 
-// ========================================
-// LEER ESTADO INDIVIDUAL DE LUZ
-// ========================================
 void leerEstadoLuz(int index) {
   if (index < 0 || index >= 9) return;
   
-  Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
-  delay(50);
-  
   byte estado = '0';
-  for (int i = 0; i <= index && Wire.available(); i++) {
-    estado = Wire.read();
-  }
   
   String nombreLuz = getLuzName(index);
   String topic = "iot/lights/LIGHT_" + nombreLuz + "/status";
   String valor = (estado == '1') ? "ON" : "OFF";
   
-  client.publish(topic.c_str(), valor.c_str());
-  publicarConfirmacion("LIGHT", nombreLuz, "STATUS_READ", valor, true);
-  consolePrint("Luz " + nombreLuz + ": " + valor);
+  consolePrint("Luz " + nombreLuz + ": " + valor + " (Lectura I2C deshabilitada en Wifi.txt)");
 }
 
-// ========================================
-// LEER ESTADO INDIVIDUAL DE PUERTA
-// ========================================
 void leerEstadoPuerta(int index) {
   if (index < 0 || index >= 8) return;
   
-  Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);
-  delay(50);
-  
   byte estado = '0';
-  for (int i = 0; i <= index && Wire.available(); i++) {
-    estado = Wire.read();
-  }
   
   String nombrePuerta = getPuertaName(index);
   String topic = "iot/doors/DOOR_" + nombrePuerta + "/status";
   String valor = (estado == '1') ? "OPEN" : "CLOSED";
   
-  client.publish(topic.c_str(), valor.c_str());
-  publicarConfirmacion("DOOR", nombrePuerta, "STATUS_READ", valor, true);
-  consolePrint("Puerta " + nombrePuerta + ": " + valor);
+  consolePrint("Puerta " + nombrePuerta + ": " + valor + " (Lectura I2C deshabilitada en Wifi.txt)");
 }
 
-// ========================================
-// LEER ESTADO DEL VENTILADOR
-// ========================================
 void leerEstadoVentilador() {
-  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
-  delay(50);
   String datos = "";
-  while (Wire.available()) {
-    datos += (char)Wire.read();
-  }
   
-  if (datos.length() > 5) {
-    int c1 = datos.indexOf(',');
-    int c2 = datos.indexOf(',', c1 + 1);
-    if (c1 != -1 && c2 != -1 && c2 + 3 < datos.length()) {
-      String vent = datos.substring(c2 + 3);
-      String estado = (vent == "1") ? "ON" : "OFF";
-      client.publish("iot/actuators/VENTILADOR/status", estado.c_str());
-      publicarConfirmacion("ACTUATOR", "VENTILADOR", "STATUS_READ", estado, true);
-      consolePrint("Ventilador: " + estado);
-    }
-  }
+  consolePrint("Ventilador: Estado no disponible (Lectura I2C deshabilitada en Wifi.txt)");
 }
 
-// ========================================
-// PUBLICAR BUFFER SERIAL
-// ========================================
 void publicarBufferSerial() {
   if (serialBuffer.length() > 0) {
     client.publish("iot/system/console", serialBuffer.c_str());
-    serialBuffer = ""; // Limpiar el buffer después de publicar
+    serialBuffer = "";
   }
 }
 
-// ========================================
-// PROCESAMIENTO DE COMANDOS
-// ========================================
 void procesarComando(String cmd) {
   if (cmd.length() == 0) return;
   
@@ -297,7 +231,6 @@ void procesarComando(String cmd) {
   
   consolePrint("Procesando: " + cmd);
   
-  // === CONSULTA DE ESTADO DE LUZ INDIVIDUAL ===
   if (cmd.indexOf("IOT/LIGHTS/") != -1 && cmd.indexOf("/STATUS/GET") != -1) {
     int start = cmd.indexOf("LIGHT_") + 6;
     int end = cmd.indexOf("/STATUS/GET");
@@ -311,7 +244,6 @@ void procesarComando(String cmd) {
     }
   }
   
-  // === CONSULTA DE ESTADO DE PUERTA INDIVIDUAL ===
   if (cmd.indexOf("IOT/DOORS/") != -1 && cmd.indexOf("/STATUS/GET") != -1) {
     int start = cmd.indexOf("DOOR_") + 5;
     int end = cmd.indexOf("/STATUS/GET");
@@ -325,13 +257,11 @@ void procesarComando(String cmd) {
     }
   }
   
-  // === CONSULTA DE ESTADO DE VENTILADOR ===
   if (cmd.indexOf("IOT/ACTUATORS/VENTILADOR/STATUS/GET") != -1) {
     leerEstadoVentilador();
     return;
   }
   
-  // === LUCES ===
   if (cmd.indexOf("IOT/LIGHTS/") != -1 || cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1) {
     int luzIndex = -1;
     String accion = "";
@@ -381,7 +311,6 @@ void procesarComando(String cmd) {
     publicarConfirmacion("LIGHT", nombreLuz, accion, estado, true);
   }
   
-  // === PUERTAS ===
   else if (cmd.indexOf("IOT/DOORS/") != -1 || cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
     int puertaIndex = -1;
     String accion = "";
@@ -423,7 +352,7 @@ void procesarComando(String cmd) {
     enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
     
     String nombrePuerta = getPuertaName(puertaIndex);
-    String estado = (accion == "ABRIR") ? "ON" : "OFF";
+    String estado = (accion == "ABRIR") ? "OPEN" : "CLOSED";
     consolePrint("OK: Puerta " + nombrePuerta + " " + accion);
     
     String topic = "iot/doors/DOOR_" + nombrePuerta + "/status";
@@ -431,7 +360,6 @@ void procesarComando(String cmd) {
     publicarConfirmacion("DOOR", nombrePuerta, accion, estado, true);
   }
   
-  // === VENTILADOR ===
   else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1) {
     String accion = "";
     
@@ -453,7 +381,6 @@ void procesarComando(String cmd) {
     publicarConfirmacion("ACTUATOR", "VENTILADOR", accion, estado, true);
   }
   
-  // === ESTADO GENERAL ===
   else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
     consolePrint("Consultando estados generales...");
     leerYPublicarEstados();
@@ -465,9 +392,6 @@ void procesarComando(String cmd) {
   }
 }
 
-// ========================================
-// ENVIO DE COMANDOS I2C
-// ========================================
 void enviarComandoI2C(int address, String comando) {
   Wire.beginTransmission(address);
   Wire.write((const uint8_t*)comando.c_str(), comando.length());
@@ -480,70 +404,18 @@ void enviarComandoI2C(int address, String comando) {
   delay(50);
 }
 
-// ========================================
-// LECTURA Y PUBLICACION DE ESTADOS
-// ========================================
 void leerYPublicarEstados() {
   consolePrint("\n--- Leyendo Estados ---");
   
-  // === LUCES ===
-  Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
-  delay(50);
-  for (int i = 0; i < 9 && Wire.available(); i++) {
-    byte estado = Wire.read();
-    String topic = "iot/lights/LIGHT_" + getLuzName(i) + "/status";
-    String valor = (estado == '1') ? "ON" : "OFF";
-    client.publish(topic.c_str(), valor.c_str());
-    consolePrint("Luz " + getLuzName(i) + ": " + valor);
-  }
+  consolePrint("Estados de Luces: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
   
-  // === SENSORES ===
-  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
-  delay(50);
-  String datos = "";
-  while (Wire.available()) {
-    datos += (char)Wire.read();
-  }
+  consolePrint("Estados de Sensores: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
   
-  if (datos.length() > 5) {
-    int c1 = datos.indexOf(',');
-    int c2 = datos.indexOf(',', c1 + 1);
-    
-    if (c1 > 2 && c2 > c1 + 3 && c2 + 3 < datos.length()) {
-      String temp = datos.substring(2, c1);
-      String dist = datos.substring(c1 + 3, c2);
-      String vent = datos.substring(c2 + 3);
-      
-      client.publish("iot/sensors/TEMPERATURA/status", temp.c_str());
-      client.publish("iot/sensors/DISTANCIA/status", dist.c_str());
-      String estadoVent = (vent == "1") ? "ON" : "OFF";
-      client.publish("iot/actuators/VENTILADOR/status", estadoVent.c_str());
-      
-      consolePrint("Temperatura: " + temp + "C");
-      consolePrint("Distancia: " + dist + "cm");
-      consolePrint("Ventilador: " + estadoVent);
-    } else {
-      consolePrint("ERROR: Formato de datos de sensores invalido");
-    }
-  }
-  
-  // === PUERTAS ===
-  Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);
-  delay(50);
-  for (int i = 0; i < 8 && Wire.available(); i++) {
-    byte estado = Wire.read();
-    String topic = "iot/doors/DOOR_" + getPuertaName(i) + "/status";
-    String valor = (estado == '1') ? "OPEN" : "CLOSED";
-    client.publish(topic.c_str(), valor.c_str());
-    consolePrint("Puerta " + getPuertaName(i) + ": " + valor);
-  }
+  consolePrint("Estados de Puertas: No disponibles (Lectura I2C deshabilitada en Wifi.txt)");
   
   consolePrint("--- Fin Estados ---\n");
 }
 
-// ========================================
-// LECTURA SERIAL
-// ========================================
 void leerSerial() {
   while (Serial.available()) {
     char c = Serial.read();
@@ -558,9 +430,17 @@ void leerSerial() {
   }
 }
 
-// ========================================
-// SETUP
-// ========================================
+void receiveEvent(int howMany) {
+  String receivedMessage = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    receivedMessage += c;
+  }
+  if (receivedMessage.length() > 0) {
+    consolePrint("[I2C_MASTER_CONSOLE] " + receivedMessage);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(100);
@@ -569,9 +449,10 @@ void setup() {
   consolePrint("   ESP8266 WiFi Gateway");
   consolePrint("========================================");
   
-  Wire.begin(D2, D1);
+  Wire.begin(7); // ESP8266 como esclavo I2C con direccion 7
+  Wire.onReceive(receiveEvent);
   Wire.setClock(100000);
-  consolePrint("I2C inicializado");
+  consolePrint("I2C inicializado como esclavo");
   
   setup_wifi();
   
@@ -592,9 +473,6 @@ void setup() {
   consolePrint("  - VENTILADOR\n");
 }
 
-// ========================================
-// LOOP
-// ========================================
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     setup_wifi();

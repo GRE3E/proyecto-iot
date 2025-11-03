@@ -117,6 +117,28 @@ String getPuertaName(int index) {
   return "DESCONOCIDA";
 }
 
+void solicitarTemperatura() {
+  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16); // Solicitar hasta 16 bytes del esclavo de sensores
+  delay(50);
+  String datos = "";
+  while (Wire.available()) {
+    datos += (char)Wire.read();
+  }
+
+  if (datos.length() > 5) { // Longitud mínima para "T:XX,D:YY,V:Z"
+    int c1 = datos.indexOf(',');
+
+    if (c1 > 2) { // Asegurarse de que la parte "T:XX" exista
+      String temp = datos.substring(2, c1); // Extraer la temperatura
+      consolePrint("SENSOR|TEMPERATURA|" + temp + "C");
+    } else {
+      consolePrint("[ERROR] Formato de datos de temperatura invalido: " + datos);
+    }
+  } else {
+    consolePrint("[ERROR] No se recibieron datos de temperatura del sensor");
+  }
+}
+
 void procesarComando(String cmd) {
   cmd.trim();
   if (cmd.length() == 0) return;
@@ -183,7 +205,13 @@ void procesarComando(String cmd) {
     }
     
     enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
+    String estado = (accion == "VENTILADOR_ENCENDER") ? "ON" : "OFF";
     consolePrint("[OK] " + accion);
+  }
+  
+  else if (cmd.indexOf("TEMPERATURA") != -1 || cmd.indexOf("TEMP") != -1) {
+    consolePrint("[INFO] Solicitando temperatura...");
+    solicitarTemperatura();
   }
   
   else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
@@ -193,10 +221,11 @@ void procesarComando(String cmd) {
   
   else if (cmd.indexOf("HELP") != -1 || cmd.indexOf("AYUDA") != -1) {
     consolePrint("\n=== COMANDOS DISPONIBLES ===");
-    consolePrint("Luces: 'encender/apagar luz [NOMBRE]'");
-    consolePrint("Puertas: 'abrir/cerrar puerta [NOMBRE]'");
-    consolePrint("Ventilador: 'encender/apagar ventilador'");
-    consolePrint("Estado: 'status' o 'estado'");
+    consolePrint("Luces: 'encender/apagar luz [NOMBRE]' ");
+    consolePrint("Puertas: 'abrir/cerrar puerta [NOMBRE]' ");
+    consolePrint("Ventilador: 'encender/apagar ventilador' ");
+    consolePrint("Temperatura: 'temperatura' o 'temp' ");
+    consolePrint("Estado: 'status' o 'estado' ");
     consolePrint("============================\n");
   }
   
@@ -220,7 +249,6 @@ void enviarComandoI2C(int address, String comando) {
 void leerYEnviarEstados() {
   consolePrint("\n--- ESTADOS ACTUALES ---");
   
-  // === LUCES ===
   Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
   delay(50);
   int lucesRecibidas = 0;
@@ -233,7 +261,6 @@ void leerYEnviarEstados() {
     consolePrint("[ERROR] No se recibieron estados de luces");
   }
   
-  // === SENSORES ===
   Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
   delay(50);
   String datos = "";
@@ -261,7 +288,6 @@ void leerYEnviarEstados() {
     consolePrint("[ERROR] No se recibieron datos de sensores");
   }
   
-  // === PUERTAS ===
   Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);
   delay(50);
   int puertasRecibidas = 0;

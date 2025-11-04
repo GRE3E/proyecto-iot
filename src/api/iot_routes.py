@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from src.api.iot_schemas import IoTCommandCreate, IoTCommand, IoTDashboardData, ArduinoCommandSend, DeviceState
+from src.api.iot_schemas import IoTCommandCreate, IoTCommand, ArduinoCommandSend, DeviceState
 from src.db.database import get_db
 from src.db import models
 import logging
@@ -15,7 +15,6 @@ logger = logging.getLogger("APIRoutes")
 iot_router = APIRouter()
 
 @iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
-@iot_router.post("/command", response_model=dict)
 async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = Depends(get_db)):
     mqtt_client = get_mqtt_client()
     if not mqtt_client or not mqtt_client.is_connected:
@@ -57,6 +56,19 @@ async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = D
 
         return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
 
+@iot_router.get("/device_states/{device_name}", response_model=DeviceState)
+async def get_single_device_state(device_name: str, db: AsyncSession = Depends(get_db)):
+    """
+    Obtiene el estado de un único dispositivo IoT por su nombre.
+    """
+    async with db as session:
+        device_state = await device_manager.get_device_state(session, device_name)
+        if device_state is None:
+            logger.warning(f"Estado del dispositivo {device_name} no encontrado.")
+            raise HTTPException(status_code=404, detail="Device state not found")
+        logger.info(f"Estado del dispositivo {device_name} obtenido exitosamente.")
+        return DeviceState(id=device_state.id, device_name=device_state.device_name, device_type=device_state.device_type, state_json=json.loads(device_state.state_json), last_updated=device_state.last_updated)
+
 @iot_router.get("/device_states", response_model=List[DeviceState])
 async def get_all_device_states(db: AsyncSession = Depends(get_db)):
     """
@@ -66,17 +78,20 @@ async def get_all_device_states(db: AsyncSession = Depends(get_db)):
         device_states = await device_manager.get_all_device_states(session)
         return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
-@iot_router.get("/dashboard_data", response_model=IoTDashboardData)
-async def get_iot_dashboard_data(request: Request):
+
+
+@iot_router.delete("/device_states/{device_name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device_state_route(device_name: str, db: AsyncSession = Depends(get_db)):
     """
-    Obtiene los datos actuales del dashboard IoT, incluyendo estados de dispositivos y lecturas de sensores.
+    Elimina el estado de un dispositivo IoT por su nombre.
     """
-    app = request.app
-    if not hasattr(app.state, "iot_data"):
-        logger.error("Los datos IoT no están inicializados para /iot/dashboard_data.")
-        raise HTTPException(status_code=500, detail="Los datos IoT no están inicializados.")
-    logger.info("Datos del dashboard IoT obtenidos exitosamente para /iot/dashboard_data.")
-    return IoTDashboardData(data=app.state.iot_data)
+    async with db as session:
+        success = await device_manager.delete_device_state(session, device_name)
+        if not success:
+            logger.warning(f"Dispositivo {device_name} no encontrado para eliminar.")
+            raise HTTPException(status_code=404, detail="Device not found")
+        logger.info(f"Dispositivo {device_name} eliminado exitosamente.")
+        return {"message": "Device deleted successfully"}
 
 @iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
 def create_iot_commands(commands: List[IoTCommandCreate], db: Session = Depends(get_db)):

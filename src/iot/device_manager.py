@@ -47,6 +47,19 @@ async def get_device_state(db: AsyncSession, device_name: str) -> DeviceState | 
     result = await db.execute(select(DeviceState).filter(DeviceState.device_name == device_name))
     return result.scalars().first()
 
+async def delete_device_state(db: AsyncSession, device_name: str) -> bool:
+    """
+    Elimina el estado de un dispositivo por su nombre.
+    """
+    db_device_state = await get_device_state(db, device_name)
+    if db_device_state:
+        await db.delete(db_device_state)
+        await db.commit()
+        logger.info(f"Estado del dispositivo {device_name} eliminado.")
+        return True
+    logger.warning(f"No se encontró el estado del dispositivo {device_name} para eliminar.")
+    return False
+
 async def create_device_state(db: AsyncSession, device_state: DeviceStateCreate) -> DeviceState:
     """
     Crea un nuevo registro de estado de dispositivo.

@@ -25,7 +25,7 @@ router.include_router(tts_router, prefix="/tts", tags=["tts"], dependencies=[Dep
 router.include_router(nlp_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
 router.include_router(stt_router, prefix="/stt", tags=["stt"], dependencies=[Depends(get_device_api_key)])
 router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
-router.include_router(iot_router, prefix="/iot", tags=["iot"])
+router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Depends(get_current_user)])
 router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])

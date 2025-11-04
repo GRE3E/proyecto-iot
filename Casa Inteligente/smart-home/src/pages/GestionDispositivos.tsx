@@ -26,10 +26,13 @@ import EnergyGauge from "../components/widgets/EnergyGauge"
 import ProfileNotifications from "../components/UI/ProfileNotifications";
 
 interface Device {
+  id: number
   name: string
-  location: string
   power: string
   on: boolean
+  device_type: string
+  state_json: { status: string }
+  last_updated: string
 }
 
 export default function GestionDispositivos() {
@@ -48,13 +51,16 @@ export default function GestionDispositivos() {
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
 
   const getDeviceIcon = (device: Device) => {
-    if (device.name.includes("Luz") || device.name.includes("Bombilla") || device.name.includes("Lámpara")) {
-      return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
+    switch (device.device_type) {
+      case "luz":
+        return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
+      case "ventilador":
+        return <Thermometer className="w-5 h-5 sm:w-6 sm:h-6" /> // Usando Thermometer para ventilador, puedes cambiarlo si tienes un ícono de ventilador
+      case "puerta":
+        return <Plug className="w-5 h-5 sm:w-6 sm:h-6" /> // Usando Plug para puerta, puedes cambiarlo si tienes un ícono de puerta
+      default:
+        return <Plug className="w-5 h-5 sm:w-6 sm:h-6" />
     }
-    if (device.name.includes("Aire")) {
-      return <Thermometer className="w-5 h-5 sm:w-6 sm:h-6" />
-    }
-    return <Plug className="w-5 h-5 sm:w-6 sm:h-6" />
   }
 
   const filteredDevices = devices.filter(
@@ -223,7 +229,7 @@ export default function GestionDispositivos() {
                 <AnimatePresence>
                   {filteredDevices.map((device, i) => (
                     <motion.div
-                      key={device.name}
+                      key={device.id}
                       initial={{ opacity: 0, y: 50, scale: 0.8 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
@@ -248,26 +254,19 @@ export default function GestionDispositivos() {
 
                         <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white font-inter truncate">
+                            <span className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white font-inter whitespace-normal">
                               {device.name}
                             </span>
                             <div
                               className={`w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 rounded-full ${device.on ? "bg-green-400 animate-pulse shadow-lg shadow-green-400/50" : "bg-red-400"}`}
                             />
                           </div>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm md:text-base text-slate-400">
-                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-4.5 md:h-4.5 text-slate-300 flex-shrink-0" />
-                            <span className="truncate">{device.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm md:text-base text-slate-400 font-medium">
-                            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-4.5 md:h-4.5 text-yellow-400 flex-shrink-0" />
-                            <span>{device.power}</span>
-                          </div>
+                          <div className="text-sm text-gray-400">{device.power}</div>
                         </div>
 
                         <div className="flex-shrink-0">
                           <button
-                            onClick={() => toggleDevice(devices.indexOf(device))}
+                            onClick={() => toggleDevice(device.id)}
                             className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center text-white transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95
                               ${device.on ? "bg-red-500/40 hover:bg-red-500 border-2 border-red-400/50" : "bg-green-500/40 hover:bg-green-500 border-2 border-green-400/50"}
                             `}

@@ -232,14 +232,34 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
   ```json
   {
     "username": "nombre_de_usuario",
-    "password": "contraseña_segura",
-    "is_owner": false
+    "password": "contraseña_segura"
   }
   ```
 - **Response:**
   ```json
   {
     "message": "Usuario nombre_de_usuario registrado exitosamente"
+  }
+  ```
+
+### Registrar Usuario Propietario (Protegido)
+
+- **URL:** `/auth/register-owner`
+- **Método:** `POST`
+- **Descripción:** Registra un nuevo usuario propietario en el sistema. Requiere autenticación con `X-Device-API-Key`.
+- **Headers:**
+  - `X-Device-API-Key`: Clave API del dispositivo para autenticación.
+- **Request Body:**
+  ```json
+  {
+    "username": "nombre_de_propietario",
+    "password": "contraseña_segura"
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "message": "Usuario propietario nombre_de_propietario registrado exitosamente"
   }
   ```
 
@@ -430,7 +450,7 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
 
 The following endpoints are available for managing IoT devices and commands:
 
-#### `POST /iot/arduino/send_command` and `POST /iot/command`
+#### `POST /iot/arduino/send_command`
 
 - **URL**: `/iot/arduino/send_command` or `/iot/command`
 - **Method**: `POST`
@@ -469,17 +489,34 @@ The following endpoints are available for managing IoT devices and commands:
   ]
   ```
 
-#### `GET /iot/dashboard_data`
 
-- **URL**: `/iot/dashboard_data`
+
+#### `GET /iot/device_states/{device_name}`
+
+- **URL**: `/iot/device_states/{device_name}`
 - **Method**: `GET`
-- **Description**: Retrieves current IoT dashboard data, including device states and sensor readings.
+- **Description**: Obtiene el estado de un único dispositivo IoT por su nombre.
+- **Path Parameters**:
+  - `device_name`: El nombre del dispositivo a recuperar. (string)
 - **Response**:
   ```json
   {
-    "data": {}
+    "id": 0,
+    "device_name": "string",
+    "device_type": "string",
+    "state_json": {},
+    "last_updated": "2024-01-01T12:00:00Z"
   }
   ```
+
+#### `DELETE /iot/device_states/{device_name}`
+
+- **URL**: `/iot/device_states/{device_name}`
+- **Method**: `DELETE`
+- **Description**: Elimina el estado de un dispositivo IoT por su nombre.
+- **Path Parameters**:
+  - `device_name`: El nombre del dispositivo a eliminar. (string)
+- **Response**: `204 No Content` (Successful deletion)
 
 #### `POST /iot/commands`
 

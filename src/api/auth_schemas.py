@@ -3,7 +3,6 @@ from pydantic import BaseModel
 class UserRegister(BaseModel):
     username: str
     password: str
-    is_owner: bool = False
 
 class UserLogin(BaseModel):
     username: str
@@ -16,3 +15,9 @@ class Token(BaseModel):
 
 class TokenRefresh(BaseModel):
     refresh_token: str
+
+class OwnerRegister(BaseModel):
+    username: str
+    password: str
+    is_owner: bool = True
+    

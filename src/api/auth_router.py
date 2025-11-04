@@ -4,7 +4,8 @@ import logging
 from src.db.database import get_db
 from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
-from .auth_schemas import UserRegister, TokenRefresh
+from src.auth.device_auth import get_device_api_key
+from .auth_schemas import UserRegister, TokenRefresh, OwnerRegister
 
 logger = logging.getLogger("APIRoutes")
 
@@ -20,13 +21,31 @@ async def register(user: UserRegister):
             auth_service = AuthService(db)
             await auth_service.register_user(
                 username=user.username,
-                password=user.password,
-                is_owner=user.is_owner
+                password=user.password
             )
         logger.info(f"Usuario {user.username} registrado exitosamente")
         return {"message": f"Usuario {user.username} registrado exitosamente"}
     except Exception as e:
         logger.error(f"Error al registrar usuario: {e}")
+        raise
+
+@router.post("/register-owner", status_code=status.HTTP_201_CREATED)
+async def register_owner(user: OwnerRegister, api_key: str = Depends(get_device_api_key)):
+    """
+    Registra un nuevo usuario propietario en el sistema (protegido por API Key).
+    """
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            await auth_service.register_user(
+                username=user.username,
+                password=user.password,
+                is_owner=user.is_owner
+            )
+        logger.info(f"Usuario propietario {user.username} registrado exitosamente")
+        return {"message": f"Usuario propietario {user.username} registrado exitosamente"}
+    except Exception as e:
+        logger.error(f"Error al registrar usuario propietario: {e}")
         raise
 
 @router.post("/login")

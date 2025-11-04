@@ -96,9 +96,9 @@ class MemoryManager:
             logger.error(f"Error al buscar en el historial de conversación para el usuario '{user_id}': {e}")
             return []
 
-    async def get_conversation_logs_by_user_id(self, db: AsyncSession, user_id: int, limit: int = 100) -> List[ConversationLog]:
+    async def get_conversation_logs_by_user_id(self, db: AsyncSession, user_id: int, limit: int = 100) -> str:
         """
-        Recupera los logs de conversación para un usuario específico.
+        Recupera los logs de conversación para un usuario específico y los formatea.
 
         Args:
             db (Session): La sesión de la base de datos.
@@ -106,7 +106,7 @@ class MemoryManager:
             limit (int): El número máximo de logs a recuperar.
 
         Returns:
-            List[ConversationLog]: Una lista de objetos ConversationLog.
+            str: Una cadena formateada con el historial de conversación.
         """
         logger.debug(f"Recuperando logs de conversación para el usuario '{user_id}' con límite '{limit}'.")
         try:
@@ -118,10 +118,16 @@ class MemoryManager:
             )
             logs = result.scalars().all()
             logger.debug(f"Se encontraron {len(logs)} logs de conversación para el usuario '{user_id}'.")
-            return logs
+
+            formatted_history = []
+            for i, log in enumerate(logs):
+                formatted_history.append(f"Historial {i+1}: user\n{log.prompt}")
+                formatted_history.append(f"Historial {i+1}: asistente\n{log.response}")
+            
+            return "\n".join(formatted_history)
         except Exception as e:
             logger.error(f"Error al recuperar logs de conversación para el usuario '{user_id}': {e}")
-            return []
+            return ""
 
     async def update_memory(self, user_id: int, prompt: str, response: str, db: AsyncSession, speaker_identifier: Optional[str] = None):
         """Actualiza la última interacción del usuario y registra la conversación.

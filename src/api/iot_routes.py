@@ -1,21 +1,20 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-from src.api.iot_schemas import IoTCommandCreate, IoTCommand, ArduinoCommandSend, DeviceState
+from fastapi import APIRouter, HTTPException, status
+from typing import List, Union
+from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand
 from src.db.database import get_db
-from src.db import models
 import logging
 from src.api.utils import get_mqtt_client
 from src.iot import device_manager
 import json
+from src.db.models import IoTCommand as DBLoTCommand
+from sqlalchemy import select
 
 logger = logging.getLogger("APIRoutes")
 
 iot_router = APIRouter()
 
 @iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
-async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = Depends(get_db)):
+async def send_arduino_command(command: ArduinoCommandSend):
     mqtt_client = get_mqtt_client()
     if not mqtt_client or not mqtt_client.is_connected:
         logger.error("MQTT client no está inicializado o conectado.")
@@ -27,7 +26,7 @@ async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = D
         logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {command.mqtt_topic}")
         raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
 
-    async with db as session:
+    async with get_db() as session:
         current_device_state = await device_manager.get_device_state(session, device_name)
 
         if current_device_state:
@@ -56,12 +55,70 @@ async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = D
 
         return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
 
+@iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
+async def create_iot_command(commands: Union[IoTCommandCreate, List[IoTCommandCreate]]):
+    """
+    Crea uno o varios comandos IoT en la base de datos.
+    """
+    if not isinstance(commands, list):
+        commands = [commands]
+
+    created_commands = []
+    async with get_db() as session:
+        for command_data in commands:
+            db_command = DBLoTCommand(**command_data.model_dump())
+            session.add(db_command)
+            await session.commit()
+            await session.refresh(db_command)
+            logger.info(f"Comando IoT '{command_data.name}' creado exitosamente.")
+            created_commands.append(db_command)
+    return created_commands
+
+@iot_router.get("/commands", response_model=List[IoTCommand])
+async def get_all_iot_commands():
+    """
+    Obtiene todos los comandos IoT almacenados en la base de datos.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand))
+        commands = result.scalars().all()
+        return commands
+
+@iot_router.get("/commands/{command_id}", response_model=IoTCommand)
+async def get_iot_command_by_id(command_id: int):
+    """
+    Obtiene un comando IoT por su ID.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand).filter(DBLoTCommand.id == command_id))
+        command = result.scalars().first()
+        if command is None:
+            raise HTTPException(status_code=404, detail="Command not found")
+        return command
+
+@iot_router.delete("/commands/{command_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_iot_command(command_id: int):
+    """
+    Elimina un comando IoT por su ID.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand).filter(DBLoTCommand.id == command_id))
+        command = result.scalars().first()
+
+        if command is None:
+            raise HTTPException(status_code=404, detail="Command not found")
+
+        await session.delete(command)
+        await session.commit()
+        logger.info(f"Comando IoT con ID {command_id} eliminado exitosamente.")
+        return {"message": "Command deleted successfully"}
+
 @iot_router.get("/device_states/{device_name}", response_model=DeviceState)
-async def get_single_device_state(device_name: str, db: AsyncSession = Depends(get_db)):
+async def get_single_device_state(device_name: str):
     """
     Obtiene el estado de un único dispositivo IoT por su nombre.
     """
-    async with db as session:
+    async with get_db() as session:
         device_state = await device_manager.get_device_state(session, device_name)
         if device_state is None:
             logger.warning(f"Estado del dispositivo {device_name} no encontrado.")
@@ -70,112 +127,23 @@ async def get_single_device_state(device_name: str, db: AsyncSession = Depends(g
         return DeviceState(id=device_state.id, device_name=device_state.device_name, device_type=device_state.device_type, state_json=json.loads(device_state.state_json), last_updated=device_state.last_updated)
 
 @iot_router.get("/device_states", response_model=List[DeviceState])
-async def get_all_device_states(db: AsyncSession = Depends(get_db)):
+async def get_all_device_states():
     """
     Obtiene el estado de todos los dispositivos IoT almacenados en la base de datos.
     """
-    async with db as session:
+    async with get_db() as session:
         device_states = await device_manager.get_all_device_states(session)
         return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
-
-
 @iot_router.delete("/device_states/{device_name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_device_state_route(device_name: str, db: AsyncSession = Depends(get_db)):
+async def delete_device_state_route(device_name: str):
     """
     Elimina el estado de un dispositivo IoT por su nombre.
     """
-    async with db as session:
+    async with get_db() as session:
         success = await device_manager.delete_device_state(session, device_name)
         if not success:
             logger.warning(f"Dispositivo {device_name} no encontrado para eliminar.")
             raise HTTPException(status_code=404, detail="Device not found")
         logger.info(f"Dispositivo {device_name} eliminado exitosamente.")
         return {"message": "Device deleted successfully"}
-
-@iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
-def create_iot_commands(commands: List[IoTCommandCreate], db: Session = Depends(get_db)):
-    try:
-        created_commands = []
-        for command in commands:
-            db_command = models.IoTCommand(name=command.name, description=command.description, 
-                                           command_type=command.command_type, command_payload=command.command_payload,
-                                           mqtt_topic=command.mqtt_topic)
-            db.add(db_command)
-            created_commands.append(db_command)
-        db.commit()
-        for cmd in created_commands:
-            db.refresh(cmd)
-        logger.info(f"Comandos IoT creados exitosamente para /iot/commands. Cantidad: {len(created_commands)}")
-        return created_commands
-    except Exception as e:
-        logger.error(f"Error al crear comandos IoT para /iot/commands: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al crear comandos IoT: {e}")
-
-@iot_router.get("/commands", response_model=List[IoTCommand])
-def read_iot_commands(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    try:
-        commands = db.query(models.IoTCommand).offset(skip).limit(limit).all()
-        logger.info(f"Comandos IoT leídos exitosamente para /iot/commands. Cantidad: {len(commands)}")
-        return commands
-    except Exception as e:
-        logger.error(f"Error al leer comandos IoT para /iot/commands: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al leer comandos IoT: {e}")
-
-@iot_router.get("/commands/{command_id}", response_model=IoTCommand)
-def read_iot_command(command_id: int, db: Session = Depends(get_db)):
-    try:
-        command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-        if command is None:
-            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
-            raise HTTPException(status_code=404, detail="Command not found")
-        logger.info(f"Comando IoT con ID {command_id} leído exitosamente para /iot/commands/{{command_id}}.")
-        return command
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al leer comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al leer comando IoT: {e}")
-
-@iot_router.put("/commands/{command_id}", response_model=IoTCommand)
-def update_iot_command(command_id: int, command: IoTCommandCreate, db: Session = Depends(get_db)):
-    try:
-        db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-        if db_command is None:
-            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
-            raise HTTPException(status_code=404, detail="Command not found")
-        
-        db_command.name = command.name
-        db_command.description = command.description
-        db_command.command_type = command.command_type
-        db_command.command_payload = command.command_payload
-        db_command.mqtt_topic = command.mqtt_topic
-        
-        db.commit()
-        db.refresh(db_command)
-        logger.info(f"Comando IoT con ID {command_id} actualizado exitosamente para /iot/commands/{{command_id}}.")
-        return db_command
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al actualizar comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al actualizar comando IoT: {e}")
-
-@iot_router.delete("/commands/{command_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_iot_command(command_id: int, db: Session = Depends(get_db)):
-    try:
-        db_command = db.query(models.IoTCommand).filter(models.IoTCommand.id == command_id).first()
-        if db_command is None:
-            logger.warning(f"Comando IoT con ID {command_id} no encontrado para /iot/commands/{{command_id}}.")
-            raise HTTPException(status_code=404, detail="Command not found")
-        
-        db.delete(db_command)
-        db.commit()
-        logger.info(f"Comando IoT con ID {command_id} eliminado exitosamente para /iot/commands/{{command_id}}.")
-        return {"ok": True}
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error al eliminar comando IoT con ID {command_id} para /iot/commands/{{command_id}}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al eliminar comando IoT: {e}")
-        

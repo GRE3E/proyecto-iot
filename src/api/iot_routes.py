@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from typing import List, Union
-from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand
+from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand, DeviceTypeList, DeviceStateUpdate
 from src.db.database import get_db
 import logging
 from src.api.utils import get_mqtt_client
@@ -135,15 +135,65 @@ async def get_all_device_states():
         device_states = await device_manager.get_all_device_states(session)
         return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
-@iot_router.delete("/device_states/{device_name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_device_state_route(device_name: str):
+@iot_router.get("/device_states/by_type/{device_type}", response_model=List[DeviceState])
+async def get_device_states_by_type_route(device_type: str):
     """
-    Elimina el estado de un dispositivo IoT por su nombre.
+    Obtiene el estado de todos los dispositivos IoT de un tipo específico.
     """
     async with get_db() as session:
-        success = await device_manager.delete_device_state(session, device_name)
-        if not success:
-            logger.warning(f"Dispositivo {device_name} no encontrado para eliminar.")
+        device_states = await device_manager.get_device_states_by_type(session, device_type)
+        if not device_states:
+            logger.warning(f"No se encontraron dispositivos del tipo {device_type}.")
+            raise HTTPException(status_code=404, detail=f"No device states found for type {device_type}")
+        logger.info(f"Estados de dispositivos del tipo {device_type} obtenidos exitosamente.")
+        return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
+
+@iot_router.get("/device_types", response_model=DeviceTypeList)
+async def get_all_device_types_route():
+    """
+    Obtiene todos los tipos de dispositivos IoT únicos almacenados en la base de datos.
+    """
+    async with get_db() as session:
+        device_types = await device_manager.get_all_device_types(session)
+        if not device_types:
+            logger.warning("No se encontraron tipos de dispositivos.")
+            raise HTTPException(status_code=404, detail="No device types found")
+        logger.info("Tipos de dispositivos obtenidos exitosamente.")
+        return DeviceTypeList(device_types=device_types)
+
+@iot_router.put("/device_states/{device_id}", response_model=DeviceState)
+async def update_device_state_by_id(device_id: int, device_update: DeviceStateUpdate):
+    """
+    Actualiza el estado de un dispositivo IoT por su ID.
+    """
+    async with get_db() as session:
+        device_state = await device_manager.get_device_state_by_id(session, device_id)
+        if device_state is None:
+            logger.warning(f"Dispositivo con ID {device_id} no encontrado para actualizar.")
             raise HTTPException(status_code=404, detail="Device not found")
-        logger.info(f"Dispositivo {device_name} eliminado exitosamente.")
-        return {"message": "Device deleted successfully"}
+
+        # Reconstruir el comando MQTT
+        mqtt_topic, command_payload = device_manager.reconstruct_mqtt_command(device_state, device_update.new_state)
+
+        if not mqtt_topic or not command_payload:
+            logger.error(f"No se pudo reconstruir el comando MQTT para el dispositivo {device_id}.")
+            raise HTTPException(status_code=500, detail="Could not reconstruct MQTT command.")
+
+        # Usar la lógica existente de send_arduino_command
+        command_to_send = ArduinoCommandSend(mqtt_topic=mqtt_topic, command_payload=command_payload)
+        
+        # Llamar directamente a la función send_arduino_command con el comando reconstruido
+        # Esto evitará la recursión y reutilizará la lógica de envío y actualización de estado.
+        try:
+            await send_arduino_command(command_to_send)
+            # Después de enviar el comando, obtener el estado actualizado del dispositivo
+            updated_device_state = await device_manager.get_device_state_by_id(session, device_id)
+            if updated_device_state is None:
+                raise HTTPException(status_code=404, detail="Updated device state not found")
+            logger.info(f"Estado del dispositivo con ID {device_id} actualizado exitosamente.")
+            return DeviceState(id=updated_device_state.id, device_name=updated_device_state.device_name, device_type=updated_device_state.device_type, state_json=json.loads(updated_device_state.state_json), last_updated=updated_device_state.last_updated)
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            logger.error(f"Error al actualizar el estado del dispositivo {device_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error updating device state: {e}")

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 
 class ArduinoCommandSend(BaseModel):
@@ -33,4 +33,13 @@ class IoTCommand(IoTCommandCreate):
 
     class Config:
         from_attributes = True
+
+class DeviceStateFilter(BaseModel):
+    device_type: str = Field(..., example="luz")
+
+class DeviceTypeList(BaseModel):
+    device_types: List[str] = Field(..., example=["luz", "sensor"])
+
+class DeviceStateUpdate(BaseModel):
+    new_state: Dict[str, Any] = Field(..., example={"status": "ON"})
     

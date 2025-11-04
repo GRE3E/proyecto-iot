@@ -104,7 +104,66 @@ async def get_all_device_states(db: AsyncSession) -> list[DeviceState]:
     result = await db.execute(select(DeviceState))
     return result.scalars().all()
 
-async def process_mqtt_message_and_update_state(db: AsyncSession, mqtt_topic: str, command_payload: str):
+async def get_device_states_by_type(db: AsyncSession, device_type: str) -> list[DeviceState]:
+    """
+    Obtiene el estado de todos los dispositivos de un tipo específico.
+    """
+    result = await db.execute(select(DeviceState).filter(DeviceState.device_type == device_type))
+    return result.scalars().all()
+
+async def get_all_device_types(db: AsyncSession) -> list[str]:
+    """
+    Obtiene todos los tipos de dispositivos únicos.
+    """
+    result = await db.execute(select(DeviceState.device_type).distinct())
+    return result.scalars().all()
+
+async def get_device_state_by_id(session: AsyncSession, device_id: int):
+    """
+    Obtiene el estado de un dispositivo por su ID.
+    """
+    result = await session.execute(select(DeviceState).filter(DeviceState.id == device_id))
+    return result.scalars().first()
+
+def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any]) -> (str, str):
+    """
+    Reconstruye el comando MQTT (topic y payload) basado en el estado actual del dispositivo
+    y el nuevo estado deseado.
+    """
+    device_type = device_state.device_type
+    device_name = device_state.device_name
+    
+    # Mapeo de tipos de dispositivo a segmentos de topic MQTT y prefijos
+    type_to_topic_segment = {
+        "luz": "lights",
+        "puerta": "doors",
+        "actuador": "actuators",
+        "sensor": "sensors"
+    }
+    type_to_prefix = {
+        "luz": "LIGHT_",
+        "puerta": "DOOR_",
+        "actuador": "",
+        "sensor": ""
+    }
+
+    topic_segment = type_to_topic_segment.get(device_type.lower())
+    prefix = type_to_prefix.get(device_type.lower())
+
+    if not topic_segment or prefix is None:
+        logger.error(f"Tipo de dispositivo desconocido: {device_type}")
+        return None, None
+    
+    if "status" in new_state:
+        command_payload = str(new_state["status"]).upper()
+        # Asegurarse de que el device_name en el topic tenga el prefijo correcto
+        full_device_name_in_topic = f"{prefix}{device_name.upper()}"
+        mqtt_topic = f"iot/{topic_segment}/{full_device_name_in_topic}/command"
+        return mqtt_topic, command_payload
+    
+    return None, None
+
+async def process_mqtt_message_and_update_state(session: AsyncSession, mqtt_topic: str, command_payload: str):
     """
     Procesa un mensaje MQTT, extrae la información del dispositivo y actualiza su estado en la base de datos.
     """
@@ -147,7 +206,7 @@ async def process_mqtt_message_and_update_state(db: AsyncSession, mqtt_topic: st
             except (ValueError, AttributeError):
                 state_json["value"] = state_value
         
-        await update_device_state(db, device_name, state_json, device_type)
+        await update_device_state(session, device_name, state_json, device_type)
         logger.info(f"Estado del dispositivo {device_name} ({device_type}) actualizado a {state_value} desde MQTT.")
     else:
         logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {mqtt_topic}")

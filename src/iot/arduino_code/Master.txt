@@ -135,9 +135,9 @@ void procesarComando(String cmd) {
     
     String accion = "";
     if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "ENCENDER";
+      accion = "ON";
     } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "APAGAR";
+      accion = "OFF";
     } else {
       consolePrint("[ERROR] Accion no reconocida para luz");
       return;
@@ -158,9 +158,9 @@ void procesarComando(String cmd) {
     
     String accion = "";
     if (cmd.indexOf("ABRIR") != -1 || cmd.indexOf("OPEN") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "ABRIR";
+      accion = "OPEN";
     } else if (cmd.indexOf("CERRAR") != -1 || cmd.indexOf("CLOSE") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "CERRAR";
+      accion = "CLOSE";
     } else {
       consolePrint("[ERROR] Accion no reconocida para puerta");
       return;
@@ -174,9 +174,9 @@ void procesarComando(String cmd) {
   else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1 || cmd.indexOf("VENTILACION") != -1 || cmd.indexOf("AIRE") != -1) {
     String accion = "";
     if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
-      accion = "VENTILADOR_ENCENDER";
+      accion = "VENTILADOR_ON";
     } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
-      accion = "VENTILADOR_APAGAR";
+      accion = "VENTILADOR_OFF";
     } else {
       consolePrint("[ERROR] Accion no reconocida para ventilador");
       return;

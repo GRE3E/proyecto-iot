@@ -3,12 +3,11 @@ import logging
 import asyncio
 import threading
 import time
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("MQTTClient")
 
 class MQTTClient:
-    def __init__(self, broker: str = "localhost", port: int = 1883, client_id: str = "IoTClient", keepalive: int = 120, db: AsyncSession = None, device_manager = None):
+    def __init__(self, broker: str = "localhost", port: int = 1883, client_id: str = "IoTClient", keepalive: int = 120, session_factory = None, device_manager = None):
         self.broker = broker
         self.port = port
         self.client_id = client_id
@@ -20,12 +19,13 @@ class MQTTClient:
 
         self.is_connected = False
         self._online_event = asyncio.Event()
-        self.subscriptions = {}
+        self.subscriptions = {"iot/system/console": self._log_arduino_console_output,
+                                "iot/system/confirmations": self._log_confirmation_output}
         self.loop = asyncio.get_event_loop()
 
         self.reconnect_delay_sec = 5
         self.max_reconnect_delay_sec = 60
-        self.db = db
+        self.session_factory = session_factory
         self.device_manager = device_manager
 
     def connect(self):
@@ -110,30 +110,42 @@ class MQTTClient:
 
     def _on_message(self, client, userdata, msg):
         try:
-            topic_parts = msg.topic.split('/')
-            if len(topic_parts) >= 3 and topic_parts[0] == "arduino":
-                device_type = topic_parts[1]
-                device_name = topic_parts[2]
-                state_value = msg.payload.decode()
+            device_type, device_name, state_value = self.device_manager._extract_device_info_from_topic(msg.topic, msg.payload.decode())
 
-                if self.db and self.device_manager:
-                    asyncio.run(self.device_manager.update_device_state(
-                        db=self.db,
-                        device_name=device_name,
-                        device_type=device_type,
-                        state_value=state_value
-                    ))
+            if device_name and device_type:
+                if self.session_factory and self.device_manager:
+                    async def update_state_in_session():
+                        async with self.session_factory() as session:
+                            await self.device_manager.update_device_state(
+                                db=session,
+                                device_name=device_name,
+                                new_state={"status": state_value},
+                                device_type=device_type
+                            )
+                    asyncio.run(update_state_in_session())
                     logger.info(f"Device state updated for {device_type}/{device_name}: {state_value}")
                 else:
-                    logger.warning("Database session or device manager not available for state update.")
+                    logger.warning("Database session factory or device manager not available for state update.")
 
-                if msg.topic in self.subscriptions:
-                    callback = self.subscriptions[msg.topic]
-                    callback(msg.topic, msg.payload.decode())
-                else:
-                    logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
+            if msg.topic in self.subscriptions:
+                callback = self.subscriptions[msg.topic]
+                callback(msg.topic, msg.payload.decode())
+            else:
+                logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
         except Exception as e:
             logger.error(f"Error processing MQTT message: {e}")
+
+    def _log_arduino_console_output(self, topic, payload):
+        logger.info(f"Message: {payload}")
+
+    def _log_confirmation_output(self, topic, payload):
+        parts = payload.split('|')
+        if len(parts) >= 5:
+            tipo = parts[0]
+            dispositivo = parts[1]
+            accion = parts[2]
+            resultado = parts[4]
+            logger.info(f"Message: Dispositivo: {tipo}_{dispositivo} | Accion: {accion} | Resultado: {resultado}")
 
     def disconnect(self):
         if self.is_connected:

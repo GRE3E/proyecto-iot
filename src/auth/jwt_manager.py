@@ -65,5 +65,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict:
     Obtiene el usuario actual a partir del token JWT.
     """
     logger.debug("Intentando obtener el usuario actual a partir del token.")
-    return verify_token(token)
+    payload = verify_token(token)
+    return {"user_id": payload.get("sub")}
     

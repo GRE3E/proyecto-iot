@@ -76,12 +76,12 @@ void receiveEvent(int howMany) {
   cmd.trim();
   cmd.toUpperCase();
   
-  if (cmd == "VENTILADOR_ENCENDER") {
+  if (cmd == "VENTILADOR_ON") {
     analogWrite(fan, 200);
     ventilador = true;
     consolePrint("Ventilador ENCENDIDO (PWM: 200/255)");
   } 
-  else if (cmd == "VENTILADOR_APAGAR") {
+  else if (cmd == "VENTILADOR_OFF") {
     analogWrite(fan, 0);
     ventilador = false;
     consolePrint("Ventilador APAGADO");

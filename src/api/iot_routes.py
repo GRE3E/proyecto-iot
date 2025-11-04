@@ -22,16 +22,40 @@ async def send_arduino_command(command: ArduinoCommandSend, db: AsyncSession = D
         logger.error("MQTT client no está inicializado o conectado.")
         raise HTTPException(status_code=500, detail="MQTT client no está inicializado o conectado.")
     
-    success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+    device_type, device_name, requested_state = device_manager._extract_device_info_from_topic(command.mqtt_topic, command.command_payload)
 
-    if not success:
-        logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
-        raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
+    if not device_name or not device_type:
+        logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {command.mqtt_topic}")
+        raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
 
     async with db as session:
+        current_device_state = await device_manager.get_device_state(session, device_name)
+
+        if current_device_state:
+            current_state_json = json.loads(current_device_state.state_json)
+            current_status = current_state_json.get("status")
+
+            if current_status and current_status.lower() == requested_state.lower():
+                logger.info(f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}")
+                return {"status": f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}", "topic": command.mqtt_topic, "payload": command.command_payload}
+        else:
+            await device_manager.update_device_state(
+                session,
+                device_name=device_name,
+                new_state={"status": requested_state},
+                device_type=device_type
+            )
+            logger.info(f"Creado nuevo dispositivo {device_name} de tipo {device_type} con estado inicial {requested_state}")
+
+        success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+
+        if not success:
+            logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
+            raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
+
         await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
 
-    return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
+        return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
 
 @iot_router.get("/device_states", response_model=List[DeviceState])
 async def get_all_device_states(db: AsyncSession = Depends(get_db)):
@@ -40,7 +64,7 @@ async def get_all_device_states(db: AsyncSession = Depends(get_db)):
     """
     async with db as session:
         device_states = await device_manager.get_all_device_states(session)
-    return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
+        return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
 @iot_router.get("/dashboard_data", response_model=IoTDashboardData)
 async def get_iot_dashboard_data(request: Request):

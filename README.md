@@ -101,7 +101,7 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   │   └── speaker.py
     │   ├── stt/
     │   │   └── stt.py
-    │   ├── tts/ EDUARDO
+    │   ├── tts/
     │   │   └── generated_audio/
     │   │   ├── text_splitter.py
     │   │   ├── tts_module.py
@@ -129,14 +129,14 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   ├── tts_routes.py
     │   ├── tts_schemas.py
     │   └── utils.py
-    ├── auth/ RODRIGO
+    ├── auth/
     │   ├── auth_service.py
     │   ├── device_auth.py
     │   └── jwt_manager.py
     ├── db/
     │   ├── database.py
     │   └── models.py
-    ├── iot/ MARKOS
+    ├── iot/
     │   ├── arduino_code/
     │   │   └── Commands.txt
     │   │   ├── Master.txt
@@ -147,7 +147,7 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   ├── device_manager.py
     │   └── mqtt_client.py
     ├── main.py
-    ├── rc/ ANDER
+    ├── rc/
     │   ├── capture.py
     │   ├── encode.py
     │   ├── rc_core.py

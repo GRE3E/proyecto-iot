@@ -1,387 +1,387 @@
 [
   {
     "name": "Encender Luz Garaje",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz del garaje.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz del garaje.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_GARAJE/command"
   },
   {
     "name": "Apagar Luz Garaje",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz del garaje.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz del garaje.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_GARAJE/command"
   },
   {
     "name": "Estado Luz Garaje",
     "description": "Solicita el estado de la luz del garaje.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_GARAJE/status/get"
   },
   {
     "name": "Encender Luz Pasillo",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz del pasillo.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_PASILLO/command"
   },
   {
     "name": "Apagar Luz Pasillo",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz del pasillo.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_PASILLO/command"
   },
   {
     "name": "Estado Luz Pasillo",
     "description": "Solicita el estado de la luz del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_PASILLO/status/get"
   },
   {
     "name": "Encender Luz Habitación Invitados",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz de la habitación de invitados.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/command"
   },
   {
     "name": "Apagar Luz Habitación Invitados",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz de la habitación de invitados.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/command"
   },
   {
     "name": "Estado Luz Habitación Invitados",
     "description": "Solicita el estado de la luz de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/status/get"
   },
   {
     "name": "Encender Luz Baño Invitados",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz del baño de invitados.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/command"
   },
   {
     "name": "Apagar Luz Baño Invitados",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz del baño de invitados.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/command"
   },
   {
     "name": "Estado Luz Baño Invitados",
     "description": "Solicita el estado de la luz del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/status/get"
   },
   {
     "name": "Encender Luz Lavandería",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz de la lavandería.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/command"
   },
   {
     "name": "Apagar Luz Lavandería",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz de la lavandería.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/command"
   },
   {
     "name": "Estado Luz Lavandería",
     "description": "Solicita el estado de la luz de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/status/get"
   },
   {
     "name": "Encender Luz Baño Principal",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz del baño principal.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/command"
   },
   {
     "name": "Apagar Luz Baño Principal",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz del baño principal.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/command"
   },
   {
     "name": "Estado Luz Baño Principal",
     "description": "Solicita el estado de la luz del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/status/get"
   },
   {
     "name": "Encender Luz Habitación Principal",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz de la habitación principal.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/command"
   },
   {
     "name": "Apagar Luz Habitación Principal",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz de la habitación principal.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/command"
   },
   {
     "name": "Estado Luz Habitación Principal",
     "description": "Solicita el estado de la luz de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/status/get"
   },
   {
     "name": "Encender Luz Cocina",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz de la cocina.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz de la cocina.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_COCINA/command"
   },
   {
     "name": "Apagar Luz Cocina",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz de la cocina.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz de la cocina.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_COCINA/command"
   },
   {
     "name": "Estado Luz Cocina",
     "description": "Solicita el estado de la luz de la cocina.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_COCINA/status/get"
   },
   {
     "name": "Encender Luz Sala",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando de la luz de la sala.",
+    "description": "Envía el comando 'ON' al tópico de comando de la luz de la sala.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/lights/LIGHT_SALA/command"
   },
   {
     "name": "Apagar Luz Sala",
-    "description": "Envía el comando 'APAGAR' al tópico de comando de la luz de la sala.",
+    "description": "Envía el comando 'OFF' al tópico de comando de la luz de la sala.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/lights/LIGHT_SALA/command"
   },
   {
     "name": "Estado Luz Sala",
     "description": "Solicita el estado de la luz de la sala.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/lights/LIGHT_SALA/status/get"
   },
   {
     "name": "Abrir Puerta Principal",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta principal.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta principal.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/command"
   },
   {
     "name": "Cerrar Puerta Principal",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta principal.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta principal.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/command"
   },
   {
     "name": "Estado Puerta Principal",
     "description": "Solicita el estado de la puerta principal.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/status/get"
   },
   {
     "name": "Abrir Puerta Garaje",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta del garaje.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta del garaje.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_GARAJE/command"
   },
   {
     "name": "Cerrar Puerta Garaje",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta del garaje.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta del garaje.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_GARAJE/command"
   },
   {
     "name": "Estado Puerta Garaje",
     "description": "Solicita el estado de la puerta del garaje.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_GARAJE/status/get"
   },
   {
     "name": "Abrir Puerta Pasillo",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta del pasillo.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_PASILLO/command"
   },
   {
     "name": "Cerrar Puerta Pasillo",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta del pasillo.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_PASILLO/command"
   },
   {
     "name": "Estado Puerta Pasillo",
     "description": "Solicita el estado de la puerta del pasillo.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_PASILLO/status/get"
   },
   {
     "name": "Abrir Puerta Habitación Invitados",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta de la habitación de invitados.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/command"
   },
   {
     "name": "Cerrar Puerta Habitación Invitados",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta de la habitación de invitados.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/command"
   },
   {
     "name": "Estado Puerta Habitación Invitados",
     "description": "Solicita el estado de la puerta de la habitación de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/status/get"
   },
   {
     "name": "Abrir Puerta Baño Invitados",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta del baño de invitados.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/command"
   },
   {
     "name": "Cerrar Puerta Baño Invitados",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta del baño de invitados.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/command"
   },
   {
     "name": "Estado Puerta Baño Invitados",
     "description": "Solicita el estado de la puerta del baño de invitados.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/status/get"
   },
   {
     "name": "Abrir Puerta Lavandería",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta de la lavandería.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/command"
   },
   {
     "name": "Cerrar Puerta Lavandería",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta de la lavandería.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/command"
   },
   {
     "name": "Estado Puerta Lavandería",
     "description": "Solicita el estado de la puerta de la lavandería.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/status/get"
   },
   {
     "name": "Abrir Puerta Baño Principal",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta del baño principal.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/command"
   },
   {
     "name": "Cerrar Puerta Baño Principal",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta del baño principal.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/command"
   },
   {
     "name": "Estado Puerta Baño Principal",
     "description": "Solicita el estado de la puerta del baño principal.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/status/get"
   },
   {
     "name": "Abrir Puerta Habitación Principal",
-    "description": "Envía el comando 'ABRIR' al tópico de comando de la puerta de la habitación principal.",
+    "description": "Envía el comando 'OPEN' al tópico de comando de la puerta de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "ABRIR",
+    "command_payload": "OPEN",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/command"
   },
   {
     "name": "Cerrar Puerta Habitación Principal",
-    "description": "Envía el comando 'CERRAR' al tópico de comando de la puerta de la habitación principal.",
+    "description": "Envía el comando 'CLOSE' al tópico de comando de la puerta de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "CERRAR",
+    "command_payload": "CLOSE",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/command"
   },
   {
     "name": "Estado Puerta Habitación Principal",
     "description": "Solicita el estado de la puerta de la habitación principal.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/status/get"
   },
   {
     "name": "Encender Ventilador",
-    "description": "Envía el comando 'ENCENDER' al tópico de comando del ventilador.",
+    "description": "Envía el comando 'ON' al tópico de comando del ventilador.",
     "command_type": "mqtt",
-    "command_payload": "ENCENDER",
+    "command_payload": "ON",
     "mqtt_topic": "iot/actuators/VENTILADOR/command"
   },
   {
     "name": "Apagar Ventilador",
-    "description": "Envía el comando 'APAGAR' al tópico de comando del ventilador.",
+    "description": "Envía el comando 'OFF' al tópico de comando del ventilador.",
     "command_type": "mqtt",
-    "command_payload": "APAGAR",
+    "command_payload": "OFF",
     "mqtt_topic": "iot/actuators/VENTILADOR/command"
   },
   {
     "name": "Estado Ventilador",
     "description": "Solicita el estado del ventilador.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/actuators/VENTILADOR/status/get"
   },
   {
     "name": "Obtener Consola del Sistema",
     "description": "Solicita el contenido del buffer de la consola del sistema.",
     "command_type": "mqtt",
-    "command_payload": "ESTADO",
+    "command_payload": "",
     "mqtt_topic": "iot/system/console/get"
   }
 ]

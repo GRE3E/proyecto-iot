@@ -3,6 +3,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 logger = logging.getLogger("Database")
 
@@ -21,7 +22,7 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 @asynccontextmanager
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Provee una sesión de DB asíncrona (dependencia).
     """

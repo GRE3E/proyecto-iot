@@ -68,12 +68,12 @@ void receiveEvent(int howMany) {
     accion.trim();
     
     if (index >= 0 && index < 8) {
-      if (accion == "ABRIR") {
+      if (accion == "OPEN") {
         servos[index].write(ABIERTO);
         estado[index] = true;
         consolePrint("Puerta " + String(index) + " ABIERTA [Pin " + String(servoPins[index]) + ", Angulo: 90]");
       }
-      else if (accion == "CERRAR") {
+      else if (accion == "CLOSE") {
         servos[index].write(CERRADO);
         estado[index] = false;
         consolePrint("Puerta " + String(index) + " CERRADA [Pin " + String(servoPins[index]) + ", Angulo: 0]");

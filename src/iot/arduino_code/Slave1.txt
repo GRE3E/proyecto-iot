@@ -61,12 +61,12 @@ void receiveEvent(int howMany) {
     accion.trim();
     
     if (index >= 0 && index < 9) {
-      if (accion == "ENCENDER") {
+      if (accion == "ON") {
         estadoLuces[index] = true;
         digitalWrite(ledPins[index], HIGH);
         consolePrint("Luz " + String(index) + " ENCENDIDA [Pin " + String(ledPins[index]) + "]");
       } 
-      else if (accion == "APAGAR") {
+      else if (accion == "OFF") {
         estadoLuces[index] = false;
         digitalWrite(ledPins[index], LOW);
         consolePrint("Luz " + String(index) + " APAGADA [Pin " + String(ledPins[index]) + "]");

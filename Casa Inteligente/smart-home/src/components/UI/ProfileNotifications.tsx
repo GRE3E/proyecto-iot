@@ -45,7 +45,6 @@ export default function ProfileNotifications({ userName = "Usuario" }: ProfileNo
       {/* Notificaciones */}
       <div
         className="
-          relative
           md:static absolute left-69 top-2.5   
         "
       >

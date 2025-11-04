@@ -3,6 +3,8 @@ import { useState } from "react";
 import Login from "./pages/login";
 import { useThemeByTime } from "./hooks/useThemeByTime";
 import { Home, Settings, Monitor, Shield, MessageCircle, Cpu } from "lucide-react";
+import { AuthProvider } from "./hooks/useAuth";
+import AppContent from "./AppContent";
 
 // Secciones
 import Inicio from "./pages/Inicio";
@@ -39,50 +41,10 @@ export default function App() {
     { name: "Chat", icon: MessageCircle },
     { name: "Configuración", icon: Settings },
   ];
-
+export default function App() {
   return (
-    <div
-      className={`relative flex min-h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700 font-inter`}
-    >
-      {/* === LOGIN === */}
-      {phase === "login" && (
-        <div className="absolute inset-0 z-50">
-          <Login onLogin={handleLogin} />
-        </div>
-      )}
-
-      {/* === DASHBOARD === */}
-      {phase === "dashboard" && (
-        <div className="flex flex-row min-h-screen w-full">
-          {/* SIDEBAR */}
-          <HamburgerMenu
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            menuItems={menuItems}
-            selectedMenu={selectedMenu}
-            handleMenuSelect={(menu) => {
-              // Mantener la sidebar abierta al navegar entre secciones
-              setSelectedMenu(menu);
-            }}
-            onLogout={() => setPhase("login")}
-            colors={colors}
-          />
-
-          {/* CONTENIDO PRINCIPAL */}
-          <main
-            className={`transition-all duration-500 ease-in-out flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 custom-scroll
-              ${isSidebarOpen ? "ml-0 md:ml-80" : "ml-0 md:ml-24"}
-            `}
-          >
-            {selectedMenu === "Inicio" && <Inicio />}
-            {selectedMenu === "Casa 3D" && <Casa3d />}
-            {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
-            {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
-            {selectedMenu === "Configuración" && <Configuracion />}
-            {selectedMenu === "Chat" && <Chat />}
-          </main>
-        </div>
-      )}
-    </div>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
-} 
+}

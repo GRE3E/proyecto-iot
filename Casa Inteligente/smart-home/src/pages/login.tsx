@@ -3,9 +3,43 @@
 import React, { useRef } from "react";
 import { Eye, EyeOff, User, HouseWifi } from "lucide-react";
 import { useLogin } from "../hooks/useLogin";
-import { useThemeByTime } from "../hooks/useThemeByTime";
-import "../styles/animations.css";
+
+import { useAuth } from "../hooks/useAuth";
+import { useThemeByTime } from "../hooks/useThemeByTime"; // lo usamos para pasar el theme a la transición
+import "../styles/animations.css"; // Asegúrate que la ruta coincide con tu estilo global
 import FloatingIcons from "../components/effects/FloatingIcons";
+// Props del page-level (puedes pasar onLogin desde App)
+interface LoginProps {
+  onLogin: () => void;
+  onStartZoom?: () => void;
+}
+
+const FloatingIcons: React.FC = () => {
+  const icons = [
+    { Icon: Lock, delay: "0s", color: "text-blue-400/20", left: "15%", top: "20%" },
+    { Icon: User, delay: "2s", color: "text-indigo-400/20", left: "80%", top: "30%" },
+    { Icon: Lock, delay: "4s", color: "text-slate-400/20", left: "25%", top: "70%" },
+    { Icon: User, delay: "6s", color: "text-blue-300/20", left: "75%", top: "65%" },
+  ];
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {icons.map(({ Icon, delay, color, left, top }, i) => (
+        <div
+          key={i}
+          className={`absolute ${color} animate-float-slow`}
+          style={{
+            left,
+            top,
+            animationDelay: delay,
+          }}
+        >
+          <Icon size={40} />
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ theme }) => {
   const themeBackground =
@@ -80,7 +114,8 @@ const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ th
   );
 };
 
-export default function Login({ onLogin }: { onLogin: () => void }) {
+export default function Login({ onLogin}: LoginProps) {
+  const { login } = useAuth();
   const {
     username,
     setUsername,
@@ -93,7 +128,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     showDoorTransition,
     handleLogin,
     handleKeyPress,
-  } = useLogin(onLogin);
+  } = useLogin(onLogin, login);
 
   const { theme: themeByTime } = useThemeByTime();
   const usernameRef = useRef<HTMLInputElement>(null);

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
 import { useThemeByTime } from "./useThemeByTime";
+import { useAuth } from "./useAuth"; // Importar useAuth
 
 export type ThemeMode = "day" | "afternoon" | "night";
 
@@ -12,6 +13,7 @@ export function useLogin(onLogin: () => void) {
   const [isLoading, setIsLoading] = useState(false);
   const [showDoorTransition, setShowDoorTransition] = useState(false);
   const { theme: themeByTime } = useThemeByTime() as { theme: ThemeMode };
+  const { login: authLogin } = useAuth(); // Obtener la función login del contexto de autenticación
 
   const handleLogin = useCallback(
     async (e?: React.FormEvent) => {
@@ -25,30 +27,29 @@ export function useLogin(onLogin: () => void) {
       setError("");
       setIsLoading(true);
 
-      const isValid = username === "admin" && password === "1234";
-      await new Promise((r) => setTimeout(r, 600));
+      try {
+        await authLogin(username, password); // Usar la función login del contexto
 
-      if (!isValid) {
-        setError("⌀ Usuario o contraseña incorrectos");
+        console.log("✅ Login completado");
+        setShowDoorTransition(true);
+
+        // Inicia efecto de zoom o animación
+        setTimeout(() => {
+          console.log("🔵 Iniciando zoom...");
+        }, 2600);
+
+        // Termina animación → login final
+        setTimeout(() => {
+          console.log("🟢 Ejecutando onLogin()");
+          onLogin(); // <-- Este sí viene del App.tsx
+        }, 4000);
+      } catch (err: any) {
+        console.error("Error durante el login:", err);
+        setError(err.response?.data?.message || "Error de autenticación");
         setIsLoading(false);
-        return;
       }
-
-      console.log("✅ Credenciales correctas");
-      setShowDoorTransition(true);
-
-      // Inicia efecto de zoom o animación
-      setTimeout(() => {
-        console.log("🔵 Iniciando zoom...");
-      }, 2600);
-
-      // Termina animación → login final
-      setTimeout(() => {
-        console.log("🟢 Ejecutando onLogin()");
-        onLogin(); // <-- Este sí viene del App.tsx
-      }, 4000);
     },
-    [username, password, onLogin]
+    [username, password, onLogin, authLogin] // Añadir authLogin a las dependencias
   );
 
   const handleKeyPress = useCallback(

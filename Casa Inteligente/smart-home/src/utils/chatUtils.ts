@@ -6,17 +6,6 @@ export interface Message {
   type: "text"
 }
 
-/**
- * Genera una respuesta de la IA según el texto recibido.
- * (Simulación local mientras se conecta con backend/IA real)
- */
-export function generateAIResponse(userMessage: string): string {
-  const text = userMessage.toLowerCase()
-  if (text.includes("temperatura")) return "CasaIA: La temperatura actual es 22°C."
-  if (text.includes("luz") || text.includes("luces")) return "CasaIA: He encendido las luces del salón."
-  if (text.includes("hola") || text.includes("buenos días")) return "CasaIA: ¡Hola! ¿Cómo puedo ayudarte hoy?"
-  return "CasaIA: He entendido tu solicitud."
-}
 
 /**
  * Crea un objeto mensaje listo para usar.

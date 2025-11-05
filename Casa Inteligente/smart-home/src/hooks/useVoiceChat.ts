@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import { useAuth } from './useAuth';
 import { useVoiceRecognition } from "./useVoiceRecognition";
-import { speakText, generateAIResponse, SpeechSynthesisSupported } from "../utils/voiceUtils";
+import { speakText, SpeechSynthesisSupported } from "../utils/voiceUtils";
 import { useAnimation } from "framer-motion";
 
 export interface Message {
@@ -18,11 +19,75 @@ export function useVoiceChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const waveControls = useAnimation();
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const accessToken = localStorage.getItem('access_token'); // Obtener el token de acceso
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/nlp/nlp/history?limit=100`, {
+          headers: {
+            'accept': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        const formattedMessages: Message[] = data.history.flatMap((item: any) => {
+          const msgs: Message[] = [];
+          if (item.user_message) {
+            msgs.push({ sender: "Tú", text: item.user_message, timestamp: new Date(), type: "text" });
+          }
+          if (item.assistant_message) {
+            msgs.push({ sender: "CasaIA", text: item.assistant_message, timestamp: new Date(), type: "text" });
+          }
+          return msgs;
+        });
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
   // Reconocimiento de voz
   const { listening, startListening, stopListening } = useVoiceRecognition({
-    onResult: (transcript) => setText(transcript),
+    onResult: (transcript) => {
+      setText(transcript);
+    },
     onStart: () => startWaveAnimation(),
     onEnd: () => stopWaveAnimation(),
+    onAudioProcessed: (apiResponse: any) => {
+      if (apiResponse) {
+        // Añadir el mensaje del usuario al chat
+        if (apiResponse.transcribed_text) {
+          const userMessage: Message = {
+            sender: "Tú",
+            text: apiResponse.transcribed_text,
+            timestamp: new Date(),
+            type: "text",
+          };
+          setMessages((prev) => [...prev, userMessage]);
+        }
+
+        // Añadir la respuesta de la IA al chat
+        if (apiResponse.nlp_response) {
+          const aiMessage: Message = {
+            sender: "CasaIA",
+            text: apiResponse.nlp_response,
+            timestamp: new Date(),
+            type: "text",
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        }
+      } else {
+        console.error("Respuesta de API inesperada de useVoiceRecognition:", apiResponse);
+      }
+    },
   });
 
   // Auto scroll de mensajes
@@ -58,23 +123,49 @@ export function useVoiceChat() {
     respondAI(userMessage);
   };
 
-  const respondAI = (msg: Message) => {
-    const responseText = generateAIResponse(msg.text);
+  const respondAI = async (msg: Message) => {
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/nlp/nlp/query`, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ prompt: msg.text })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API Response Data:", data); // Agregado para depuración
+      const aiResponseText = data.response || "Lo siento, no pude obtener una respuesta.";
+
       setIsTyping(false);
       const aiMessage: Message = {
         sender: "CasaIA",
-        text: responseText,
+        text: aiResponseText,
         timestamp: new Date(),
         type: "text",
       };
       setMessages((prev) => [...prev, aiMessage]);
 
-      // Reproducir voz
-      if (SpeechSynthesisSupported) speakText(responseText.replace(/^CasaIA:\s?/, ""));
-    }, 900 + Math.min(1600, msg.text.length * 30));
+      if (SpeechSynthesisSupported) speakText(aiResponseText);
+    } catch (error) {
+      console.error("Error sending message to AI:", error);
+      setIsTyping(false);
+      const errorMessage: Message = {
+        sender: "CasaIA",
+        text: "Lo siento, hubo un error al comunicarse con la IA.",
+        timestamp: new Date(),
+        type: "text",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   const toggleVoiceActive = () => {

@@ -7,11 +7,6 @@ import {
   Camera,
   AlertTriangle,
   CheckCircle,
-  Power,
-  ChevronUp,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   Thermometer,
   Droplets,
@@ -25,15 +20,8 @@ import { useThemeByTime } from "../hooks/useThemeByTime"
 import { useMonitoreoSeguridad } from "../hooks/useMonitoreo"
 import ProfileNotifications from "../components/UI/ProfileNotifications";
 import {
-  devicesPage1,
-  devicesPage2,
-  devicesPage3,
-  pageVariants,
   panelVariants,
   panelTransition,
-  systemCardVariants,
-  systemCardTransition,
-  getGlobalIndex,
 } from "../utils/monitoreoUtils"
 
 export default function MonitoreoSeguridad() {
@@ -46,16 +34,8 @@ export default function MonitoreoSeguridad() {
     setHumidity,
     energyUsage,
     setEnergyUsage,
-    deviceStates,
-    toggleDevice,
-    toggleAllDevices,
     cameraOn,
     setCameraOn,
-    currentPage,
-    handlePageChange,
-    allDevicesOn,
-    isSystemCardVisible,
-    setIsSystemCardVisible,
   } = useMonitoreoSeguridad()
 
   const { colors } = useThemeByTime()
@@ -77,6 +57,7 @@ export default function MonitoreoSeguridad() {
         {/* PERFIL + NOTIFICACIONES */}
         <ProfileNotifications />
       </div>
+      
       {/* TABS (debajo del header) */}
       <div className="flex gap-1 border-b border-slate-700/50 mt-4" role="tablist">
         <button
@@ -234,130 +215,6 @@ export default function MonitoreoSeguridad() {
               </>
             ) : (
               <>
-                {/* Seguridad */}
-                <div className="flex items-center gap-4 mb-6 flex-wrap">
-                  <h3 className="text-2xl font-bold text-yellow-300 flex items-center gap-2">
-                    <Shield className="w-5 h-5" /> Controles de Seguridad
-                  </h3>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() =>
-                        setIsSystemCardVisible(!isSystemCardVisible)
-                      }
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-white font-medium flex items-center gap-2 shadow-lg"
-                    >
-                      {isSystemCardVisible ? (
-                        <>
-                          <ChevronUp className="w-4 h-4" /> Ocultar
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4" /> Mostrar
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={toggleAllDevices}
-                      className={`px-4 py-2 rounded-lg text-white font-medium flex items-center gap-2 shadow-lg ${
-                        allDevicesOn
-                          ? "bg-gradient-to-r from-red-500 to-rose-500"
-                          : "bg-gradient-to-r from-green-500 to-teal-500"
-                      }`}
-                    >
-                      <Power className="w-4 h-4" />
-                      {allDevicesOn ? "Desactivar Todo" : "Activar Todo"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sistema armado */}
-                <AnimatePresence>
-                  {isSystemCardVisible && (
-                    <motion.div
-                      variants={systemCardVariants}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
-                      transition={systemCardTransition}
-                    >
-                      <SimpleCard className="p-4 bg-black/50 rounded-xl shadow-lg backdrop-blur-sm mb-8">
-                        <div className="flex justify-between items-center mb-3">
-                          <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="p-2 rounded-full bg-yellow-600/20 text-white"
-                          >
-                            <ChevronLeft className="w-5 h-5" />
-                          </button>
-                          <span className="text-yellow-300 font-bold">
-                            Página {currentPage} de 3
-                          </span>
-                          <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === 3}
-                            className="p-2 rounded-full bg-yellow-600/20 text-white"
-                          >
-                            <ChevronRight className="w-5 h-5" />
-                          </button>
-                        </div>
-
-                        {/* Grilla de dispositivos */}
-                        <motion.div
-                          key={currentPage}
-                          variants={pageVariants}
-                          initial="initial"
-                          animate="animate"
-                          exit="exit"
-                          transition={{ duration: 0.4 }}
-                          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
-                        >
-                          {(currentPage === 1
-                            ? devicesPage1
-                            : currentPage === 2
-                            ? devicesPage2
-                            : devicesPage3
-                          ).map((device, index) => {
-                            const globalIndex = getGlobalIndex(
-                              currentPage,
-                              index
-                            )
-                            const isOn = deviceStates[globalIndex]
-                            return (
-                              <div
-                                key={index}
-                                className={`p-3 rounded-lg shadow-md text-center transition-all bg-gradient-to-br from-yellow-600/20 to-amber-600/20 ${
-                                  isOn ? "ring-2 ring-yellow-400" : ""
-                                }`}
-                              >
-                                <div className="flex justify-center mb-2">
-                                  <device.icon className="w-6 h-6 text-yellow-300" />
-                                </div>
-                                <h3 className="text-xs font-semibold text-green-400">
-                                  {device.title}
-                                </h3>
-                                <p className="text-[10px] text-gray-300">
-                                  {device.status(globalIndex, deviceStates)}
-                                </p>
-                                <button
-                                  onClick={() => toggleDevice(globalIndex)}
-                                  className={`mt-2 px-2 py-1 rounded-md text-xs font-medium text-white ${
-                                    isOn
-                                      ? "bg-red-500/80 hover:bg-red-600/80"
-                                      : "bg-green-500/80 hover:bg-green-600/80"
-                                  }`}
-                                >
-                                  {isOn ? "Apagar" : "Encender"}
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </motion.div>
-                      </SimpleCard>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
                 {/* Cámaras */}
                 <h4 className="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">
                   <Camera className="w-5 h-5" /> Cámaras

@@ -22,7 +22,7 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
 
   const fetchDevicesByType = async (deviceType: string): Promise<Device[]> => {
     try {
-      const response = await fetch(`https://mayor-tramadol-made-first.trycloudflare.com/iot/device_states/by_type/${deviceType}`, {
+      const response = await fetch(`https://reporters-humor-prince-cells.trycloudflare.com/iot/device_states/by_type/${deviceType}`, {
         headers: {
           Authorization: `Bearer ${AUTH_TOKEN}`,
         },
@@ -49,7 +49,7 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
   useEffect(() => {
     const loadDevices = async () => {
         try {
-          const response = await fetch('https://mayor-tramadol-made-first.trycloudflare.com/iot/device_types', {
+          const response = await fetch('https://reporters-humor-prince-cells.trycloudflare.com/iot/device_types', {
             headers: {
               Authorization: `Bearer ${AUTH_TOKEN}`,
             },
@@ -98,7 +98,7 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
 
     try {
       const response = await fetch(
-        `https://mayor-tramadol-made-first.trycloudflare.com/iot/device_states/${id}`,
+        `https://reporters-humor-prince-cells.trycloudflare.com/iot/device_states/${id}`,
         {
           method: "PUT",
           headers: {

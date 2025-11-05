@@ -4,6 +4,7 @@ import { Settings, Globe, Bell, Mic } from "lucide-react"
 import SimpleCard from "../components/UI/Card"
 import Perfil from "../components/UI/Perfil"
 import Modal from "../components/UI/Modal"
+import ProfileNotifications from "../components/UI/ProfileNotifications"
 import { useConfiguracion } from "../hooks/useConfiguration"
 
 export default function Configuracion() {
@@ -45,13 +46,26 @@ export default function Configuracion() {
   } = useConfiguracion()
 
   return (
-    <div className="font-inter max-w-5xl mx-auto space-y-6 relative">
-      <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-        <Settings className="w-6 h-6" /> Configuración
-      </h2>
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+      {/* 🔹 HEADER PRINCIPAL — igual que las otras secciones */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
+        {/* Título con ícono */}
+        <div className="flex items-center gap-4 -mt-6 md:-mt-7">
+          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/20">
+            <Settings className="w-8 md:w-10 h-8 md:h-10 text-white" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
+            CONFIGURACIÓN
+          </h2>
+        </div>
 
-      {/* Perfil del propietario con ambos botones */}
-      <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
+        {/* PERFIL + NOTIFICACIONES */}
+        <ProfileNotifications />
+      </div>
+
+      <div className="space-y-6">
+        {/* Perfil del propietario con ambos botones */}
+        <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
         <Perfil
           name={ownerName}
           setName={setOwnerName}
@@ -222,7 +236,7 @@ export default function Configuracion() {
                 Di la siguiente frase para registrar tu voz:
               </p>
               <p className="text-blue-400 font-semibold text-center text-lg">
-                “Murphy soy parte del hogar”
+                "Murphy soy parte del hogar"
               </p>
 
               <button
@@ -303,7 +317,8 @@ export default function Configuracion() {
             </div>
           )}
         </div>
-      </Modal>
+        </Modal>
+      </div>
     </div>
   );
 }

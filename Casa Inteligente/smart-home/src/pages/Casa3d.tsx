@@ -18,8 +18,112 @@ import {
   handleSnapshot,
 } from "../utils/casa3dUtils";
 import * as THREE from "three";
-import { Home } from "lucide-react";
+import { Home, RotateCw, Grid3x3, Lightbulb, Globe, Camera, Zap, Settings2,ArrowUp,Eye,Box} from "lucide-react";
 import ProfileNotifications from "../components/UI/ProfileNotifications";
+
+// Switch ON/OFF Component
+function SwitchToggle({ 
+  isOn, 
+  onChange, 
+  label,
+  icon: Icon,
+  tooltip = ""
+}: { 
+  isOn: boolean; 
+  onChange: (value: boolean) => void; 
+  label: string;
+  icon?: any;
+  tooltip?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 group relative">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4 text-cyan-400" />}
+        <label className="text-sm font-semibold text-white cursor-help">{label}</label>
+        {tooltip && (
+          <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 bg-slate-900 border border-cyan-500/50 rounded-lg p-2 text-xs text-slate-300 whitespace-nowrap z-50">
+            {tooltip}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2 bg-slate-700/30 backdrop-blur-sm p-1 rounded-lg border border-slate-600/50 hover:border-cyan-500/50 transition-all">
+        <button
+          onClick={() => onChange(true)}
+          className={`flex-1 px-3 py-2 rounded-md font-semibold transition-all duration-300 text-sm ${
+            isOn
+              ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-lg shadow-cyan-500/50"
+              : "bg-slate-600/30 text-slate-300 hover:bg-slate-600/50"
+          }`}
+        >
+          ON
+        </button>
+        <button
+          onClick={() => onChange(false)}
+          className={`flex-1 px-3 py-2 rounded-md font-semibold transition-all duration-300 text-sm ${
+            !isOn
+              ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/50"
+              : "bg-slate-600/30 text-slate-300 hover:bg-slate-600/50"
+          }`}
+        >
+          OFF
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Slider Component mejorado
+function SliderControl({ 
+  label, 
+  value, 
+  onChange, 
+  min, 
+  max, 
+  step,
+  icon: Icon,
+  format = (v: number) => v.toFixed(2),
+  tooltip = ""
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  icon?: any;
+  format?: (v: number) => string;
+  tooltip?: string;
+}) {
+  return (
+    <div className="space-y-2 group relative">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="w-4 h-4 text-purple-400" />}
+          <label className="text-xs font-semibold text-slate-300 cursor-help">
+            {label}
+          </label>
+          {tooltip && (
+            <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-slate-900 border border-cyan-500/50 rounded-lg p-2 text-xs text-slate-300 whitespace-nowrap z-50">
+              {tooltip}
+            </div>
+          )}
+        </div>
+        <span className="text-xs font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent px-2 py-1 bg-slate-700/50 rounded-md">
+          {format(value)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-2.5 bg-gradient-to-r from-slate-700 to-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all"
+      />
+    </div>
+  );
+}
 
 export default function Casa3d({
   lightOn = true,
@@ -36,14 +140,14 @@ export default function Casa3d({
   const [wireframe, setWireframe] = useState(false);
   const [shadowsEnabled, setShadowsEnabled] = useState(true);
   const [envEnabled, setEnvEnabled] = useState(true);
-  const [lightIntensity, setLightIntensity] = useState(1);
+  const [lightIntensity] = useState(1);
   const [autoSpeed, setAutoSpeed] = useState(1.2);
-  const [dayTime, setDayTime] = useState(0.5);
+  const [dayTime] = useState(0.5);
 
   const resetView = () => zoomToFit(groupRef, controlsRef);
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
       {/* HEADER: Título + Perfil + Notificaciones */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
         {/* Título con ícono */}
@@ -57,7 +161,7 @@ export default function Casa3d({
         </div>
 
         {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications />
+        <ProfileNotifications userName="Usuario" />
       </div>
 
       {/* CONTENIDO ORIGINAL */}
@@ -108,154 +212,150 @@ export default function Casa3d({
             <Loader />
           </div>
 
-          {/* === Panel lateral === */}
-          <aside className="w-full md:w-80 flex flex-col gap-3">
-            {/* Información */}
-            <div className="px-3 py-2 bg-gradient-to-tr from-slate-900/60 to-slate-800/40 rounded-lg shadow-md">
-              <h3 className="text-sm font-semibold text-white">
-                Vista 3D del modelo
-              </h3>
-              <p className="text-xs text-slate-300 mt-2">
-                Interactúa con el modelo: rotar, hacer zoom y centrar. Usa los
-                botones para funciones rápidas.
+          {/* === Panel Lateral Premium === */}
+          <aside className="w-full md:w-96 flex flex-col gap-2 max-h-[680px] overflow-hidden">
+            
+            {/* PRESETS DE CÁMARA */}
+            <SimpleCard className="p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
+                <Zap className="w-3 h-3" />
+                Vistas Guardadas
               </p>
-            </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                <SimpleButton
+                  onClick={() => presets.top(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-cyan-600/80 to-cyan-500/80 hover:from-cyan-600 hover:to-cyan-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/40 border border-cyan-400/30 hover:scale-105 w-full"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                  <span>Top</span>
+                </SimpleButton>
 
-            {/* Botones de cámara */}
-            <div className="flex gap-2 px-1">
-              <button
-                onClick={() => presets.top(controlsRef)}
-                className="text-xs px-2 py-1 bg-slate-700 rounded"
-              >
-                Top
-              </button>
-              <button
-                onClick={() => presets.front(controlsRef)}
-                className="text-xs px-2 py-1 bg-slate-700 rounded"
-              >
-                Front
-              </button>
-              <button
-                onClick={() => presets.iso(controlsRef)}
-                className="text-xs px-2 py-1 bg-slate-700 rounded"
-              >
-                Iso
-              </button>
-            </div>
+                <SimpleButton
+                  onClick={() => presets.front(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-purple-600/80 to-purple-500/80 hover:from-purple-600 hover:to-purple-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/40 border border-purple-400/30 hover:scale-105 w-full"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Front</span>
+                </SimpleButton>
 
-            {/* Controles de visualización */}
-            <div className="flex flex-col gap-2">
-              <SimpleButton
-                onClick={() => setAutoRotate((s) => !s)}
-                active
-                className={`w-full flex items-center justify-between px-3 py-2 ${
-                  autoRotate ? "bg-cyan-600 text-black" : "bg-slate-700 text-white"
-                }`}
-              >
-                <span>Auto-rotar</span>
-                <span className="text-xs">{autoRotate ? "ON" : "OFF"}</span>
-              </SimpleButton>
+                <SimpleButton
+                  onClick={() => presets.iso(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-pink-600/80 to-pink-500/80 hover:from-pink-600 hover:to-pink-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-pink-500/40 border border-pink-400/30 hover:scale-105 w-full"
+                >
+                  <Box className="w-4 h-4" />
+                  <span>Iso</span>
+                </SimpleButton>
+              </div>
+            </SimpleCard>
 
-              <SimpleButton
-                onClick={() => setWireframe((s) => !s)}
-                active
-                className={`w-full flex items-center justify-between px-3 py-2 ${
-                  wireframe ? "bg-indigo-600 text-white" : "bg-slate-700 text-white"
-                }`}
-              >
-                <span>Wireframe</span>
-                <span className="text-xs">{wireframe ? "ON" : "OFF"}</span>
-              </SimpleButton>
+            {/* CONTROLES VISUALES - Grid 2x2 */}
+            <SimpleCard className="p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
+                <Lightbulb className="w-3 h-3" />
+                Modo de Visualización
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <SwitchToggle
+                  isOn={autoRotate}
+                  onChange={setAutoRotate}
+                  label="Rotación"
+                  icon={RotateCw}
+                  tooltip="Rotación automática del modelo"
+                />
 
-              <SimpleButton
-                onClick={() => setShadowsEnabled((s) => !s)}
-                active
-                className={`w-full flex items-center justify-between px-3 py-2 ${
-                  shadowsEnabled ? "bg-yellow-500 text-black" : "bg-slate-700 text-white"
-                }`}
-              >
-                <span>Sombras</span>
-                <span className="text-xs">{shadowsEnabled ? "ON" : "OFF"}</span>
-              </SimpleButton>
+                <SwitchToggle
+                  isOn={wireframe}
+                  onChange={setWireframe}
+                  label="Estructura"
+                  icon={Grid3x3}
+                  tooltip="Ver armazón de geometría"
+                />
 
-              <SimpleButton
-                onClick={() => setEnvEnabled((s) => !s)}
-                active
-                className={`w-full flex items-center justify-between px-3 py-2 ${
-                  envEnabled ? "bg-emerald-400 text-black" : "bg-slate-700 text-white"
-                }`}
-              >
-                <span>Environment</span>
-                <span className="text-xs">{envEnabled ? "ON" : "OFF"}</span>
-              </SimpleButton>
+                <SwitchToggle
+                  isOn={shadowsEnabled}
+                  onChange={setShadowsEnabled}
+                  label="Sombras"
+                  icon={Lightbulb}
+                  tooltip="Sombras de contacto"
+                />
 
-              <SimpleButton
-                onClick={resetView}
-                active
-                className="w-full flex items-center gap-2 px-3 py-2 bg-slate-700 text-white"
-              >
-                Reset vista
-              </SimpleButton>
-            </div>
+                <SwitchToggle
+                  isOn={envEnabled}
+                  onChange={setEnvEnabled}
+                  label="Ambiente"
+                  icon={Globe}
+                  tooltip="Entorno y reflejo"
+                />
+              </div>
+            </SimpleCard>
 
-            {/* Sliders */}
-            <div className="flex flex-col gap-2 mt-2">
-              <label className="text-xs text-slate-300">
-                Hora del día: <span>{Math.round(dayTime * 24)}:00</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={dayTime}
-                onChange={(e) => setDayTime(Number(e.target.value))}
-                className="w-full"
-              />
+            {/* ANIMACIÓN */}
+            <SimpleCard className="p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-4">
+                <Settings2 className="w-3 h-3" />
+                Configuración de Rotación
+              </p>
+              <div className="space-y-4">
+                <SliderControl
+                  label="Velocidad de rotación"
+                  value={autoSpeed}
+                  onChange={setAutoSpeed}
+                  min={0}
+                  max={5}
+                  step={0.1}
+                  icon={RotateCw}
+                  format={(v) => `${v.toFixed(1)}x`}
+                  tooltip="Ajusta la velocidad de giro automático del modelo"
+                />
+              </div>
+            </SimpleCard>
 
-              <label className="text-xs text-slate-300">
-                Intensidad luces: <span>{lightIntensity.toFixed(2)}</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.05"
-                value={lightIntensity}
-                onChange={(e) => setLightIntensity(Number(e.target.value))}
-                className="w-full"
-              />
+            {/* BOTONES DE ACCIÓN */}
+            <SimpleCard className="p-3">
+              <div className="flex gap-2.5">
+                <SimpleButton
+                  onClick={handleSnapshot}
+                  active
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-500/80 to-cyan-500/80 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-sm rounded-lg transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-400/30 flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  Capturar
+                </SimpleButton>
+                <SimpleButton
+                  onClick={resetView}
+                  active
+                  className="flex-1 py-3 bg-gradient-to-r from-cyan-500/80 to-purple-500/80 hover:from-cyan-500 hover:to-purple-500 text-white font-bold text-sm rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 border border-cyan-400/30 flex items-center justify-center gap-2"
+                >
+                  <RotateCw className="w-4 h-4" />
+                  Centrar
+                </SimpleButton>
+              </div>
+            </SimpleCard>
 
-              <label className="text-xs text-slate-300">
-                Vel. auto-rotación: <span>{autoSpeed.toFixed(2)}</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="5"
-                step="0.1"
-                value={autoSpeed}
-                onChange={(e) => setAutoSpeed(Number(e.target.value))}
-                className="w-full"
-              />
-
-              <SimpleButton
-                onClick={handleSnapshot}
-                active
-                className="w-full flex items-center gap-2 px-3 py-2 bg-gradient-to-tr from-emerald-400 to-cyan-500 text-black"
-              >
-                Capturar imagen
-              </SimpleButton>
-            </div>
-
-            <div className="mt-auto px-3 py-2 bg-slate-800/40 rounded-lg text-xs text-slate-300">
-              <strong>Información:</strong>
-              <ul className="list-disc ml-5 mt-2">
-                <li>Modelo: Coso.glb</li>
-                <li>Soporta rotación, zoom y wireframe.</li>
-                <li>Click en el orb de la UI principal para activar el asistente por voz.</li>
-              </ul>
-            </div>
+            {/* STATS DASHBOARD */}
+            <SimpleCard className="p-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
+                <Zap className="w-3 h-3" />
+                Estado Actual
+              </p>
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-500/10 rounded-lg border border-cyan-500/30 text-center hover:border-cyan-500/60 transition-all">
+                  <p className="text-xs text-cyan-300 font-bold">{autoSpeed.toFixed(1)}x</p>
+                  <p className="text-xs text-slate-400 mt-1">Rotación</p>
+                </div>
+                <div className="p-3 bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-lg border border-purple-500/30 text-center hover:border-purple-500/60 transition-all">
+                  <p className="text-xs text-purple-300 font-bold">{(lightIntensity * 100).toFixed(0)}%</p>
+                  <p className="text-xs text-slate-400 mt-1">Intensidad</p>
+                </div>
+                <div className="p-3 bg-gradient-to-br from-pink-500/20 to-pink-500/10 rounded-lg border border-pink-500/30 text-center hover:border-pink-500/60 transition-all">
+                  <p className="text-xs text-pink-300 font-bold">{Math.round(dayTime * 24)}</p>
+                  <p className="text-xs text-slate-400 mt-1">Hora</p>
+                </div>
+              </div>
+            </SimpleCard>
           </aside>
         </div>
       </SimpleCard>

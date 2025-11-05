@@ -1,11 +1,10 @@
 "use client";
-import { Home, Activity, Lightbulb, Thermometer, Plug, MapPin, Zap } from "lucide-react";
+import { Home} from "lucide-react";
 import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget";
 import SimpleCard from "../components/UI/Card";
 import ProfileNotifications from "../components/UI/ProfileNotifications";
 // utils
 import { generateSparklinePoints, donutParams } from "../utils/chatUtils";
-import { getDeviceType } from "../utils/deviceUtils";
 // MiniChat
 import MiniChat from "../components/widgets/MiniChat";
 
@@ -48,14 +47,6 @@ export default function Inicio({
   const humidityLow = humidity < HUMIDITY_LOW;
   const humidityHigh = humidity > HUMIDITY_HIGH;
   const humidityOutOfRange = humidityLow || humidityHigh;
-
-  const renderIcon = (name: string) => {
-    const type = getDeviceType(name);
-    if (type === "light") return <Lightbulb className="w-10 md:w-12 h-10 md:h-12 text-white" />;
-    if (type === "ac") return <Thermometer className="w-10 md:w-12 h-10 md:h-12 text-white" />;
-    if (type === "plug") return <Plug className="w-10 md:w-12 h-10 md:h-12 text-white" />;
-    return <Plug className="w-5 md:w-6 h-5 md:h-6 text-white" />;
-  };
 
   return (
     <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
@@ -177,51 +168,6 @@ export default function Inicio({
           </SimpleCard>
         </div>
       </div>
-
-      {/* Devices list (full) */}
-      <div className="space-y-6 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-slate-600/20 to-slate-700/20 backdrop-blur-sm">
-            <Activity className="w-5 md:w-6 h-5 md:h-6 text-white" />
-          </div>
-          <h3 className="text-xl md:text-2xl font-semibold text-slate-200 font-inter tracking-tight">Dispositivos</h3>
-          <div className="flex-1 h-px bg-gradient-to-r from-slate-600/50 to-transparent" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {devices.map((device, i) => (
-            <SimpleCard key={i} className="p-6 md:p-8 min-h-[160px] hover:scale-[1.02] transition-all duration-300 group relative overflow-hidden border-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm">
-              <div className={`absolute top-3 md:top-4 right-3 md:right-4 w-3 md:w-4 h-3 md:h-4 rounded-full transition-all duration-300 ${device.on ? "bg-green-500 shadow-lg shadow-green-500/50 animate-pulse" : "bg-red-500/70 shadow-lg shadow-red-500/30"}`} />
-              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${device.on ? "bg-gradient-to-br from-green-500/5 to-emerald-500/5" : "bg-gradient-to-br from-red-500/5 to-rose-500/5"}`} />
-              <div className="relative space-y-4">
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className={`p-3 md:p-4 rounded-xl transition-all duration-300 backdrop-blur-sm ${device.on ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30" : "bg-gradient-to-br from-slate-600/20 to-slate-700/20 group-hover:from-slate-600/30 group-hover:to-slate-700/30"}`}>
-                    {renderIcon(device.name)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="text-lg md:text-xl font-semibold text-slate-200 group-hover:text-white transition-colors duration-300 truncate font-inter">{device.name}</h3>
-                        <p className={`text-sm md:text-base font-medium transition-colors duration-300 ${device.on ? "text-green-400" : "text-red-400"}`}>{device.on ? "Encendido" : "Apagado"}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input type="checkbox" checked={device.on} readOnly className="sr-only" />
-                          <span className={`w-11 h-6 md:w-12 md:h-7 rounded-full block transition-colors ${device.on ? 'bg-green-500' : 'bg-slate-600'}`}></span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-3 pl-4 border-l-2 border-slate-600/30 group-hover:border-slate-500/50 transition-colors duration-300">
-                  {device.location && <div className="flex items-center gap-2 text-sm md:text-sm text-slate-400 group-hover:text-slate-300 transition-colors"><MapPin className="w-4 h-4" />{device.location}</div>}
-                  <div className="flex items-center gap-2 text-sm md:text-sm text-slate-400 group-hover:text-slate-300 transition-colors"><Zap className="w-4 h-4" />{device.power}</div>
-                </div>
-              </div>
-            </SimpleCard>
-          ))}
-        </div>
-      </div>
-
       {/* MiniChat flotante */}
       <MiniChat />
     </div>

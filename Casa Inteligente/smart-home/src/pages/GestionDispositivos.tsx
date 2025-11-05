@@ -6,7 +6,6 @@ import SimpleCard from "../components/UI/Card"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Zap,
-  MapPin,
   CheckCircle,
   XCircle,
   Activity,
@@ -14,8 +13,8 @@ import {
   BarChart3,
   TrendingUp,
   Lightbulb,
-  Thermometer,
-  Plug,
+  Wind,
+  DoorOpen,
   Power,
   BarChart2,
   Calendar,
@@ -49,23 +48,27 @@ export default function GestionDispositivos() {
   } = useGestionDispositivos()
 
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
+  const [deviceTypeFilter, setDeviceTypeFilter] = React.useState<string | null>(null)
 
   const getDeviceIcon = (device: Device) => {
     switch (device.device_type) {
       case "luz":
         return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
-      case "ventilador":
-        return <Thermometer className="w-5 h-5 sm:w-6 sm:h-6" /> // Usando Thermometer para ventilador, puedes cambiarlo si tienes un ícono de ventilador
       case "puerta":
-        return <Plug className="w-5 h-5 sm:w-6 sm:h-6" /> // Usando Plug para puerta, puedes cambiarlo si tienes un ícono de puerta
+        return <DoorOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+      case "ventilador":
+        return <Wind className="w-5 h-5 sm:w-6 sm:h-6" />
       default:
-        return <Plug className="w-5 h-5 sm:w-6 sm:h-6" />
+         return <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
     }
   }
 
-  const filteredDevices = devices.filter(
-    (d) => filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on),
-  )
+
+  const filteredDevices = devices.filter((d) => {
+    const statusMatch = filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on)
+    const typeMatch = deviceTypeFilter === null || d.device_type === deviceTypeFilter
+    return statusMatch && typeMatch
+  })
 
   return (
     <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
@@ -140,33 +143,93 @@ export default function GestionDispositivos() {
               role="tabpanel"
               aria-hidden={activeTab !== "control"}
             >
-              {/* Filtros */}
-              <div className="mb-5 sm:mb-6 flex flex-nowrap overflow-x-auto gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide">
-                {[
-                  { name: "Todos", icon: Filter, color: "purple" },
-                  { name: "Encendidos", icon: CheckCircle, color: "green" },
-                  { name: "Apagados", icon: XCircle, color: "red" },
-                ].map((f) => (
-                  <motion.button
-                    key={f.name}
-                    onClick={() => setFilter(f.name)}
-                    className={`flex-shrink-0 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base ${
-                      filter === f.name
-                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30"
-                        : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"
-                    }`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {React.createElement(f.icon, { className: "w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" })}
-                    <span className="whitespace-nowrap">{f.name}</span>
-                  </motion.button>
-                ))}
+              {/* Filtros por estado y tipo */}
+              <div className="mb-5 sm:mb-6 flex flex-nowrap justify-between items-center gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
+                {/* Filtros de tipo */}
+                <div className="flex flex-nowrap overflow-x-auto gap-2 sm:gap-3 pb-2">
+                  {[
+                    { name: "Todos", icon: Filter, type: null, color: "purple" },
+                    { name: "Luz", icon: Lightbulb, type: "luz", color: "yellow" },
+                    { name: "Puerta", icon: DoorOpen, type: "puerta", color: "orange" },
+                    { name: "Ventilador", icon: Wind, type: "actuador", color: "cyan" },
+                  ].map((btn, idx) => (
+                    <motion.button
+                      key={btn.type}
+                      onClick={() => setDeviceTypeFilter(btn.type)}
+                      className={`flex-shrink-0 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base ${
+                        deviceTypeFilter === btn.type
+                          ? `bg-gradient-to-r ${
+                              btn.color === "yellow"
+                                ? "from-yellow-600 to-amber-600"
+                                : btn.color === "cyan"
+                                  ? "from-cyan-600 to-blue-600"
+                                  : btn.color === "orange"
+                                    ? "from-orange-600 to-red-600"
+                                    : "from-purple-600 to-pink-600"
+                            } text-white shadow-lg shadow-purple-500/30`
+                          : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"
+                      }`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: idx * 0.05 }}
+                    >
+                      {React.createElement(btn.icon, { className: "w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" })}
+                      <span className="whitespace-nowrap">{btn.name}</span>
+                    </motion.button>
+                  ))}
+                </div>
+
+                {/* Filtros de estado a la derecha */}
+                <div className="flex-shrink-0 flex gap-2 sm:gap-3">
+                  {[
+                    { name: "Encendidos", icon: CheckCircle, color: "green" },
+                    { name: "Apagados", icon: XCircle, color: "red" },
+                  ].map((f) => (
+                    <motion.button
+                      key={f.name}
+                      onClick={() => {
+                        // Si ya está seleccionado, deseleccionar (mostrar todos)
+                        if (filter === f.name) {
+                          setFilter("Todos")
+                        } else {
+                          setFilter(f.name)
+                        }
+                      }}
+                      className={`flex-shrink-0 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
+                        filter === f.name
+                          ? `bg-gradient-to-r ${f.color === "green" ? "from-green-600 to-emerald-600" : "from-red-600 to-rose-600"} text-white shadow-lg shadow-${f.color}-500/30`
+                          : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"
+                      }`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {React.createElement(f.icon, { className: "w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" })}
+                      <span>{f.name}</span>
+                    </motion.button>
+                  ))}
+                </div>
               </div>
 
-              {/* Tarjetas de resumen */}
+              {/* Tarjetas de resumen*/}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 sm:mb-7 md:mb-8">
+
+                {/* TOTAL */}
+                <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
+                  <div className="flex justify-center items-center mb-2 sm:mb-3">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-blue-500/20 shadow-lg shadow-blue-500/20">
+                      <Activity className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-blue-400" />
+                    </div>
+                  </div>
+                  <p className="text-xs sm:text-sm md:text-base text-blue-400 font-semibold mb-1 uppercase tracking-wider">
+                    Total
+                  </p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white font-inter">
+                    {filteredDevices.length}
+                  </p>
+                </SimpleCard>
+
+                {/* ACTIVOS */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
                     <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-green-500/20 shadow-lg shadow-green-500/20">
@@ -177,10 +240,11 @@ export default function GestionDispositivos() {
                     Activos
                   </p>
                   <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white font-inter">
-                    {devices.filter((d) => d.on).length}
+                    {filteredDevices.filter((d) => d.on).length}
                   </p>
                 </SimpleCard>
 
+                {/* INACTIVOS */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
                     <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-red-500/20 shadow-lg shadow-red-500/20">
@@ -191,10 +255,11 @@ export default function GestionDispositivos() {
                     Inactivos
                   </p>
                   <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white font-inter">
-                    {devices.filter((d) => !d.on).length}
+                    {filteredDevices.filter((d) => !d.on).length}
                   </p>
                 </SimpleCard>
 
+                {/* CONSUMO */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
                     <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-yellow-500/20 shadow-lg shadow-yellow-500/20">
@@ -209,19 +274,6 @@ export default function GestionDispositivos() {
                   </p>
                 </SimpleCard>
 
-                <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
-                  <div className="flex justify-center items-center mb-2 sm:mb-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-blue-500/20 shadow-lg shadow-blue-500/20">
-                      <Activity className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-blue-400" />
-                    </div>
-                  </div>
-                  <p className="text-xs sm:text-sm md:text-base text-blue-400 font-semibold mb-1 uppercase tracking-wider">
-                    Total
-                  </p>
-                  <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white font-inter">
-                    {devices.length}
-                  </p>
-                </SimpleCard>
               </div>
 
               {/* Lista de dispositivos */}
@@ -254,14 +306,14 @@ export default function GestionDispositivos() {
 
                         <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white font-inter whitespace-normal">
+                            <span className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-white font-inter whitespace-normal">
                               {device.name}
                             </span>
                             <div
                               className={`w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 rounded-full ${device.on ? "bg-green-400 animate-pulse shadow-lg shadow-green-400/50" : "bg-red-400"}`}
                             />
                           </div>
-                          <div className="text-sm text-gray-400">{device.power}</div>
+                          <div className="text-xs sm:text-sm text-gray-400">{device.power}</div>
                         </div>
 
                         <div className="flex-shrink-0">

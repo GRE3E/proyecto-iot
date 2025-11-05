@@ -1,277 +1,103 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  Shield,
-  Activity,
-  Camera,
-  AlertTriangle,
-  CheckCircle,
-  TrendingUp,
-  Thermometer,
-  Droplets,
-  Zap,
-} from "lucide-react"
-
+import { Shield, Activity, Camera, TrendingUp, Thermometer, Droplets, Video } from "lucide-react"
 import SimpleCard from "../components/UI/Card"
 import SimpleSecurityCamera from "../components/widgets/SecurityCamera"
-import LiquidGauge from "../components/widgets/LiquidGauge"
-import { useThemeByTime } from "../hooks/useThemeByTime"
 import { useMonitoreoSeguridad } from "../hooks/useMonitoreo"
-import ProfileNotifications from "../components/UI/ProfileNotifications";
-import {
-  panelVariants,
-  panelTransition,
-} from "../utils/monitoreoUtils"
+import ProfileNotifications from "../components/UI/ProfileNotifications"
+import { panelVariants, panelTransition } from "../utils/monitoreoUtils"
+
+const GaugeWithControl = ({ value, setValue, maxValue, minValue, label, icon, unit, color, bgGradient }: { value: number; setValue: (v: number) => void; maxValue: number; minValue: number; label: string; icon: React.ReactNode; unit: string; color: string; bgGradient: string }) => {
+  const percentage = ((value - minValue) / (maxValue - minValue)) * 100
+  const strokeWidth = 8
+  const radius = 50 - strokeWidth / 2
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (percentage / 100) * circumference
+  return (
+    <SimpleCard className={`p-6 ${bgGradient} backdrop-blur-sm border border-slate-700/50 rounded-2xl`}>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2 bg-white/10 rounded-lg">{icon}</div>
+        <h4 className="text-lg font-semibold text-white">{label}</h4>
+      </div>
+      <div className="relative w-40 h-40 mx-auto mb-6">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="#1f2937" strokeWidth={strokeWidth} className="opacity-50" />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-500 drop-shadow-lg" style={{ filter: `drop-shadow(0 0 8px ${color}40)` }} />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="flex items-baseline gap-1">
+            <p className="text-3xl font-bold text-white">{value}</p>
+            <p className="text-2xl font-bold text-white">{unit}</p>
+          </div>
+        </div>
+      </div>
+      <div className="px-2">
+        <input type="range" min={minValue} max={maxValue} value={value} onChange={(e) => setValue(parseInt(e.target.value))} className="w-full h-2 bg-slate-700 rounded-full appearance-none cursor-pointer accent-white slider-thumb" style={{ background: `linear-gradient(to right, ${color} ${percentage}%, #334155 ${percentage}%)` }} />
+      </div>
+    </SimpleCard>
+  )
+}
 
 export default function MonitoreoSeguridad() {
-  const {
-    activeTab,
-    setActiveTab,
-    temperature,
-    setTemperature,
-    humidity,
-    setHumidity,
-    energyUsage,
-    setEnergyUsage,
-    cameraOn,
-    setCameraOn,
-  } = useMonitoreoSeguridad()
-
-  const { colors } = useThemeByTime()
-
+  const { activeTab, setActiveTab, temperature, setTemperature, humidity, setHumidity, cameraOn, setCameraOn } = useMonitoreoSeguridad()
   return (
     <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
-      {/* HEADER: Título + Usuario + Notificaciones (igual que Inicio) */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
-        {/* Título con ícono */}
         <div className="flex items-center gap-4 -mt-6 md:-mt-7">
           <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
             <Shield className="w-8 md:w-10 h-8 md:h-10 text-white" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
-            Monitoreo y Seguridad
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">Monitoreo y Seguridad</h2>
         </div>
-
-        {/* PERFIL + NOTIFICACIONES */}
         <ProfileNotifications />
       </div>
-      
-      {/* TABS (debajo del header) */}
       <div className="flex gap-1 border-b border-slate-700/50 mt-4" role="tablist">
-        <button
-          onClick={() => setActiveTab("seguridad")}
-          role="tab"
-          aria-selected={activeTab === "seguridad"}
-          className={`px-6 py-3 font-medium flex items-center gap-2 relative transition-all ${
-            activeTab === "seguridad"
-              ? "text-white"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          <Shield className="w-5 h-5" />
-          Seguridad
-          {activeTab === "seguridad" && (
-            <motion.span
-              layoutId="underline"
-              className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-            />
-          )}
+        <button onClick={() => setActiveTab("seguridad")} role="tab" aria-selected={activeTab === "seguridad"} className={`px-6 py-3 font-medium flex items-center gap-2 relative transition-all ${activeTab === "seguridad" ? "text-white" : "text-slate-400 hover:text-white"}`}>
+          <Shield className="w-5 h-5" />Seguridad
+          {activeTab === "seguridad" && <motion.span layoutId="underline" className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" />}
         </button>
-
-        <button
-          onClick={() => setActiveTab("monitoreo")}
-          role="tab"
-          aria-selected={activeTab === "monitoreo"}
-          className={`px-6 py-3 font-medium flex items-center gap-2 relative transition-all ${
-            activeTab === "monitoreo"
-              ? "text-white"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          <Activity className="w-5 h-5" />
-          Monitoreo Ambiental
-          {activeTab === "monitoreo" && (
-            <motion.span
-              layoutId="underline"
-              className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-            />
-          )}
+        <button onClick={() => setActiveTab("monitoreo")} role="tab" aria-selected={activeTab === "monitoreo"} className={`px-6 py-3 font-medium flex items-center gap-2 relative transition-all ${activeTab === "monitoreo" ? "text-white" : "text-slate-400 hover:text-white"}`}>
+          <Activity className="w-5 h-5" />Monitoreo Ambiental
+          {activeTab === "monitoreo" && <motion.span layoutId="underline" className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" />}
         </button>
       </div>
-
-      {/* CONTENIDO PRINCIPAL */}
       <div className="mt-6 px-6">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            variants={panelVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={panelTransition}
-          >
+          <motion.div key={activeTab} variants={panelVariants} initial="initial" animate="animate" exit="exit" transition={panelTransition}>
             {activeTab === "monitoreo" ? (
               <>
-                {/* Indicadores principales */}
-                <h3 className="text-2xl font-bold mb-4 text-cyan-300 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" /> Indicadores
+                <h3 className="text-xl md:text-2xl font-bold mb-6 text-white-300 flex items-center gap-2">
+                  <TrendingUp className="text-blue-400 w-6 h-6" />Indicadores
                 </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <LiquidGauge
-                    value={temperature}
-                    maxValue={35}
-                    label="Temperatura"
-                    color="#22d3ee"
-                    icon={<Thermometer />}
-                    unit="°C"
-                  />
-                  <LiquidGauge
-                    value={humidity}
-                    maxValue={100}
-                    label="Humedad"
-                    color="#a855f7"
-                    icon={<Droplets />}
-                    unit="%"
-                  />
-                  <LiquidGauge
-                    value={energyUsage}
-                    maxValue={500}
-                    label="Energía"
-                    color="#ec4899"
-                    icon={<Zap />}
-                    unit="kWh"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <GaugeWithControl value={temperature} setValue={setTemperature} minValue={10} maxValue={35} label="Temperatura" icon={<Thermometer className="w-5 h-5 text-cyan-400" />} unit="°C" color="#22d3ee" bgGradient="bg-gradient-to-br from-cyan-900/20 to-blue-900/20" />
+                  <GaugeWithControl value={humidity} setValue={setHumidity} minValue={20} maxValue={80} label="Humedad" icon={<Droplets className="w-5 h-5 text-purple-400" />} unit="%" color="#a855f7" bgGradient="bg-gradient-to-br from-purple-900/20 to-pink-900/20" />
                 </div>
-
-                {/* Controles ambientales */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <SimpleCard className="p-6 bg-gradient-to-br from-cyan-900/20 to-blue-900/20">
-                    <h4 className="text-lg font-bold mb-3 text-cyan-400 flex items-center gap-2">
-                      <Thermometer className="w-4 h-4" /> Control de Temperatura
-                    </h4>
-                    <input
-                      type="range"
-                      min="10"
-                      max="35"
-                      value={temperature}
-                      onChange={(e) => setTemperature(parseInt(e.target.value))}
-                      className="w-full custom-slider accent-cyan-400"
-                    />
-                    <p className="text-center mt-2 text-cyan-300 font-semibold">
-                      {temperature}°C
-                    </p>
-                  </SimpleCard>
-
-                  <SimpleCard className="p-6 bg-gradient-to-br from-purple-900/20 to-pink-900/20">
-                    <h4 className="text-lg font-bold mb-3 text-purple-400 flex items-center gap-2">
-                      <Droplets className="w-4 h-4" /> Control de Humedad
-                    </h4>
-                    <input
-                      type="range"
-                      min="20"
-                      max="80"
-                      value={humidity}
-                      onChange={(e) => setHumidity(parseInt(e.target.value))}
-                      className="w-full custom-slider accent-purple-400"
-                    />
-                    <p className="text-center mt-2 text-purple-300 font-semibold">
-                      {humidity}%
-                    </p>
-                  </SimpleCard>
-
-                  <SimpleCard className="p-6 bg-gradient-to-br from-pink-900/20 to-rose-900/20">
-                    <h4 className="text-lg font-bold mb-3 text-pink-400 flex items-center gap-2">
-                      <Zap className="w-4 h-4" /> Control de Energía
-                    </h4>
-                    <input
-                      type="range"
-                      min="100"
-                      max="500"
-                      value={energyUsage}
-                      onChange={(e) => setEnergyUsage(parseInt(e.target.value))}
-                      className="w-full custom-slider accent-pink-400"
-                    />
-                    <p className="text-center mt-2 text-pink-300 font-semibold">
-                      {energyUsage} kWh
-                    </p>
-                  </SimpleCard>
-                </div>
-
-                {/* Recomendaciones */}
-                <SimpleCard className="p-6 bg-gradient-to-br from-blue-900/20 to-indigo-900/20">
-                  <h3 className="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5" /> Recomendaciones
-                  </h3>
-                  <ul className="space-y-3 text-slate-300">
-                    <li>• Temperatura ideal: 20–24°C</li>
-                    <li>• Humedad óptima: 40–60%</li>
-                    <li>• Ventilar cada 2 horas</li>
-                    <li>• Mantén consumo en rango eficiente</li>
-                  </ul>
-                </SimpleCard>
               </>
             ) : (
               <>
-                {/* Cámaras */}
-                <h4 className="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">
-                  <Camera className="w-5 h-5" /> Cámaras
-                </h4>
-                <SimpleCard className="p-6 bg-black/50 rounded-xl shadow-lg backdrop-blur-sm">
-                  <div
-                    className={`grid grid-cols-1 md:grid-cols-2 gap-6 bg-gradient-to-br ${colors} p-4 rounded-xl`}
-                  >
-                    <div
-                      className={`p-4 bg-gradient-to-br from-cyan-600/20 to-blue-600/20 rounded-xl shadow-md`}
-                    >
-                      <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-blue-400 font-bold">
-                          Estado de Cámaras
-                        </h3>
-                        <button
-                          onClick={() => setCameraOn(!cameraOn)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium text-white ${
-                            cameraOn
-                              ? "bg-red-500/80 hover:bg-red-600/80"
-                              : "bg-green-500/80 hover:bg-green-600/80"
-                          }`}
-                        >
-                          {cameraOn ? "Apagar" : "Encender"}
-                        </button>
+                <div className="flex items-center gap-3 mb-6">
+                  <Camera className="w-6 h-6 text-blue-400" />
+                  <h4 className="text-2xl font-bold text-white">Sistema de Cámaras</h4>
+                </div>
+                <SimpleCard className={`p-5 sm:p-6 mb-6 border transition-all ${cameraOn ? "bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border-blue-500/30" : "bg-gradient-to-r from-gray-800/40 to-gray-900/40 border-gray-600/30"}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Video className={`w-7 h-7 sm:w-8 sm:h-8 ${cameraOn ? "text-blue-400" : "text-gray-500"}`} />
+                      <div>
+                        <p className={`text-xs sm:text-sm ${cameraOn ? "text-slate-400" : "text-gray-500"}`}>Estado del Sistema</p>
+                        <p className={`text-base sm:text-lg font-bold ${cameraOn ? "text-green-400" : "text-gray-500"}`}>{cameraOn ? "4 Cámaras Activas" : "4 Cámaras Inactivas"}</p>
                       </div>
-                      <p className="text-gray-300 text-sm text-center">
-                        {cameraOn ? "Cámaras activas" : "Cámaras inactivas"}
-                      </p>
                     </div>
-
-                    <div className="p-4 bg-gradient-to-br from-red-800/20 to-rose-800/20 rounded-xl shadow-md text-center">
-                      <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                      <h3 className="text-yellow-400 font-bold">Alertas</h3>
-                      <p className="text-green-400 font-bold text-lg">
-                        0 Activas
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                    {[
-                      "Entrada Principal",
-                      "Sala de Estar",
-                      "Jardín Trasero",
-                      "Garaje",
-                      "Cocina",
-                      "Pasillo",
-                    ].map((location, index) => (
-                      <SimpleSecurityCamera
-                        key={index}
-                        cameraOn={cameraOn}
-                        location={location}
-                      />
-                    ))}
+                    <button onClick={() => setCameraOn(!cameraOn)} className={`p-2.5 sm:p-3 rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center ${cameraOn ? "bg-green-500/90 hover:bg-green-600/90 text-white" : "bg-red-500/90 hover:bg-red-600/90 text-white"}`} aria-label={cameraOn ? "Apagar cámaras" : "Encender cámaras"}>
+                      <Camera className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+                    </button>
                   </div>
                 </SimpleCard>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {["Entrada Principal", "Sala de Estar", "Jardín Trasero", "Garaje"].map((location, index) => <SimpleSecurityCamera key={index} cameraOn={cameraOn} location={location} />)}
+                </div>
               </>
             )}
           </motion.div>

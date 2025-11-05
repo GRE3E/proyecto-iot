@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const axiosInstance = axios.create({
+export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -55,23 +55,23 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      console.log('authService: Valor del refresh_token antes de la llamada a la API:', refreshToken);
-
+      // console.log('authService: Valor del refresh_token antes de la llamada a la API:', refreshToken);
+      // console.log('authService: Intentando refrescar token. Refresh token:', refreshToken);
       return new Promise(async (resolve, reject) => {
         try {
           const response = await axiosInstance.post<LoginResponse>('/auth/auth/refresh-token', { refresh_token: refreshToken });
-          console.log('authService: Respuesta exitosa de refresh-token:', response.data);
+          // console.log('authService: Respuesta exitosa de refresh-token:', response.data);
           const { access_token, refresh_token: newRefreshToken } = response.data;
-          console.log('authService: Nuevos tokens recibidos - access_token:', access_token ? 'Presente' : 'Ausente', 'newRefreshToken:', newRefreshToken ? 'Presente' : 'Ausente');
+          // console.log('authService: Nuevos tokens recibidos - access_token:', access_token ? 'Presente' : 'Ausente', 'newRefreshToken:', newRefreshToken ? 'Presente' : 'Ausente');
           localStorage.setItem('access_token', access_token);
           localStorage.setItem('refresh_token', newRefreshToken);
-          console.log('authService: Nuevos tokens guardados en localStorage.');
+          // console.log('authService: Nuevos tokens guardados en localStorage.');
 
           axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
           failedQueue.forEach((prom) => prom.resolve(access_token));
           resolve(axiosInstance(originalRequest));
         } catch (refreshError) {
-          console.error('authService: Error refrescando token o refresh_token inválido:', refreshError);
+          // console.error('authService: Error refrescando token o refresh_token inválido:', refreshError);
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           failedQueue.forEach((prom) => prom.reject(refreshError));
@@ -112,7 +112,7 @@ const authService = {
         localStorage.setItem('refresh_token', response.data.refresh_token);
       return response.data;
     } catch (error) {
-      console.error('Error en login:', error);
+      // console.error('Error en login:', error);
       throw error;
     }
   },
@@ -123,7 +123,7 @@ const authService = {
       const response = await axiosInstance.get('/auth/auth/me');
       return response.data;
     } catch (error) {
-      console.error('Error al obtener perfil:', error);
+      // console.error('Error al obtener perfil:', error);
       throw error;
     }
   },

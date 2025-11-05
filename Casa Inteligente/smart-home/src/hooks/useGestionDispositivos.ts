@@ -2,6 +2,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuth } from "./useAuth";
+import authService, { axiosInstance } from "../services/authService";
 
 export interface Device {
   id: number
@@ -14,23 +16,15 @@ export interface Device {
 }
 
 export function useGestionDispositivos(initialDevices?: Device[]) {
+  // const { accessToken } = useAuth(); // Ya no es necesario obtenerlo aquí directamente
   const [devices, setDevices] = useState<Device[]>([])
   const [energyUsage, setEnergyUsage] = useState<number>(150) // mismo nombre que usas en UI
   const [filter, setFilter] = useState<string>("Todos")
 
-  const AUTH_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZXhwIjoxNzYyODk1OTA1fQ.l_rHzefWzJAiUZxOfIflEqCPsGSPhCFuLStgN3hpfHE" // Reemplaza con tu token real
-
   const fetchDevicesByType = async (deviceType: string): Promise<Device[]> => {
     try {
-      const response = await fetch(`https://reporters-humor-prince-cells.trycloudflare.com/iot/device_states/by_type/${deviceType}`, {
-        headers: {
-          Authorization: `Bearer ${AUTH_TOKEN}`,
-        },
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
+      const response = await axiosInstance.get(`/iot/device_states/by_type/${deviceType}`);
+      const data = response.data;
       return data.map((item: any) => ({
         id: item.id,
         name: item.device_name.replace(/_/g, ' '),
@@ -49,15 +43,8 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
   useEffect(() => {
     const loadDevices = async () => {
         try {
-          const response = await fetch('https://reporters-humor-prince-cells.trycloudflare.com/iot/device_types', {
-            headers: {
-              Authorization: `Bearer ${AUTH_TOKEN}`,
-            },
-          })
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-          const data = await response.json()
+          const response = await axiosInstance.get(`/iot/device_types`);
+          const data = response.data;
           const deviceTypes = data.device_types
 
           const allDevices: Device[] = []
@@ -97,21 +84,10 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
         : (deviceToToggle.on ? "OFF" : "ON")
 
     try {
-      const response = await fetch(
-        `https://reporters-humor-prince-cells.trycloudflare.com/iot/device_states/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${AUTH_TOKEN}`,
-          },
-          body: JSON.stringify({ new_state: { status: newStatus } }),
-        }
+      await axiosInstance.put(
+        `/iot/device_states/${id}`,
+        { new_state: { status: newStatus } }
       )
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
 
       // Si la petición fue exitosa, el estado ya se actualizó localmente
       console.log(`Device ${id} toggled to ${newStatus}`)

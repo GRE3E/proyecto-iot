@@ -144,9 +144,9 @@ export default function GestionDispositivos() {
               aria-hidden={activeTab !== "control"}
             >
               {/* Filtros por estado y tipo */}
-              <div className="mb-5 sm:mb-6 flex flex-nowrap justify-between items-center gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
+              <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-start sm:justify-between gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
                 {/* Filtros de tipo */}
-                <div className="flex flex-nowrap overflow-x-auto gap-2 sm:gap-3 pb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 sm:justify-items-start sm:justify-start gap-1 sm:gap-2 pb-2 sm:pb-0 w-full sm:w-auto sm:max-w-fit">
                   {[
                     { name: "Todos", icon: Filter, type: null, color: "purple" },
                     { name: "Luz", icon: Lightbulb, type: "luz", color: "yellow" },
@@ -156,7 +156,7 @@ export default function GestionDispositivos() {
                     <motion.button
                       key={btn.type}
                       onClick={() => setDeviceTypeFilter(btn.type)}
-                      className={`flex-shrink-0 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base ${
+                      className={`w-full min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base border ${
                         deviceTypeFilter === btn.type
                           ? `bg-gradient-to-r ${
                               btn.color === "yellow"
@@ -166,8 +166,8 @@ export default function GestionDispositivos() {
                                   : btn.color === "orange"
                                     ? "from-orange-600 to-red-600"
                                     : "from-purple-600 to-pink-600"
-                            } text-white shadow-lg shadow-purple-500/30`
-                          : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"
+                            } text-white shadow-lg shadow-purple-500/30 border-transparent`
+                          : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border-slate-600/40"
                       }`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -180,7 +180,7 @@ export default function GestionDispositivos() {
                 </div>
 
                 {/* Filtros de estado a la derecha */}
-                <div className="flex-shrink-0 flex gap-2 sm:gap-3">
+                <div className="flex w-full sm:w-auto items-center gap-2 sm:gap-3 justify-between sm:justify-end mt-1 sm:mt-0 sm:self-center">
                   {[
                     { name: "Encendidos", icon: CheckCircle, color: "green" },
                     { name: "Apagados", icon: XCircle, color: "red" },
@@ -195,7 +195,7 @@ export default function GestionDispositivos() {
                           setFilter(f.name)
                         }
                       }}
-                      className={`flex-shrink-0 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
+                      className={`flex-1 sm:flex-none w-full sm:w-auto min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
                         filter === f.name
                           ? `bg-gradient-to-r ${f.color === "green" ? "from-green-600 to-emerald-600" : "from-red-600 to-rose-600"} text-white shadow-lg shadow-${f.color}-500/30`
                           : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"

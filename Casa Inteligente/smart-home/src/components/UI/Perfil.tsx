@@ -20,7 +20,7 @@ interface PerfilProps {
   setMembers: (value: FamilyMember[]) => void
   isOwnerFixed?: boolean
   onEditProfile: () => void
-  onAddMember?: () => void // callback opcional para el botón de agregar familiar
+  onAddMember?: () => void
 }
 
 export default function Perfil({
@@ -52,7 +52,7 @@ export default function Perfil({
   return (
     <div className="space-y-5 text-white">
       {/* Sección del propietario */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div className="flex items-center gap-3">
           <User className="w-6 h-6 text-blue-400" />
           <div>
@@ -63,11 +63,11 @@ export default function Perfil({
           </div>
         </div>
 
-        {/* Botones alineados horizontalmente a la derecha */}
-        <div className="flex gap-2">
+        {/* Botones - Responsive */}
+        <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full md:w-auto">
           <button
             onClick={onEditProfile}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg w-44 transition-all"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition-all md:w-44"
           >
             <Edit className="w-4 h-4" /> Editar perfil
           </button>
@@ -75,7 +75,7 @@ export default function Perfil({
           {onAddMember && (
             <button
               onClick={onAddMember}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg w-44 transition-all"
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition-all md:w-44"
             >
               <UserPlus className="w-4 h-4" /> Agregar familiar
             </button>
@@ -91,7 +91,7 @@ export default function Perfil({
           members.map((m: FamilyMember) => (
             <div
               key={m.id}
-              className="flex items-center justify-between bg-slate-800/60 px-3 py-2 rounded-lg hover:bg-slate-800 transition"
+              className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-slate-800/60 px-3 py-2 rounded-lg hover:bg-slate-800 transition"
             >
               <div>
                 <div className="font-medium">{m.name}</div>
@@ -122,8 +122,8 @@ export default function Perfil({
 
       {/* Modal de edición de miembro */}
       {editingMember && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-slate-900 rounded-2xl p-6 w-[90%] max-w-md shadow-xl text-white relative">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-xl text-white relative">
             <button
               onClick={() => setEditingMember(null)}
               className="absolute top-3 right-3 text-slate-400 hover:text-white"
@@ -195,16 +195,16 @@ export default function Perfil({
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3">
               <button
                 onClick={() => setEditingMember(null)}
-                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
               >
                 Guardar
               </button>

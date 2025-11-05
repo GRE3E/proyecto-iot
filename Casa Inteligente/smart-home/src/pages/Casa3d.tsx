@@ -167,12 +167,58 @@ export default function Casa3d({
       {/* CONTENIDO ORIGINAL */}
       <SimpleCard className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* === Escena 3D === */}
-          <div className="flex-1 min-h-[420px] rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+          {/* === Escena 3D Desktop === */}
+          <div className="hidden md:flex flex-1 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 h-[680px]">
             <Canvas
               shadows={shadowsEnabled}
               camera={{ position: [6, 3.5, 6], fov: 45 }}
-              style={{ height: 640 }}
+              style={{ height: "100%" }}
+            >
+              <Suspense fallback={<Html center>Cargando modelo...</Html>}>
+                {envEnabled && <Environment preset="city" background={false} />}
+                <group ref={groupRef}>
+                  <Model src={modelPath} wireframe={wireframe} />
+                </group>
+
+                <SceneHelpers
+                  modelRef={groupRef}
+                  lightOn={lightOn}
+                  securityOn={securityOn}
+                  lightIntensity={lightIntensity}
+                  isMobile={false}
+                />
+
+                <OrbitControls
+                  ref={controlsRef}
+                  enablePan
+                  enableZoom
+                  enableRotate
+                  autoRotate={autoRotate}
+                  autoRotateSpeed={autoSpeed}
+                />
+
+                {shadowsEnabled && (
+                  <ContactShadows
+                    rotation-x={Math.PI / 2}
+                    position={[0, -0.01, 0]}
+                    opacity={0.6}
+                    width={4}
+                    height={4}
+                    blur={2}
+                    far={2}
+                  />
+                )}
+              </Suspense>
+            </Canvas>
+            <Loader />
+          </div>
+
+          {/* === Escena 3D Mobile === */}
+          <div className="flex md:hidden flex-1 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 h-[400px]">
+            <Canvas
+              shadows={shadowsEnabled}
+              camera={{ position: [0, 1.2, 1.5], fov: 45 }}
+              style={{ height: "100%" }}
             >
               <Suspense fallback={<Html center>Cargando modelo...</Html>}>
                 {envEnabled && <Environment preset="city" background={false} />}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Send, Bot, Trash2 } from "lucide-react";
+import { Mic, Send, Bot} from "lucide-react";
 import ProfileNotifications from "../components/UI/ProfileNotifications";
 import { useVoiceChat } from "../hooks/useVoiceChat";
 
@@ -15,7 +15,6 @@ export default function Chat() {
     isTyping,
     toggleVoiceActive,
     sendMessage,
-    clearMessages,
     messagesEndRef,
   } = useVoiceChat();
 
@@ -44,7 +43,7 @@ export default function Chat() {
             <Bot className="w-8 md:w-10 h-8 md:h-10 text-white" />
           </div>
           <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
-            CHAT AI
+            CHAT
           </h2>
         </div>
 
@@ -59,15 +58,8 @@ export default function Chat() {
         <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-800 bg-slate-900/70">
           <div className="flex items-center gap-2 text-gray-200 font-medium text-lg">
             <Bot className="w-5 h-5 text-blue-400" />
-            <span>Asistente CasaIA</span>
+            <span>MURPHY</span>
           </div>
-          <button
-            onClick={clearMessages}
-            className="text-red-400 hover:text-red-500 transition"
-            title="Borrar conversación"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
         </div>
 
         {/* 💬 Mensajes */}

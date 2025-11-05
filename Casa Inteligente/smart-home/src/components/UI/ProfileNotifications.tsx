@@ -1,4 +1,4 @@
-import { Bell, User } from "lucide-react";
+import { Bell} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNotifications } from "../../hooks/useNotification";
 import { initialNotifications } from "../../utils/notificationsUtils";

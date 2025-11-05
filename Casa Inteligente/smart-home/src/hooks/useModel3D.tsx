@@ -33,11 +33,13 @@ export function SceneHelpers({
   lightOn,
   securityOn,
   lightIntensity,
+  isMobile = false,
 }: {
   modelRef: React.RefObject<THREE.Group | null>;
   lightOn: boolean;
   securityOn: boolean;
   lightIntensity: number;
+  isMobile?: boolean;
 }) {
   const { camera, gl } = useThree();
 
@@ -51,10 +53,17 @@ export function SceneHelpers({
     const box = new THREE.Box3().setFromObject(modelRef.current);
     const size = box.getSize(new THREE.Vector3()).length();
     const center = box.getCenter(new THREE.Vector3());
-    const distance = size * 1.4;
-    camera.position.set(center.x + distance, center.y + distance / 2, center.z + distance);
+    
+    // Ajustar distancia según dispositivo
+    const distance = isMobile ? size * 0.4 : size * 1.4;
+    
+    camera.position.set(
+      center.x + distance, 
+      center.y + distance / 2, 
+      center.z + distance
+    );
     camera.lookAt(center);
-  }, [camera, modelRef]);
+  }, [camera, modelRef, isMobile]);
 
   return (
     <>

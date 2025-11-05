@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 import { Home} from "lucide-react";
 import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget";
 import SimpleCard from "../components/UI/Card";
@@ -49,14 +49,14 @@ export default function Inicio({
   const humidityOutOfRange = humidityLow || humidityHigh;
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-4 md:space-y-6 lg:space-y-8 font-inter">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
         <div className="flex items-center gap-4 -mt-6 md:-mt-7">
           <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
             <Home className="w-8 md:w-10 h-8 md:h-10 text-white" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
+          <h2 className="text-3xl md:text-4xl font-bold bg-gnd radient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
             Bienvenido
           </h2>
         </div>
@@ -74,9 +74,9 @@ export default function Inicio({
       {/* Panel de métricas */}
       <div className="mb-6 md:mb-8">
         <h3 className="text-xl md:text-2xl font-semibold text-slate-200 mb-4 font-inter tracking-tight">Panel de métricas</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Energía */}
-          <SimpleCard className="p-6 md:p-8 min-h-[160px]">
+          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-green-900/40 to-emerald-900/40 border-green-400/30">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Energía (24h)</p>
@@ -84,7 +84,7 @@ export default function Inicio({
                   <p className={`text-3xl md:text-4xl font-extrabold ${energyHigh ? 'text-rose-400' : 'text-white'} font-inter`}>{energyUsage} kWh</p>
                   {energyHigh && <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">Alto</span>}
                 </div>
-                <p className="text-xs text-slate-500 mt-2">Consumo total reciente</p>
+                <p className="text-xs text-slate-500 mt-2 font-bold">Consumo total reciente</p>
               </div>
               <div className="ml-auto self-center">
                 <svg viewBox="0 0 100 100" className="w-36 md:w-44 h-8 md:h-10">
@@ -95,7 +95,7 @@ export default function Inicio({
           </SimpleCard>
 
           {/* Temperatura */}
-          <SimpleCard className="p-6 md:p-8 min-h-[160px]">
+          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-orange-900/40 to-red-900/40 border-orange-400/30">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Temperatura</p>
@@ -103,7 +103,7 @@ export default function Inicio({
                   <p className={`text-3xl md:text-4xl font-extrabold ${tempHigh ? 'text-rose-400' : 'text-white'} font-inter`}>{temperature}°C</p>
                   {tempHigh && <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">Caliente</span>}
                 </div>
-                <p className="text-xs text-slate-500 mt-2">Promedio interior</p>
+                <p className="text-xs text-slate-500 mt-2 font-bold">Promedio interior</p>
               </div>
               <div className="ml-auto self-center">
                 <svg viewBox="0 0 48 48" className="w-16 md:w-18 h-16 md:h-18">
@@ -122,7 +122,7 @@ export default function Inicio({
           </SimpleCard>
 
           {/* Humedad */}
-          <SimpleCard className="p-6 md:p-8 min-h-[160px]">
+          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-blue-400/30">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Humedad</p>
@@ -131,7 +131,7 @@ export default function Inicio({
                   {humidityLow && <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-amber-600/20 text-amber-300">Baja</span>}
                   {humidityHigh && <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">Alta</span>}
                 </div>
-                <p className="text-xs text-slate-500 mt-2">Hogar</p>
+                <p className="text-xs text-slate-500 mt-2 font-bold">Hogar</p>
               </div>
               <div className="ml-auto self-center">
                 <svg viewBox="0 0 48 48" className="w-16 md:w-18 h-16 md:h-18">
@@ -150,12 +150,12 @@ export default function Inicio({
           </SimpleCard>
 
           {/* Dispositivos */}
-          <SimpleCard className="p-6 md:p-8 min-h-[160px]">
+          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-purple-900/40 to-violet-900/40 border-purple-400/30">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Dispositivos</p>
                 <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">{devices.filter((d)=>d.on).length}/{devices.length}</p>
-                <p className="text-xs text-slate-500 mt-2">Estado activos</p>
+                <p className="text-xs text-slate-500 mt-2 font-bold">Estado activos</p>
               </div>
               <div className="ml-auto self-center">
                 <div className="flex items-end gap-1 h-8 md:h-10">

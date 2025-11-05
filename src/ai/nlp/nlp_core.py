@@ -184,7 +184,7 @@ class NLPModule:
         """
         Recupera el historial de conversación para un usuario específico.
         """
-        return await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit)
+        return await self._memory_manager.get_raw_conversation_logs_by_user_id(db, user_id, limit)
     
     async def _process_iot_command(self, db: AsyncSession, full_response_content: str) -> tuple[str, Optional[str]]:
         """Procesa comandos IoT en la respuesta"""
@@ -254,7 +254,7 @@ class NLPModule:
             db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = user_task.result()
             formatted_iot_commands, iot_command_names, iot_error = iot_commands_task.result()
             
-            recent_conversations = await self._user_manager.get_recent_conversation(db, user_id, limit=5)
+            formatted_conversation_history = await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit=5)
             if not db_user:
                     return {"response": "Usuario no autorizado o no encontrado.", "error": "Usuario no autorizado o no encontrado.", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
 
@@ -277,7 +277,7 @@ class NLPModule:
                     search_results_str=search_results_str,
                     user_preferences_dict=user_preferences_dict,
                     prompt=prompt,
-                    recent_conversations=recent_conversations
+                    conversation_history=formatted_conversation_history
                 )
 
                 full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)

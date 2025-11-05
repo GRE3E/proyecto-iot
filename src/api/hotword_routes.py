@@ -10,7 +10,8 @@ from src.db.models import User
 from src.api.hotword_schemas import HotwordAudioProcessResponse
 from src.api import utils
 from src.auth.device_auth import get_device_api_key
-from src.auth.jwt_manager import verify_token
+from src.auth.jwt_manager import verify_token, oauth2_scheme
+from src.auth.auth_service import get_current_user
 from sqlalchemy import select, func
 import pyaudio
 import wave
@@ -302,6 +303,7 @@ async def process_hotword_audio(
                 else:
                     logger.info("No hay respuesta NLP válida para generar TTS.")
 
+                tts_audio_paths = []
                 return HotwordAudioProcessResponse(
                     transcribed_text=transcribed_text,
                     identified_speaker=identified_speaker_name,
@@ -332,3 +334,121 @@ async def process_hotword_audio(
                 if file_location and file_location.exists():
                     os.remove(file_location)
                     logger.info(f"Archivo temporal eliminado: {file_location}")
+
+@hotword_router.post("/hotword/process_audio/auth", response_model=HotwordAudioProcessResponse)
+async def process_hotword_audio_authenticated(
+    audio_file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    user_token: str = Depends(oauth2_scheme)
+):
+    """
+    Procesa el audio tras la detección de hotword para un usuario autenticado:
+    - STT (voz a texto)
+    - Identificación de hablante
+    - Procesamiento NLP y comando IoT
+    - Generación TTS (si está disponible)
+    """
+    timeout = httpx.Timeout(30.0, connect=5.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+            logger.info(f"Iniciando procesamiento de audio de hotword para usuario autenticado: {current_user.id}.")
+            user_id_for_nlp = current_user.id
+            user_access_token = user_token
+            identified_speaker_name = current_user.nombre if current_user.nombre else "Usuario Autenticado"
+            if utils._stt_module is None or not utils._stt_module.is_online():
+                raise HTTPException(status_code=503, detail="El módulo STT está fuera de línea")
+            if utils._speaker_module is None or not utils._speaker_module.is_online():
+                raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
+            if utils._nlp_module is None or not utils._nlp_module.is_online():
+                raise HTTPException(status_code=503, detail="El módulo NLP está fuera de línea")
+
+            nlp_response_text = ""
+            file_location = None
+
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
+                    file_location = Path(temp_audio_file.name)
+                    content = await audio_file.read()
+                    temp_audio_file.write(content)
+                logger.info(f"Archivo de audio temporal guardado en: {file_location}")
+
+                transcribed_text = ""
+            
+                stt_response = await client.post(
+                    "http://localhost:8000/stt/stt/transcribe/auth",
+                    files={"audio_file": (audio_file.filename, content, audio_file.content_type)},
+                    headers={"Authorization": f"Bearer {user_token}"}
+                )
+                logger.info("Tarea de STT preparada y ejecutada para usuario autenticado.")
+            
+                stt_response.raise_for_status()
+                if not stt_response.content:
+                    logger.error("STT service returned an empty response for authenticated user.")
+                    raise HTTPException(status_code=500, detail="STT service returned an empty response.")
+                    
+                logger.info(f"Respuesta STT recibida con status {stt_response.status_code}. Contenido: {stt_response.text[:200]}...")
+                
+                stt_result = stt_response.json()
+                transcribed_text = stt_result.get("text", "")
+                logger.info(f"Texto transcrito (vía HTTP) para usuario autenticado: {transcribed_text}")
+            
+                identified_speaker_name = current_user.nombre if current_user.nombre else "Usuario Autenticado"
+                user_id_for_nlp = current_user.id
+                user_access_token = user_token
+            
+                if not transcribed_text:
+                    logger.error("Texto transcrito vacío después de STT para usuario autenticado.")
+                    raise HTTPException(status_code=500, detail="Error en transcripción STT")
+            
+                logger.info(f"Texto transcrito final para usuario autenticado: '{transcribed_text}'")
+                logger.info(f"Hablante identificado final para usuario autenticado (del token): '{identified_speaker_name}'")
+                logger.info(f"ID de usuario para NLP para usuario autenticado (del token): {user_id_for_nlp}")
+                logger.info(f"Token de acceso de usuario disponible para NLP para usuario autenticado: {bool(user_access_token)}")
+
+                if user_id_for_nlp and user_access_token:
+                    logger.info("Iniciando procesamiento NLP a través del endpoint /nlp/query para usuario autenticado.")
+                    try:
+                        nlp_api_response = await client.post(
+                            "http://localhost:8000/nlp/nlp/query",
+                            json={"prompt": transcribed_text},
+                            headers={"Authorization": f"Bearer {user_access_token}"}
+                        )
+                        nlp_api_response.raise_for_status()
+                        nlp_response = nlp_api_response.json()
+                        nlp_response_text = nlp_response.get("response", "")
+                        logger.info(f"Respuesta NLP recibida del endpoint para usuario autenticado: {nlp_response_text}")
+                    except httpx.TimeoutException:
+                        logger.error("Timeout al llamar al servicio NLP para usuario autenticado")
+                        nlp_response_text = "El procesamiento tardó demasiado tiempo. Intenta de nuevo."
+                    except httpx.HTTPStatusError as e:
+                        logger.error(f"Error HTTP al llamar al servicio NLP para usuario autenticado: {e.response.status_code} - {e.response.text}")
+                        nlp_response_text = f"Error al procesar NLP: {e.response.text}"
+                    except Exception as e:
+                        logger.error(f"Error inesperado al llamar al servicio NLP para usuario autenticado: {e}", exc_info=True)
+                        nlp_response_text = f"Error inesperado al procesar NLP: {str(e)}"
+                else:
+                    logger.warning("No se puede realizar el procesamiento NLP para usuario autenticado: user_id o user_access_token no disponibles.")
+                    nlp_response_text = "No se pudo procesar el comando sin identificación de usuario."
+
+                return HotwordAudioProcessResponse(
+                    transcribed_text=transcribed_text,
+                    identified_speaker=identified_speaker_name,
+                    nlp_response=nlp_response_text,
+                    tts_audio_paths=[]
+                )
+
+            except httpx.TimeoutException:
+                logger.error("Timeout en procesamiento de hotword para usuario autenticado")
+                raise HTTPException(status_code=504, detail="El procesamiento tardó demasiado tiempo")
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Error HTTP al llamar a servicios para usuario autenticado: {e.response.status_code} - {e.response.text}")
+                raise HTTPException(status_code=e.response.status_code, detail=f"Error en servicio externo: {e.response.text}")
+            except HTTPException as e:
+                logger.error(f"Error en procesamiento de hotword para usuario autenticado: {e.detail}")
+                raise e
+            except Exception as e:
+                logger.error(f"Error inesperado en procesamiento de hotword para usuario autenticado: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+            finally:
+                if file_location and file_location.exists():
+                    os.remove(file_location)
+                    logger.info(f"Archivo temporal eliminado para usuario autenticado: {file_location}")

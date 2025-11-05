@@ -129,6 +129,33 @@ class MemoryManager:
             logger.error(f"Error al recuperar logs de conversación para el usuario '{user_id}': {e}")
             return ""
 
+    async def get_raw_conversation_logs_by_user_id(self, db: AsyncSession, user_id: int, limit: int = 100) -> List[ConversationLog]:
+        """
+        Recupera los logs de conversación para un usuario específico sin formatear.
+
+        Args:
+            db (Session): La sesión de la base de datos.
+            user_id (int): El ID del usuario.
+            limit (int): El número máximo de logs a recuperar.
+
+        Returns:
+            List[ConversationLog]: Una lista de objetos ConversationLog.
+        """
+        logger.debug(f"Recuperando logs de conversación RAW para el usuario '{user_id}' con límite '{limit}'.")
+        try:
+            result = await db.execute(
+                select(ConversationLog)
+                .filter(ConversationLog.user_id == user_id)
+                .order_by(ConversationLog.timestamp.asc())
+                .limit(limit)
+            )
+            logs = result.scalars().all()
+            logger.debug(f"Se encontraron {len(logs)} logs de conversación RAW para el usuario '{user_id}'.")
+            return logs
+        except Exception as e:
+            logger.error(f"Error al recuperar logs de conversación RAW para el usuario '{user_id}': {e}")
+            return []
+
     async def update_memory(self, user_id: int, prompt: str, response: str, db: AsyncSession, speaker_identifier: Optional[str] = None):
         """Actualiza la última interacción del usuario y registra la conversación.
 

@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Any
 from src.ai.nlp.prompt_loader import load_system_prompt_template
 from src.utils.datetime_utils import get_current_datetime, format_date_human_readable, format_time_only, get_country_from_timezone
-import re
 
 logger = logging.getLogger("PromptCreator")
 
@@ -57,7 +56,7 @@ def create_system_prompt(
     search_results_str: str,
     user_preferences_dict: dict,
     prompt: str,
-    recent_conversations: list = None
+    conversation_history: str = ""
 ) -> tuple[str, str]:
     """
     Crea el system_prompt y el prompt_text para Ollama.
@@ -71,24 +70,8 @@ def create_system_prompt(
     current_time_formatted = format_time_only(current_full_datetime)
     current_country = get_country_from_timezone(timezone_str)
 
-    conversation_history = ""
-    if recent_conversations:
-        history_items = []
-        for conv in recent_conversations:
-            history_items.append(f"Usuario: {conv.prompt}")
-             
-            device_match = re.search(r'/(LIGHT_\w+|DOOR_\w+|TEMP_\w+)/', conv.response)
-            device_name = device_match.group(1) if device_match else None
-            
-            clean_response = re.sub(r'(iot_command|mqtt_publish):[^\s]+', '', conv.response).strip()
-            
-            if device_name:
-                history_items.append(f"Asistente: [Dispositivo: {device_name}] {clean_response}")
-            else:
-                history_items.append(f"Asistente: {clean_response}")
-        conversation_history = "\n".join(history_items[-10:])
-    else:
-        conversation_history = "No hay historial previo."
+    # conversation_history ya viene formateado desde memory_manager.py
+    # No es necesario procesarlo aquí.
 
     system_prompt_template = load_system_prompt_template()
     

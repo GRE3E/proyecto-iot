@@ -103,9 +103,9 @@ class AuthService:
                 detail="Refresh token inválido o expirado"
             )
 
-        user_id = payload.get("user_id")
+        user_id = payload.get("sub")
         if not user_id:
-            logger.warning("Fallo al refrescar token: user_id no encontrado en el payload.")
+            logger.warning("Fallo al refrescar token: sub no encontrado en el payload.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token inválido"
@@ -123,7 +123,7 @@ class AuthService:
 
         new_access_token = jwt_manager.create_access_token(
             {
-                "user_id": user.id,
+                "sub": str(user.id),
                 "username": user.nombre,
                 "is_owner": user.is_owner
             },
@@ -132,7 +132,7 @@ class AuthService:
 
         new_refresh_token = jwt_manager.create_refresh_token(
             {
-                "user_id": user.id,
+                "sub": str(user.id),
                 "username": user.nombre,
                 "is_owner": user.is_owner
             },

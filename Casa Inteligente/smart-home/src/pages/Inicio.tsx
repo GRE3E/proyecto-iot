@@ -71,7 +71,7 @@ export default function Inicio({
         </div>
 
         {/* Perfil + Notificaciones */}
-        <ProfileNotifications userName="Usuario" />
+        <ProfileNotifications />
       </div>
 
       {/* Reloj Inteligente */}

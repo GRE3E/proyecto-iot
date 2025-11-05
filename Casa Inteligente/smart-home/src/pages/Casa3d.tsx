@@ -57,7 +57,7 @@ export default function Casa3d({
         </div>
 
         {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications userName="Usuario" />
+        <ProfileNotifications />
       </div>
 
       {/* CONTENIDO ORIGINAL */}

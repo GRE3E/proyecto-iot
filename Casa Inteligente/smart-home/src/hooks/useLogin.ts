@@ -5,7 +5,7 @@ import { useAuth } from "./useAuth"; // Importar useAuth
 
 export type ThemeMode = "day" | "afternoon" | "night";
 
-export function useLogin(onLogin: () => void) {
+export function useLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,7 +41,6 @@ export function useLogin(onLogin: () => void) {
         // Termina animación → login final
         setTimeout(() => {
           console.log("🟢 Ejecutando onLogin()");
-          onLogin(); // <-- Este sí viene del App.tsx
         }, 4000);
       } catch (err: any) {
         console.error("Error durante el login:", err);
@@ -49,7 +48,7 @@ export function useLogin(onLogin: () => void) {
         setIsLoading(false);
       }
     },
-    [username, password, onLogin, authLogin] // Añadir authLogin a las dependencias
+    [username, password, authLogin] // Añadir authLogin a las dependencias
   );
 
   const handleKeyPress = useCallback(

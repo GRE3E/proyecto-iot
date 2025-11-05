@@ -22,37 +22,72 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+let isRefreshing = false;
+let failedQueue: { resolve: (value: unknown) => void; reject: (reason?: any) => void; }[] = [];
+
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Si el error es 401 y no es una solicitud de refresh-token y no hemos reintentado
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
-      try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-        const response = await axiosInstance.post('/auth/auth/refresh-token', { refreshToken });
-        const { access_token, refresh_token: newRefreshToken } = response.data;
-        localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', newRefreshToken);
-        originalRequest.headers.Authorization = `Bearer ${access_token}`;
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        console.error('authService: No hay refresh_token en localStorage. Redirigiendo al login.');
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        // Redirigir al login o manejar el error de otra manera
         window.location.href = '/login';
-        return Promise.reject(refreshError);
+        return Promise.reject(error);
       }
+
+      console.log('authService: Valor del refresh_token antes de la llamada a la API:', refreshToken);
+
+      return new Promise(async (resolve, reject) => {
+        try {
+          const response = await axiosInstance.post<LoginResponse>('/auth/auth/refresh-token', { refresh_token: refreshToken });
+          console.log('authService: Respuesta exitosa de refresh-token:', response.data);
+          const { access_token, refresh_token: newRefreshToken } = response.data;
+          console.log('authService: Nuevos tokens recibidos - access_token:', access_token ? 'Presente' : 'Ausente', 'newRefreshToken:', newRefreshToken ? 'Presente' : 'Ausente');
+          localStorage.setItem('access_token', access_token);
+          localStorage.setItem('refresh_token', newRefreshToken);
+          console.log('authService: Nuevos tokens guardados en localStorage.');
+
+          axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+          failedQueue.forEach((prom) => prom.resolve(access_token));
+          resolve(axiosInstance(originalRequest));
+        } catch (refreshError) {
+          console.error('authService: Error refrescando token o refresh_token inválido:', refreshError);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          failedQueue.forEach((prom) => prom.reject(refreshError));
+          window.location.href = '/login';
+          reject(refreshError);
+        } finally {
+          failedQueue = [];
+          isRefreshing = false;
+        }
+      });
     }
+
     return Promise.reject(error);
-  }
+  },
 );
+
 
 export interface LoginResponse {
   access_token: string;
@@ -61,7 +96,7 @@ export interface LoginResponse {
   user: any; // Define una interfaz más específica para el usuario si es necesario
 }
 
-export const authService = {
+const authService = {
   async login(username: string, password: string): Promise<LoginResponse> {
     try {
       const formData = new URLSearchParams();
@@ -73,8 +108,8 @@ export const authService = {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
-      localStorage.setItem('accessToken', response.data.access_token);
-      localStorage.setItem('refreshToken', response.data.refresh_token);
+      localStorage.setItem('access_token', response.data.access_token);
+        localStorage.setItem('refresh_token', response.data.refresh_token);
       return response.data;
     } catch (error) {
       console.error('Error en login:', error);
@@ -82,12 +117,6 @@ export const authService = {
     }
   },
 
-  async refreshToken(refreshToken: string): Promise<LoginResponse> {
-    const response = await axiosInstance.post<LoginResponse>('/auth/auth/refresh-token', { refreshToken });
-    localStorage.setItem('accessToken', response.data.access_token);
-    localStorage.setItem('refreshToken', response.data.refresh_token);
-    return response.data;
-  },
 
   async getProfile(): Promise<any> {
     try {
@@ -100,8 +129,10 @@ export const authService = {
   },
 
   logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     window.location.href = '/login';
   },
 };
+
+export default authService;

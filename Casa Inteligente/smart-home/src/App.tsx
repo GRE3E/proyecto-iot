@@ -3,6 +3,7 @@ import { useState } from "react";
 import Login from "./pages/login";
 import { useThemeByTime } from "./hooks/useThemeByTime";
 import { Home, Settings, Monitor, Shield, MessageCircle, Cpu } from "lucide-react";
+import { useAuth } from "./hooks/useAuth";
 
 // Secciones
 import Inicio from "./pages/Inicio";
@@ -16,20 +17,10 @@ import Chat from "./pages/Chat";
 import HamburgerMenu from "./components/Layout/Sidebar";
 
 export default function App() {
-  const [phase, setPhase] = useState<"login" | "loading" | "dashboard">("login");
+  const { isAuthenticated, isLoading, logout } = useAuth();
   const [selectedMenu, setSelectedMenu] = useState("Inicio");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { colors } = useThemeByTime();
-
-  const handleLogin = () => {
-    console.log("✅ Login completado → iniciando transición al Dashboard...");
-    setPhase("loading");
-
-    setTimeout(() => {
-      console.log("🟢 Mostrando Dashboard");
-      setPhase("dashboard");
-    }, 800);
-  };
 
   const menuItems = [
     { name: "Inicio", icon: Home },
@@ -40,19 +31,23 @@ export default function App() {
     { name: "Configuración", icon: Settings },
   ];
 
+  if (isLoading) {
+    return <div>Cargando...</div>; // O un spinner de carga
+  }
+
   return (
     <div
       className={`relative flex min-h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700 font-inter`}
     >
       {/* === LOGIN === */}
-      {phase === "login" && (
+      {!isAuthenticated && (
         <div className="absolute inset-0 z-50">
-          <Login onLogin={handleLogin} />
+          <Login />
         </div>
       )}
 
       {/* === DASHBOARD === */}
-      {phase === "dashboard" && (
+      {isAuthenticated && (
         <div className="flex flex-row min-h-screen w-full">
           {/* SIDEBAR */}
           <HamburgerMenu
@@ -64,7 +59,7 @@ export default function App() {
               // Mantener la sidebar abierta al navegar entre secciones
               setSelectedMenu(menu);
             }}
-            onLogout={() => setPhase("login")}
+            onLogout={logout}
             colors={colors}
           />
 
@@ -85,4 +80,4 @@ export default function App() {
       )}
     </div>
   );
-} 
+}

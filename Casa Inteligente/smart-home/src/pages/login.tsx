@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { Eye, EyeOff, User, HouseWifi } from "lucide-react";
 import { useLogin } from "../hooks/useLogin";
 import { useThemeByTime } from "../hooks/useThemeByTime";
+import { useAuth } from "../hooks/useAuth";
 import "../styles/animations.css";
 import FloatingIcons from "../components/effects/FloatingIcons";
 
@@ -80,7 +81,8 @@ const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ th
   );
 };
 
-export default function Login({ onLogin }: { onLogin: () => void }) {
+export default function Login() {
+  const { login: authLogin } = useAuth();
   const {
     username,
     setUsername,
@@ -93,7 +95,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     showDoorTransition,
     handleLogin,
     handleKeyPress,
-  } = useLogin(onLogin);
+  } = useLogin();
 
   const { theme: themeByTime } = useThemeByTime();
   const usernameRef = useRef<HTMLInputElement>(null);

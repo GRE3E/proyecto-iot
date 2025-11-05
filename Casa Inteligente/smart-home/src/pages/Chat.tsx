@@ -49,7 +49,7 @@ export default function Chat() {
         </div>
 
         {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications userName="Usuario" />
+        <ProfileNotifications />
       </div>
 
       {/* 🔹 ÁREA DEL CHAT */}

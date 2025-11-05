@@ -75,7 +75,7 @@ export default function MonitoreoSeguridad() {
         </div>
 
         {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications userName="Usuario" />
+        <ProfileNotifications />
       </div>
       {/* TABS (debajo del header) */}
       <div className="flex gap-1 border-b border-slate-700/50 mt-4" role="tablist">

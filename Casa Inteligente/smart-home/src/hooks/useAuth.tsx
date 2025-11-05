@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authService, type LoginResponse } from '../services/authService';
+import authService, { type LoginResponse } from '../services/authService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,29 +20,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
     setIsLoading(true);
     const accessToken = localStorage.getItem('access_token');
     const refreshToken = localStorage.getItem('refresh_token');
+    console.log('checkAuth: Iniciando verificación de autenticación.');
+    console.log('checkAuth: accessToken en localStorage:', accessToken ? 'Presente' : 'Ausente');
+    console.log('checkAuth: refreshToken en localStorage:', refreshToken ? 'Presente' : 'Ausente');
 
     if (accessToken && refreshToken) {
+      console.log('checkAuth: Tokens encontrados, intentando obtener perfil.');
       try {
         const profile = await authService.getProfile();
         setUser(profile);
         setIsAuthenticated(true);
+        // console.log('checkAuth: Perfil de usuario obtenido exitosamente.', profile);
       } catch (error: any) {
-        if (error.response?.status === 401) {
-          try {
-            await authService.refreshToken(refreshToken);
-            const profile = await authService.getProfile();
-            setUser(profile);
-            setIsAuthenticated(true);
-          } catch (refreshError) {
-            authService.logout();
-            setIsAuthenticated(false);
-            setUser(null);
-          }
-        } else {
-          authService.logout();
-          setIsAuthenticated(false);
-          setUser(null);
-        }
+        console.error('checkAuth: Error durante la verificación de autenticación:', error);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        setIsAuthenticated(false);
+        setUser(null);
+        window.location.href = '/login'; // Redirigir al login si la verificación falla
       }
     } else {
       setIsAuthenticated(false);
@@ -61,7 +56,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
       const response: LoginResponse = await authService.login(username, password);
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
-      setUser(response.user);
+      const profile = await authService.getProfile();
+      setUser(profile);
       setIsAuthenticated(true);
     } catch (error) {
       console.error('login: Error durante el inicio de sesión.', error);

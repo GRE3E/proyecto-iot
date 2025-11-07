@@ -24,48 +24,82 @@ async def register_speaker(
     """Registra un nuevo usuario con su voz y devuelve un token de autenticación."""
     if utils._speaker_module is None or not utils._speaker_module.is_online():
         raise HTTPException(status_code=503, detail="El módulo de hablante está fuera de línea")
-    
+
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
             generated_password = utils.generate_random_password()
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            file_location = Path(tmpdir) / audio_file.filename
-            with open(file_location, "wb+") as file_object:
-                content = await audio_file.read()
-                file_object.write(content)
-            
-            embedding_str = await utils._speaker_module.register_speaker(
-                name, str(file_location), is_owner=is_owner
-            )
+            existing_user = await auth_service.get_user_by_name(db, name)
 
-        if embedding_str is None:
-            raise HTTPException(status_code=409, detail="La voz ya está registrada por otro usuario.")
-        
-        async with get_db() as db:
-            auth_service = AuthService(db)
-            
-            await auth_service.register_user(
-                username=name,
-                password=generated_password,
-                is_owner=is_owner,
-                speaker_embedding=embedding_str
-            )
-            token = await auth_service.authenticate_user(
-                username=name,
-                password=generated_password
-            )
+            if existing_user:
+                if existing_user.speaker_embedding is None:
+                    # User exists but has no speaker embedding, update it
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        file_location = Path(tmpdir) / audio_file.filename
+                        with open(file_location, "wb+") as file_object:
+                            content = await audio_file.read()
+                            file_object.write(content)
 
-            await utils._save_api_log(
-                "/speaker/register",
-                {"name": name, "filename": audio_file.filename, "is_owner": is_owner},
-                token,
-                db
-            )
+                        embedding_str = await utils._speaker_module.update_speaker_voice(
+                            existing_user.id, str(file_location)
+                        )
 
-        logger.info(f"Usuario {name} registrado por voz exitosamente")
-        return token
+                    if embedding_str is None:
+                        raise HTTPException(status_code=409, detail="La voz proporcionada ya está registrada por otro usuario.")
+
+                    existing_user.speaker_embedding = embedding_str
+                    await db.commit()
+                    await db.refresh(existing_user)
+
+                    token = await auth_service.authenticate_user_by_id(existing_user.id)
+
+                    await utils._save_api_log(
+                        "/speaker/register",
+                        {"name": name, "filename": audio_file.filename, "is_owner": is_owner},
+                        token,
+                        db
+                    )
+                    logger.info(f"Embedding de voz actualizado para el usuario {name} exitosamente")
+                    return token
+                else:
+                    # User exists and already has a speaker embedding
+                    raise HTTPException(status_code=409, detail="El usuario ya tiene un embedding de voz registrado.")
+            else:
+                # User does not exist, proceed with new registration
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    file_location = Path(tmpdir) / audio_file.filename
+                    with open(file_location, "wb+") as file_object:
+                        content = await audio_file.read()
+                        file_object.write(content)
+
+                    embedding_str = await utils._speaker_module.register_speaker(
+                        name, str(file_location), is_owner=is_owner
+                    )
+
+                if embedding_str is None:
+                    raise HTTPException(status_code=409, detail="La voz ya está registrada por otro usuario.")
+
+                await auth_service.register_user(
+                    username=name,
+                    password=generated_password,
+                    is_owner=is_owner,
+                    speaker_embedding=embedding_str
+                )
+                token = await auth_service.authenticate_user(
+                    username=name,
+                    password=generated_password
+                )
+
+                await utils._save_api_log(
+                    "/speaker/register",
+                    {"name": name, "filename": audio_file.filename, "is_owner": is_owner},
+                    token,
+                    db
+                )
+
+                logger.info(f"Usuario {name} registrado por voz exitosamente")
+                return token
 
     except HTTPException as http_exc:
         raise http_exc

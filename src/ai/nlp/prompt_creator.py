@@ -70,15 +70,12 @@ def create_system_prompt(
     current_time_formatted = format_time_only(current_full_datetime)
     current_country = get_country_from_timezone(timezone_str)
 
-    # conversation_history ya viene formateado desde memory_manager.py
-    # No es necesario procesarlo aquí.
-
     system_prompt_template = load_system_prompt_template()
     
     all_capabilities = config["capabilities"] + iot_command_names
     system_prompt = system_prompt_template.format(
-        assistant_name=config["assistant_name"],
-        language=config["language"],
+        assistant_name=config.get("assistant_name"),
+        language=config.get("language", "español"),
         capabilities="\n".join(f"- {cap}" for cap in all_capabilities),
         iot_commands=formatted_iot_commands,
         last_interaction=last_interaction_value,

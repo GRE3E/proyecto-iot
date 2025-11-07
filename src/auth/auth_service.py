@@ -20,6 +20,14 @@ class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    async def get_user_by_name(db: AsyncSession, username: str) -> "User | None":
+        """
+        Obtiene un usuario por su nombre de usuario.
+        """
+        result = await db.execute(select(User).filter(User.nombre == username))
+        return result.scalar_one_or_none()
+
     async def register_user(self, username: str, password: str, is_owner: bool = False, face_embedding: str = None, speaker_embedding: str = None) -> User:
         """
         Registra un nuevo usuario en el sistema.

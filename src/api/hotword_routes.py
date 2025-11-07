@@ -303,7 +303,6 @@ async def process_hotword_audio(
                 else:
                     logger.info("No hay respuesta NLP válida para generar TTS.")
 
-                tts_audio_paths = []
                 return HotwordAudioProcessResponse(
                     transcribed_text=transcribed_text,
                     identified_speaker=identified_speaker_name,

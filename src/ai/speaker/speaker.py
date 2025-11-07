@@ -72,6 +72,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                 logger.debug(f"Comprobando embeddings duplicados. Usuarios registrados actualmente: {[u.nombre for u in self._registered_users]}")
                 for user in self._registered_users:
                     logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.speaker_embedding}")
+                    if user.speaker_embedding is None:
+                        logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando comparación.")
+                        continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
                     similarity = np.dot(new_embedding, registered_embedding) / \
                                  (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
@@ -116,6 +119,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                         continue
 
                     logger.debug(f"Embedding cargado de la base de datos para {user.nombre}: {user.speaker_embedding}")
+                    if user.speaker_embedding is None:
+                        logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando comparación.")
+                        continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
                     similarity = np.dot(new_embedding, registered_embedding) / \
                                  (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
@@ -155,6 +161,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         identified_user = None
 
         for user in self._registered_users:
+            if user.speaker_embedding is None:
+                logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando identificación.")
+                continue
             registered_embedding = np.array(json.loads(user.speaker_embedding))
             similarity = np.dot(new_embedding, registered_embedding) / \
                          (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))

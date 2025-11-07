@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from src.db.database import get_db
-from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, ConversationHistoryResponse, ConversationLogEntry
+from src.api.nlp_schemas import NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, ConversationHistoryResponse, ConversationLogEntry, MessageResponse
 from src.api.schemas import StatusResponse
 from src.auth.auth_service import get_current_user
 from src.db.models import User
@@ -112,3 +112,49 @@ async def get_user_conversation_history(
     except Exception as e:
         logger.error(f"Error al recuperar el historial de conversación para el usuario {current_user.id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al recuperar el historial de conversación: {str(e)}")
+
+@nlp_router.delete("/nlp/history", response_model=MessageResponse)
+async def delete_user_conversation_history(
+    current_user: User = Depends(get_current_user)
+):
+    """Elimina el historial de conversación de un usuario específico."""
+    try:
+        async with get_db() as db:
+            await utils._nlp_module.delete_conversation_history(db, current_user.id)
+            response_obj = MessageResponse(message="Historial de conversación eliminado exitosamente.")
+            await utils._save_api_log(
+                f"/nlp/history/{current_user.id}",
+                {"user_id": current_user.id},
+                response_obj.dict(),
+                db
+            )
+            return response_obj
+    except Exception as e:
+        logger.error(f"Error al eliminar el historial de conversación para el usuario {current_user.id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al eliminar el historial de conversación: {str(e)}")
+
+@nlp_router.delete("/nlp/history/{user_id}", response_model=MessageResponse)
+async def delete_conversation_history_by_user_id(
+    user_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    """Elimina el historial de conversación de un usuario específico por su ID."""
+    try:
+        if not current_user.is_owner:
+            raise HTTPException(status_code=403, detail="Solo los usuarios propietarios pueden eliminar el historial de otros usuarios.")
+
+        async with get_db() as db:
+            await utils._nlp_module.delete_conversation_history(db, user_id)
+            response_obj = MessageResponse(message=f"Historial de conversación del usuario {user_id} eliminado exitosamente.")
+            await utils._save_api_log(
+                f"/nlp/history/{user_id}",
+                {"user_id": user_id},
+                response_obj.dict(),
+                db
+            )
+            return response_obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al eliminar el historial de conversación para el usuario {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al eliminar el historial de conversación: {str(e)}")

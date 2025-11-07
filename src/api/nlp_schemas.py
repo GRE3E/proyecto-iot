@@ -34,3 +34,7 @@ class ConversationLogEntry(BaseModel):
 class ConversationHistoryResponse(BaseModel):
     """Modelo para la respuesta del historial de conversación."""
     history: list[ConversationLogEntry]
+
+class MessageResponse(BaseModel):
+    """Modelo para devolver un mensaje simple de confirmación."""
+    message: str

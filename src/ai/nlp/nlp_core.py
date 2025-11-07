@@ -11,6 +11,7 @@ from src.ai.nlp.config_manager import ConfigManager
 from src.ai.nlp.iot_command_processor import IoTCommandProcessor
 from src.ai.nlp.user_manager import UserManager
 from src.ai.nlp.prompt_creator import create_system_prompt
+from src.ai.nlp.prompt_loader import load_system_prompt_template
 from src.db.database import get_db
 from src.iot.mqtt_client import MQTTClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,6 +47,7 @@ class NLPModule:
         self._memory_manager = MemoryManager()
         self._iot_command_processor = None
         self._reload_lock = asyncio.Lock()
+        self._system_prompt_template = load_system_prompt_template()
         logger.info("NLPModule inicializado.")
 
     async def close(self) -> None:
@@ -85,15 +87,12 @@ class NLPModule:
             self._online = self._ollama_manager.is_online()
             if self._iot_command_processor:
                 self._iot_command_processor.invalidate_command_cache()
+            self._system_prompt_template = load_system_prompt_template()
             log_fn = logger.info if self._online else logger.warning
             log_fn("NLPModule recargado." if self._online else "NLPModule recargado pero no en línea.")
 
     async def _validate_user(self, user_id: int) -> tuple[Optional[Any], Optional[str], Optional[bool], Optional[str], Optional[dict]]:
-        """Valida el usuario y obtiene sus datos
-        
-        Nota: user_id=0 es un caso especial que se usa para el sistema
-        y no requiere actualización de memoria (ver línea donde se usa if user_id != 0)
-        """
+        """Valida el usuario y obtiene sus datos"""
         if user_id is None:
             return None, None, None, None, None
 
@@ -229,21 +228,56 @@ class NLPModule:
 
         if self._is_closing:
             logger.warning("NLPModule se está cerrando, no se puede generar respuesta.")
-            return {"response": "El módulo NLP se está cerrando.", "error": "Módulo NLP cerrándose", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+            return {
+                "response": "El módulo NLP se está cerrando.",
+                "error": "Módulo NLP cerrándose",
+                "user_name": None,
+                "preference_key": None,
+                "preference_value": None,
+                "is_owner": False
+            }
 
         if not prompt or not prompt.strip():
-            return {"response": "El prompt no puede estar vacío.", "error": "Prompt vacío", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+            return {
+                "response": "El prompt no puede estar vacío.",
+                "error": "Prompt vacío",
+                "user_name": None,
+                "preference_key": None,
+                "preference_value": None,
+                "is_owner": False
+            }
 
         if not self.is_online():
             try:
                 await self.reload()
                 if not self.is_online():
-                    return {"response": "El módulo NLP está fuera de línea.", "error": "Módulo NLP fuera de línea", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+                    return {
+                        "response": "El módulo NLP está fuera de línea.",
+                        "error": "Módulo NLP fuera de línea",
+                        "user_name": None,
+                        "preference_key": None,
+                        "preference_value": None,
+                        "is_owner": False
+                    }
             except Exception as e:
-                return {"response": f"El módulo NLP está fuera de línea: {e}", "error": "Módulo NLP fuera de línea", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+                return {
+                    "response": f"El módulo NLP está fuera de línea: {e}",
+                    "error": "Módulo NLP fuera de línea",
+                    "user_name": None,
+                    "preference_key": None,
+                    "preference_value": None,
+                    "is_owner": False
+                }
 
         if user_id is None:
-            return {"response": "user_id es requerido para consultas NLP.", "error": "user_id es requerido", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+            return {
+                "response": "user_id es requerido para consultas NLP.",
+                "error": "user_id es requerido",
+                "user_name": None,
+                "preference_key": None,
+                "preference_value": None,
+                "is_owner": False
+            }
         
         async with get_db() as db:
             user_task = asyncio.create_task(self._validate_user(user_id))
@@ -255,11 +289,26 @@ class NLPModule:
             formatted_iot_commands, iot_command_names, iot_error = iot_commands_task.result()
             
             formatted_conversation_history = await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit=5)
+            
             if not db_user:
-                    return {"response": "Usuario no autorizado o no encontrado.", "error": "Usuario no autorizado o no encontrado.", "user_name": None, "preference_key": None, "preference_value": None, "is_owner": False}
+                return {
+                    "response": "Usuario no autorizado o no encontrado.",
+                    "error": "Usuario no autorizado o no encontrado.",
+                    "user_name": None,
+                    "preference_key": None,
+                    "preference_value": None,
+                    "is_owner": False
+                }
 
             if iot_error:
-                    return {"response": iot_error, "error": iot_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+                return {
+                    "response": iot_error,
+                    "error": iot_error,
+                    "user_name": user_name,
+                    "preference_key": None,
+                    "preference_value": None,
+                    "is_owner": False
+                }
 
             search_results_str = ""
             reprompt_with_search = False
@@ -277,14 +326,24 @@ class NLPModule:
                     search_results_str=search_results_str,
                     user_preferences_dict=user_preferences_dict,
                     prompt=prompt,
-                    conversation_history=formatted_conversation_history
+                    conversation_history=formatted_conversation_history,
+                    system_prompt_template=self._system_prompt_template
                 )
 
                 full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
+                
                 if llm_error:
                     if attempt == retries - 1:
-                        return {"response": llm_error, "error": llm_error, "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+                        return {
+                            "response": llm_error,
+                            "error": llm_error,
+                            "user_name": user_name,
+                            "preference_key": None,
+                            "preference_value": None,
+                            "is_owner": False
+                        }
                     continue
+                
                 if not reprompt_with_search:
                     memory_results, needs_reprompt = await self._process_memory_search(db, user_id, full_response_content)
                     if needs_reprompt:
@@ -295,18 +354,34 @@ class NLPModule:
                         else:
                             logger.warning("Se alcanzó el límite de reintentos para búsqueda en memoria.")
 
-                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                # Procesar cambios de nombre
                 full_response_content = await self._process_name_change(db, full_response_content, user_id)
+                
+                # Procesar preferencias
+                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+                
+                # Limpiar marcadores restantes
                 full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
                 
                 response_for_memory = full_response_content
+                
+                # Procesar comandos IoT
                 full_response_content, extracted_command = await self._process_iot_command(db, full_response_content)
                 
+                # Actualizar memoria (solo si no es usuario especial)
                 if user_id != 0:
                     try:
                         await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
                     except Exception as e:
-                        return {"response": f"Error interno al actualizar la memoria: {e}", "error": str(e), "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+                        logger.error(f"Error al actualizar memoria: {e}")
+                        return {
+                            "response": f"Error interno al actualizar la memoria: {e}",
+                            "error": str(e),
+                            "user_name": user_name,
+                            "preference_key": None,
+                            "preference_value": None,
+                            "is_owner": False
+                        }
 
                 return {
                     "identified_speaker": user_name or "Desconocido",
@@ -317,8 +392,17 @@ class NLPModule:
                     "preference_value": None,
                     "is_owner": is_owner
                 }
-                self._online = False
-                return {"response": "No se pudo procesar tu solicitud. Intenta más tarde.", "error": "Agotados intentos", "user_name": user_name, "preference_key": None, "preference_value": None, "is_owner": False}
+
+            # Si se agotan todos los reintentos
+            self._online = False
+            return {
+                "response": "No se pudo procesar tu solicitud. Intenta más tarde.",
+                "error": "Agotados intentos",
+                "user_name": user_name,
+                "preference_key": None,
+                "preference_value": None,
+                "is_owner": False
+            }
 
     async def update_assistant_name(self, new_name: str):
         """Actualiza el nombre del asistente."""
@@ -332,6 +416,10 @@ class NLPModule:
         await self.reload()
         logger.info(f"Capacidades actualizadas: {new_capabilities}")
 
+    async def delete_conversation_history(self, db: AsyncSession, user_id: int):
+        """Elimina el historial de conversación para un usuario específico."""
+        await self._memory_manager.delete_conversation_history(db, user_id)
+
     async def update_nlp_config(self, new_config: dict):
         """Actualiza la configuración completa del NLP y recarga los módulos necesarios."""
         logger.info(f"Actualizando configuración NLP con: {new_config}")
@@ -339,3 +427,4 @@ class NLPModule:
         await self.reload()
         log_fn = logger.info if self._online else logger.warning
         log_fn("Configuración NLP actualizada y módulos recargados." if self._online else "Configuración NLP actualizada pero Ollama no está en línea.")
+        

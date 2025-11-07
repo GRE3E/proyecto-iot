@@ -188,4 +188,21 @@ class MemoryManager:
         db.add(conversation)
         await db.commit()
         logger.info(f"Log de conversación guardado para el usuario {user_id}. Prompt: '{prompt[:50]}...' ")
+
+    async def delete_conversation_history(self, db: AsyncSession, user_id: int):
+        """Elimina todo el historial de conversación para un usuario específico.
+
+        Args:
+            db (AsyncSession): La sesión de la base de datos.
+            user_id (int): El ID del usuario.
+        """
+        logger.info(f"Eliminando historial de conversación para el usuario {user_id}.")
+        try:
+            await db.execute(ConversationLog.__table__.delete().where(ConversationLog.user_id == user_id))
+            await db.commit()
+            logger.info(f"Historial de conversación eliminado exitosamente para el usuario {user_id}.")
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Error al eliminar el historial de conversación para el usuario {user_id}: {e}")
+            raise
         

@@ -446,13 +446,32 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
   }
   ```
 
+### Procesar Audio de Hotword Autenticado
+
+- **URL:** `/hotword/process_audio/auth`
+- **Método:** `POST`
+- **Descripción:** Procesa el audio tras la detección de hotword para un usuario autenticado: STT (voz a texto), identificación de hablante, procesamiento NLP y comando IoT, y generación TTS (si está disponible).
+- \*\*Request Body (multipart/form-data):
+  - `audio_file`: Archivo de audio en formato WAV.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  {
+    "transcribed_text": "Texto transcrito del audio",
+    "identified_speaker": "Nombre del hablante identificado",
+    "nlp_response": "Respuesta del procesamiento NLP",
+    "tts_audio_paths": []
+  }
+  ```
+
 ### IoT Endpoints
 
 The following endpoints are available for managing IoT devices and commands:
 
 #### `POST /iot/arduino/send_command`
 
-- **URL**: `/iot/arduino/send_command` or `/iot/command`
+- **URL**: `/iot/arduino/send_command`
 - **Method**: `POST`
 - **Description**: Sends a command to an Arduino device via MQTT and updates its state in the database.
 - **Request Body**:
@@ -489,8 +508,6 @@ The following endpoints are available for managing IoT devices and commands:
   ]
   ```
 
-
-
 #### `GET /iot/device_states/{device_name}`
 
 - **URL**: `/iot/device_states/{device_name}`
@@ -508,15 +525,6 @@ The following endpoints are available for managing IoT devices and commands:
     "last_updated": "2024-01-01T12:00:00Z"
   }
   ```
-
-#### `DELETE /iot/device_states/{device_name}`
-
-- **URL**: `/iot/device_states/{device_name}`
-- **Method**: `DELETE`
-- **Description**: Elimina el estado de un dispositivo IoT por su nombre.
-- **Path Parameters**:
-  - `device_name`: El nombre del dispositivo a eliminar. (string)
-- **Response**: `204 No Content` (Successful deletion)
 
 #### `POST /iot/commands`
 
@@ -628,6 +636,62 @@ The following endpoints are available for managing IoT devices and commands:
   - `command_id`: The ID of the command to delete. (integer)
 - **Response**: `204 No Content` (Successful deletion)
 
+#### `GET /iot/device_states/by_type/{device_type}`
+
+- **URL**: `/iot/device_states/by_type/{device_type}`
+- **Method**: `GET`
+- **Description**: Obtiene el estado de todos los dispositivos IoT de un tipo específico.
+- **Path Parameters**:
+  - `device_type`: El tipo de dispositivo a recuperar. (string)
+- **Response**:
+  ```json
+  [
+    {
+      "id": 0,
+      "device_name": "string",
+      "device_type": "string",
+      "state_json": {},
+      "last_updated": "2024-01-01T12:00:00Z"
+    }
+  ]
+  ```
+
+#### `GET /iot/device_types`
+
+- **URL**: `/iot/device_types`
+- **Method**: `GET`
+- **Description**: Obtiene todos los tipos de dispositivos IoT únicos almacenados en la base de datos.
+- **Response**:
+  ```json
+  {
+    "device_types": ["string"]
+  }
+  ```
+
+#### `PUT /iot/device_states/{device_id}`
+
+- **URL**: `/iot/device_states/{device_id}`
+- **Method**: `PUT`
+- **Description**: Actualiza el estado de un dispositivo IoT por su ID.
+- **Path Parameters**:
+  - `device_id`: El ID del dispositivo a actualizar. (integer)
+- **Request Body**:
+  ```json
+  {
+    "new_state": {}
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "id": 0,
+    "device_name": "string",
+    "device_type": "string",
+    "state_json": {},
+    "last_updated": "2024-01-01T12:00:00Z"
+  }
+  ```
+
 ### NLP Endpoints
 
 The following endpoints are available for Natural Language Processing (NLP) functionalities:
@@ -710,6 +774,36 @@ The following endpoints are available for Natural Language Processing (NLP) func
         "assistant_message": "string"
       }
     ]
+  }
+  ```
+
+#### `DELETE /nlp/history`
+
+- **URL**: `/nlp/history`
+- **Method**: `DELETE`
+- **Description**: Elimina el historial de conversación de un usuario específico.
+- **Headers**:
+  - `Authorization`: `Bearer <access_token>`
+- **Response**:
+  ```json
+  {
+    "message": "Historial de conversación eliminado exitosamente."
+  }
+  ```
+
+#### `DELETE /nlp/history/{user_id}`
+
+- **URL**: `/nlp/history/{user_id}`
+- **Method**: `DELETE`
+- **Description**: Elimina el historial de conversación de un usuario específico por su ID. Solo accesible para usuarios propietarios.
+- **Path Parameters**:
+  - `user_id`: El ID del usuario cuyo historial se desea eliminar. (integer)
+- **Headers**:
+  - `Authorization`: `Bearer <access_token>`
+- **Response**:
+  ```json
+  {
+    "message": "Historial de conversación del usuario {user_id} eliminado exitosamente."
   }
   ```
 
@@ -924,11 +1018,27 @@ The following endpoints are available for managing user permissions:
 ### STT Routes
 
 - **POST /stt/transcribe**
+
   - **URL:** `/stt/transcribe`
   - **Method:** `POST`
   - **Description:** Convierte voz a texto usando el módulo STT.
   - **Request Body (multipart/form-data):**
     - `audio_file`: (file) The audio file to transcribe.
+  - **Response:**
+    ```json
+    {
+      "text": "string"
+    }
+    ```
+
+- **POST /stt/transcribe/auth**
+  - **URL:** `/stt/transcribe/auth`
+  - **Method:** `POST`
+  - **Description:** Convierte voz a texto usando el módulo STT, con autenticación de usuario.
+  - **Request Body (multipart/form-data):**
+    - `audio_file`: (file) The audio file to transcribe.
+  - **Headers:**
+    - `Authorization`: `Bearer <access_token>`
   - **Response:**
     ```json
     {

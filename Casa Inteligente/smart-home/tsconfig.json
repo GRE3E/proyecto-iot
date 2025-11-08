@@ -1,4 +1,7 @@
 {
+  "compilerOptions": {
+    "types": ["uuid"]
+  },
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },

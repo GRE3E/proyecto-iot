@@ -17,6 +17,13 @@ async def query_nlp(
     request: Request,
     current_user: User = Depends(get_current_user)
 ):
+    token = request.headers.get("Authorization")
+    if not token:
+        raise HTTPException(status_code=401, detail="Token de autorización no proporcionado.")
+    
+    # Eliminar el prefijo "Bearer " si está presente
+    if token.startswith("Bearer "):
+        token = token.split(" ")[1]
 
     """Procesa una consulta NLP y devuelve la respuesta generada."""
 
@@ -24,6 +31,7 @@ async def query_nlp(
         response = await utils._nlp_module.generate_response(
             query.prompt,
             user_id=current_user.id,
+            token=token
         )
 
         if response.get("error"):

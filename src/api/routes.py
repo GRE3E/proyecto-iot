@@ -11,6 +11,7 @@ from src.api.addons_routes import router as addons_router
 from src.api.permissions_routes import router as permissions_router
 from src.api.face_recognition_routes import face_recognition_router
 from src.api.auth_router import router as auth_router
+from src.api.websocket_routes import websocket_router
 from src.api import utils
 from src.auth.auth_service import get_current_user
 from src.auth.device_auth import get_device_api_key
@@ -29,6 +30,7 @@ router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Dep
 router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
+router.include_router(websocket_router, prefix="", tags=["websocket"])
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status():

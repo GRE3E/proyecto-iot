@@ -34,7 +34,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def create_all_tables() -> None:
     """
-    Crea las tablas definidas por los modelos.
+    Crea las tablas definidas por los modelos e índices de optimización.
     """
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -50,3 +50,11 @@ async def create_all_tables() -> None:
         logger.warning(f"No se pudieron importar todos los modelos: {e}. Intentando importar lo que exista.")
         from db import models
     
+    try:
+        from src.db.migrations import create_nlp_indexes
+        async with SessionLocal() as db:
+            await create_nlp_indexes(db)
+            logger.info("Índices NLP creados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al crear índices NLP: {e}")
+        

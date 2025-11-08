@@ -3,6 +3,7 @@ import logging
 import re
 from typing import Optional, Any, Dict
 from pathlib import Path
+from datetime import datetime
 from ollama import ResponseError
 from httpx import ConnectError
 from src.ai.nlp.memory_manager import MemoryManager
@@ -22,6 +23,8 @@ MEMORY_SEARCH_REGEX = re.compile(r"memory_search:\s*(.+)")
 PREFERENCE_MARKERS_REGEX = re.compile(r"(preference_set:|memory_search:|name_change:)")
 IOT_COMMAND_REGEX = re.compile(r"(iot_command|mqtt_publish):[^\s]+")
 NAME_CHANGE_REGEX = re.compile(r"name_change:\s*(.+)")
+NEGATION_REGEX = re.compile(r"\b(no |nunca|no quiero|no enciendas|no abras|no activar|no cierre|no prenda)\b")
+DEVICE_LOCATION_REGEX = re.compile(r"\b(salón|sala|cocina|dormitorio|pasillo|comedor|baño|garaje|lavandera|habitación|principal|invitados|barra|isla)\b", re.IGNORECASE)
 
 def _find_project_root(current_path: Path) -> Path:
     """Busca la raíz del proyecto buscando un marcador como 'main.py' o 'requirements.txt'."""
@@ -29,6 +32,46 @@ def _find_project_root(current_path: Path) -> Path:
         if (parent / "main.py").exists() or (parent / "requirements.txt").exists():
             return parent
     return current_path
+
+class UserDeviceContext:
+    """Almacena el contexto de dispositivo del usuario para resolución de ambigüedades"""
+    
+    def __init__(self, context_ttl_seconds: int = 300):
+        self.last_device = None
+        self.last_location = None
+        self.last_device_type = None
+        self.timestamp = None
+        self.context_ttl_seconds = context_ttl_seconds
+    
+    def update(self, device_name: str, location: str, device_type: str):
+        """Actualiza el contexto con un nuevo dispositivo mencionado"""
+        self.last_device = device_name
+        self.last_location = location
+        self.last_device_type = device_type
+        self.timestamp = datetime.now()
+        logger.debug(f"Contexto actualizado: dispositivo={device_name}, ubicación={location}")
+    
+    def is_expired(self) -> bool:
+        """Verifica si el contexto expiró"""
+        if not self.timestamp:
+            return True
+        return (datetime.now() - self.timestamp).total_seconds() > self.context_ttl_seconds
+    
+    def get_context_info(self) -> Optional[Dict[str, str]]:
+        """Retorna la información del contexto si no está expirado"""
+        if self.is_expired():
+            self.last_device = None
+            self.last_location = None
+            self.last_device_type = None
+            return None
+        
+        if self.last_device:
+            return {
+                "device": self.last_device,
+                "location": self.last_location,
+                "device_type": self.last_device_type
+            }
+        return None
 
 class NLPModule:
     """Clase principal para el procesamiento NLP con integración a Ollama y control IoT."""
@@ -48,6 +91,10 @@ class NLPModule:
         self._iot_command_processor = None
         self._reload_lock = asyncio.Lock()
         self._system_prompt_template = load_system_prompt_template()
+        
+        # NUEVO: Contexto de dispositivo persistente por usuario
+        self._user_device_context = {}  # {user_id: UserDeviceContext}
+        
         logger.info("NLPModule inicializado.")
 
     async def close(self) -> None:
@@ -62,7 +109,7 @@ class NLPModule:
         
         Args:
             mqtt_client: Cliente MQTT para enviar comandos.
-            db: Sesión de base de datos para inicializar el caché.
+            db: Sesión de base de datos para inicializar la caché.
         """
         if self.mqtt_client:
             await self.mqtt_client.disconnect()
@@ -159,6 +206,77 @@ class NLPModule:
         
         return None, "No se pudo generar una respuesta después de varios intentos."
     
+    def _extract_device_location(self, text: str) -> Optional[str]:
+        """Extrae la ubicación del dispositivo del texto"""
+        match = DEVICE_LOCATION_REGEX.search(text)
+        if match:
+            return match.group(1).lower()
+        return None
+    
+    def _get_or_create_user_context(self, user_id: int) -> UserDeviceContext:
+        """Obtiene o crea el contexto de dispositivo del usuario"""
+        if user_id not in self._user_device_context:
+            self._user_device_context[user_id] = UserDeviceContext(context_ttl_seconds=300)
+        return self._user_device_context[user_id]
+    
+    def _update_device_context(self, user_id: int, prompt: str, extracted_command: Optional[str]):
+        """Actualiza el contexto de dispositivo si se ejecutó un comando"""
+        if not extracted_command or not user_id:
+            return
+        
+        # Extraer topic del comando: mqtt_publish:iot/lights/LIGHT_SALA/command,ON
+        # Topic es: iot/lights/LIGHT_SALA/command
+        try:
+            parts = extracted_command.split(":")
+            if len(parts) >= 2:
+                topic_payload = parts[1]
+                topic = topic_payload.split(",")[0] if "," in topic_payload else topic_payload
+                
+                # Extraer ubicación del prompt
+                location = self._extract_device_location(prompt)
+                
+                # Determinar tipo de dispositivo (luz, puerta, etc.)
+                device_type = "desconocido"
+                if "light" in topic.lower():
+                    device_type = "luz"
+                elif "door" in topic.lower():
+                    device_type = "puerta"
+                elif "actuator" in topic.lower():
+                    device_type = "actuador"
+                elif "climate" in topic.lower():
+                    device_type = "clima"
+                
+                # Actualizar contexto
+                context = self._get_or_create_user_context(user_id)
+                device_name = topic.split("/")[-2] if "/" in topic else topic
+                context.update(device_name, location or "desconocida", device_type)
+                
+                logger.info(f"Contexto de dispositivo actualizado para usuario {user_id}: {device_name} en {location}")
+        except Exception as e:
+            logger.warning(f"Error al actualizar contexto de dispositivo: {e}")
+    
+    def _enhance_prompt_with_context(self, user_id: int, prompt: str) -> str:
+        """Mejora el prompt con contexto de dispositivo anterior si aplica"""
+        context = self._get_or_create_user_context(user_id)
+        context_info = context.get_context_info()
+        
+        if not context_info:
+            return prompt
+        
+        # Detectar palabras que indican referencia al dispositivo anterior
+        reference_words = ["la", "eso", "esa", "el", "esa misma", "lo mismo"]
+        
+        has_reference = any(word in prompt.lower() for word in reference_words)
+        
+        if has_reference and not self._extract_device_location(prompt):
+            # Agregar contexto al prompt para el LLM
+            context_hint = f"[Contexto anterior: Fue sobre la {context_info['device_type']} en {context_info['location']}. Si el usuario dice 'la' o similar, probablemente se refiere a eso.]"
+            enhanced_prompt = f"{prompt}\n{context_hint}"
+            logger.debug(f"Prompt mejorado con contexto para usuario {user_id}")
+            return enhanced_prompt
+        
+        return prompt
+    
     async def _process_memory_search(self, db: AsyncSession, user_id: int, full_response_content: str) -> tuple[str, bool]:
         """Procesa la búsqueda en memoria si existe"""
         memory_search_match = MEMORY_SEARCH_REGEX.search(full_response_content)
@@ -185,7 +303,11 @@ class NLPModule:
         """
         return await self._memory_manager.get_raw_conversation_logs_by_user_id(db, user_id, limit)
     
-    async def _process_iot_command(self, db: AsyncSession, full_response_content: str) -> tuple[str, Optional[str]]:
+    def _contains_negation(self, text: str) -> bool:
+        """Detecta si el texto contiene negaciones"""
+        return bool(NEGATION_REGEX.search(text.lower()))
+    
+    async def _process_iot_command(self, db: AsyncSession, full_response_content: str, token: str) -> tuple[str, Optional[str]]:
         """Procesa comandos IoT en la respuesta"""
         if not full_response_content:
             return full_response_content, None
@@ -198,11 +320,7 @@ class NLPModule:
             
         clean_response = re.sub(IOT_COMMAND_REGEX, "", full_response_content).strip()
         
-        is_valid, error_message = await self._iot_command_processor.validate_command(db, extracted_command)
-        if not is_valid:
-            return error_message, None
-            
-        iot_response = await self._iot_command_processor.process_iot_command(db, extracted_command)
+        iot_response = await self._iot_command_processor.process_iot_command(db, full_response_content, token)
         if iot_response:
             return iot_response, extracted_command
             
@@ -222,7 +340,13 @@ class NLPModule:
         else:
             return re.sub(NAME_CHANGE_REGEX, "", full_response_content).strip()
     
-    async def generate_response(self, prompt: str, user_id: int) -> Optional[dict]:
+    def _should_load_conversation_history(self, prompt: str) -> bool:
+        """Determina si necesita cargar historial basado en palabras clave"""
+        keywords = ["recuerda", "dijiste", "antes", "anterior", "que me dijiste", "me contaste", 
+                   "lo que dijiste", "mencionaste", "hablamos de", "me dijeron"]
+        return any(keyword in prompt.lower() for keyword in keywords)
+
+    async def generate_response(self, prompt: str, user_id: int, token: str) -> Optional[dict]:
         """Genera una respuesta usando Ollama, gestionando memoria, permisos y comandos IoT."""
         logger.info(f"Generando respuesta para el prompt: '{prompt[:100]}...' (Usuario ID: {user_id})")
 
@@ -246,6 +370,10 @@ class NLPModule:
                 "preference_value": None,
                 "is_owner": False
             }
+
+        # Detectar negaciones ANTES de procesar
+        if self._contains_negation(prompt):
+            logger.info(f"Negación detectada en prompt: '{prompt}'. No se procesarán comandos IoT.")
 
         if not self.is_online():
             try:
@@ -288,7 +416,11 @@ class NLPModule:
             db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = user_task.result()
             formatted_iot_commands, iot_command_names, iot_error = iot_commands_task.result()
             
-            formatted_conversation_history = await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit=5)
+            # Solo cargar historial si es necesario
+            formatted_conversation_history = ""
+            if self._should_load_conversation_history(prompt):
+                formatted_conversation_history = await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit=5)
+                logger.debug("Historial de conversación cargado (detectada palabra clave)")
             
             if not db_user:
                 return {
@@ -311,97 +443,89 @@ class NLPModule:
                 }
 
             search_results_str = ""
-            reprompt_with_search = False
-            retries = self._config["model"].get("llm_retries", 2)
             extracted_command = None
+            
+            # NUEVO: Mejorar prompt con contexto de dispositivo anterior
+            enhanced_prompt = self._enhance_prompt_with_context(user_id, prompt)
 
-            for attempt in range(retries):
-                system_prompt, prompt_text = create_system_prompt(
-                    config=self._config,
-                    user_name=user_name,
-                    is_owner=is_owner,
-                    user_permissions_str=user_permissions_str,
-                    formatted_iot_commands=formatted_iot_commands,
-                    iot_command_names=iot_command_names,
-                    search_results_str=search_results_str,
-                    user_preferences_dict=user_preferences_dict,
-                    prompt=prompt,
-                    conversation_history=formatted_conversation_history,
-                    system_prompt_template=self._system_prompt_template
-                )
+            system_prompt, prompt_text = create_system_prompt(
+                config=self._config,
+                user_name=user_name,
+                is_owner=is_owner,
+                user_permissions_str=user_permissions_str,
+                formatted_iot_commands=formatted_iot_commands,
+                iot_command_names=iot_command_names,
+                search_results_str=search_results_str,
+                user_preferences_dict=user_preferences_dict,
+                prompt=enhanced_prompt,  # Usar prompt mejorado
+                conversation_history=formatted_conversation_history,
+                system_prompt_template=self._system_prompt_template
+            )
 
-                full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
-                
-                if llm_error:
-                    if attempt == retries - 1:
-                        return {
-                            "response": llm_error,
-                            "error": llm_error,
-                            "user_name": user_name,
-                            "preference_key": None,
-                            "preference_value": None,
-                            "is_owner": False
-                        }
-                    continue
-                
-                if not reprompt_with_search:
-                    memory_results, needs_reprompt = await self._process_memory_search(db, user_id, full_response_content)
-                    if needs_reprompt:
-                        search_results_str = memory_results
-                        reprompt_with_search = True
-                        if attempt < retries - 1:
-                            continue
-                        else:
-                            logger.warning("Se alcanzó el límite de reintentos para búsqueda en memoria.")
-
-                # Procesar cambios de nombre
-                full_response_content = await self._process_name_change(db, full_response_content, user_id)
-                
-                # Procesar preferencias
-                full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
-                
-                # Limpiar marcadores restantes
-                full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
-                
-                response_for_memory = full_response_content
-                
-                # Procesar comandos IoT
-                full_response_content, extracted_command = await self._process_iot_command(db, full_response_content)
-                
-                # Actualizar memoria (solo si no es usuario especial)
-                if user_id != 0:
-                    try:
-                        await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
-                    except Exception as e:
-                        logger.error(f"Error al actualizar memoria: {e}")
-                        return {
-                            "response": f"Error interno al actualizar la memoria: {e}",
-                            "error": str(e),
-                            "user_name": user_name,
-                            "preference_key": None,
-                            "preference_value": None,
-                            "is_owner": False
-                        }
-
+            full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
+            
+            if llm_error:
                 return {
-                    "identified_speaker": user_name or "Desconocido",
-                    "response": full_response_content,
-                    "command": extracted_command,
+                    "response": llm_error,
+                    "error": llm_error,
                     "user_name": user_name,
                     "preference_key": None,
                     "preference_value": None,
-                    "is_owner": is_owner
+                    "is_owner": False
                 }
+            
+            # Procesar memory_search de forma asíncrona (background)
+            memory_search_match = MEMORY_SEARCH_REGEX.search(full_response_content)
+            if memory_search_match and user_id:
+                query = memory_search_match.group(1).strip()
+                asyncio.create_task(self._user_manager.search_memory(db, user_id, query))
+                full_response_content = re.sub(MEMORY_SEARCH_REGEX, "", full_response_content).strip()
+                logger.debug("Búsqueda en memoria procesada en background")
 
-            # Si se agotan todos los reintentos
-            self._online = False
+            # Procesar cambios de nombre
+            full_response_content = await self._process_name_change(db, full_response_content, user_id)
+            
+            # Procesar preferencias
+            full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
+            
+            # Limpiar marcadores restantes
+            full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
+            
+            response_for_memory = full_response_content
+            
+            # Solo procesar comando IoT si NO hay negación
+            if not self._contains_negation(prompt):
+                full_response_content, extracted_command = await self._process_iot_command(db, full_response_content, token)
+                
+                # NUEVO: Actualizar contexto con el comando ejecutado
+                self._update_device_context(user_id, prompt, extracted_command)
+            else:
+                logger.info("Comando IoT no procesado debido a negación en prompt")
+                full_response_content = re.sub(IOT_COMMAND_REGEX, "", full_response_content).strip()
+            
+            # Actualizar memoria (solo si no es usuario especial)
+            if user_id != 0:
+                try:
+                    await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
+                except Exception as e:
+                    logger.error(f"Error al actualizar memoria: {e}")
+                    return {
+                        "response": f"Error interno al actualizar la memoria: {e}",
+                        "error": str(e),
+                        "user_name": user_name,
+                        "preference_key": None,
+                        "preference_value": None,
+                        "is_owner": False
+                    }
+
             return {
-                "response": "No se pudo procesar tu solicitud. Intenta más tarde.",
-                "error": "Agotados intentos",
+                "identified_speaker": user_name or "Desconocido",
+                "response": full_response_content,
+                "command": extracted_command,
                 "user_name": user_name,
                 "preference_key": None,
                 "preference_value": None,
-                "is_owner": False
+                "is_owner": is_owner
             }
 
     async def update_assistant_name(self, new_name: str):
@@ -427,4 +551,3 @@ class NLPModule:
         await self.reload()
         log_fn = logger.info if self._online else logger.warning
         log_fn("Configuración NLP actualizada y módulos recargados." if self._online else "Configuración NLP actualizada pero Ollama no está en línea.")
-        

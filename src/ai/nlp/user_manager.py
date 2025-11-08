@@ -1,10 +1,9 @@
 import logging
 import re
 from typing import Optional
-from src.db.models import User, Preference, ConversationLog
+from src.db.models import User, Preference, ConversationLog, UserPermission
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.db.models import User, Preference, ConversationLog, UserPermission, Permission
 
 logger = logging.getLogger("UserManager")
 

@@ -50,6 +50,7 @@ class ColoredFormatter(logging.Formatter):
         'JWTManager': '\033[38;5;108m',                 # Verde azulado (ANSI 108)
         'AuthService': '\033[38;5;135m',                # Púrpura claro (ANSI 135)
         'Websocket': '\033[38;5;111m',                  # Azul claro/Cian (ANSI 111)
+        'Migrations': '\033[38;5;124m',                 # Rosa claro (ANSI 124)
         'root': '\033[38;5;245m',                       # Gris claro (ANSI 245)
     }
 

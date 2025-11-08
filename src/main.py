@@ -8,6 +8,7 @@ from src.utils.error_handler import ErrorHandler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router
+from src.api.websocket_routes import websocket_router
 from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
 from src.api.utils import (
     shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client,
@@ -94,3 +95,4 @@ async def shutdown_event() -> None:
     logger.info("Aplicación cerrada correctamente")
 
 app.include_router(router, prefix="")
+app.include_router(websocket_router, prefix="")

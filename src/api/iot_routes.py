@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
 from typing import List, Union
 from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand, DeviceTypeList, DeviceStateUpdate
 from src.db.database import get_db
@@ -8,6 +8,7 @@ from src.iot import device_manager
 import json
 from src.db.models import IoTCommand as DBLoTCommand
 from sqlalchemy import select
+from src.websocket.connection_manager import manager
 
 logger = logging.getLogger("APIRoutes")
 
@@ -35,6 +36,7 @@ async def send_arduino_command(command: ArduinoCommandSend):
 
             if current_status and current_status.lower() == requested_state.lower():
                 logger.info(f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}")
+                await manager.broadcast(json.dumps({"device_name": device_name, "status": requested_state, "message": "El dispositivo ya está en el estado solicitado"}))
                 return {"status": f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}", "topic": command.mqtt_topic, "payload": command.command_payload}
         else:
             await device_manager.update_device_state(
@@ -44,6 +46,7 @@ async def send_arduino_command(command: ArduinoCommandSend):
                 device_type=device_type
             )
             logger.info(f"Creado nuevo dispositivo {device_name} de tipo {device_type} con estado inicial {requested_state}")
+            await manager.broadcast(json.dumps({"device_name": device_name, "device_type": device_type, "status": requested_state, "message": "Nuevo dispositivo creado"}))
 
         success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
 
@@ -52,8 +55,12 @@ async def send_arduino_command(command: ArduinoCommandSend):
             raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
 
         await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
+        
+        updated_device_state = await device_manager.get_device_state(session, device_name)
+        if updated_device_state:
+            await manager.broadcast(json.dumps({"device_name": updated_device_state.device_name, "device_type": updated_device_state.device_type, "state": json.loads(updated_device_state.state_json), "message": "Estado del dispositivo actualizado"}))
 
-        return {"status": "Command sent and device state updated", "topic": command.mqtt_topic, "payload": command.command_payload}
+        return {"status": "Comando enviado y estado del dispositivo actualizado", "topic": command.mqtt_topic, "payload": command.command_payload}
 
 @iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
 async def create_iot_command(commands: Union[IoTCommandCreate, List[IoTCommandCreate]]):
@@ -93,7 +100,7 @@ async def get_iot_command_by_id(command_id: int):
         result = await session.execute(select(DBLoTCommand).filter(DBLoTCommand.id == command_id))
         command = result.scalars().first()
         if command is None:
-            raise HTTPException(status_code=404, detail="Command not found")
+            raise HTTPException(status_code=404, detail="Comando no encontrado")
         return command
 
 @iot_router.delete("/commands/{command_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -106,12 +113,12 @@ async def delete_iot_command(command_id: int):
         command = result.scalars().first()
 
         if command is None:
-            raise HTTPException(status_code=404, detail="Command not found")
+            raise HTTPException(status_code=404, detail="Comando no encontrado")
 
         await session.delete(command)
         await session.commit()
         logger.info(f"Comando IoT con ID {command_id} eliminado exitosamente.")
-        return {"message": "Command deleted successfully"}
+        return {"message": "Comando eliminado exitosamente"}
 
 @iot_router.get("/device_states/{device_name}", response_model=DeviceState)
 async def get_single_device_state(device_name: str):
@@ -122,7 +129,7 @@ async def get_single_device_state(device_name: str):
         device_state = await device_manager.get_device_state(session, device_name)
         if device_state is None:
             logger.warning(f"Estado del dispositivo {device_name} no encontrado.")
-            raise HTTPException(status_code=404, detail="Device state not found")
+            raise HTTPException(status_code=404, detail="Estado del dispositivo no encontrado")
         logger.info(f"Estado del dispositivo {device_name} obtenido exitosamente.")
         return DeviceState(id=device_state.id, device_name=device_state.device_name, device_type=device_state.device_type, state_json=json.loads(device_state.state_json), last_updated=device_state.last_updated)
 
@@ -144,7 +151,7 @@ async def get_device_states_by_type_route(device_type: str):
         device_states = await device_manager.get_device_states_by_type(session, device_type)
         if not device_states:
             logger.warning(f"No se encontraron dispositivos del tipo {device_type}.")
-            raise HTTPException(status_code=404, detail=f"No device states found for type {device_type}")
+            raise HTTPException(status_code=404, detail=f"No se encontraron estados de dispositivo para el tipo {device_type}")
         logger.info(f"Estados de dispositivos del tipo {device_type} obtenidos exitosamente.")
         return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
 
@@ -157,7 +164,7 @@ async def get_all_device_types_route():
         device_types = await device_manager.get_all_device_types(session)
         if not device_types:
             logger.warning("No se encontraron tipos de dispositivos.")
-            raise HTTPException(status_code=404, detail="No device types found")
+            raise HTTPException(status_code=404, detail="No se encontraron tipos de dispositivo")
         logger.info("Tipos de dispositivos obtenidos exitosamente.")
         return DeviceTypeList(device_types=device_types)
 
@@ -170,30 +177,25 @@ async def update_device_state_by_id(device_id: int, device_update: DeviceStateUp
         device_state = await device_manager.get_device_state_by_id(session, device_id)
         if device_state is None:
             logger.warning(f"Dispositivo con ID {device_id} no encontrado para actualizar.")
-            raise HTTPException(status_code=404, detail="Device not found")
+            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
-        # Reconstruir el comando MQTT
         mqtt_topic, command_payload = device_manager.reconstruct_mqtt_command(device_state, device_update.new_state)
 
         if not mqtt_topic or not command_payload:
             logger.error(f"No se pudo reconstruir el comando MQTT para el dispositivo {device_id}.")
-            raise HTTPException(status_code=500, detail="Could not reconstruct MQTT command.")
+            raise HTTPException(status_code=500, detail="No se pudo reconstruir el comando MQTT.")
 
-        # Usar la lógica existente de send_arduino_command
         command_to_send = ArduinoCommandSend(mqtt_topic=mqtt_topic, command_payload=command_payload)
         
-        # Llamar directamente a la función send_arduino_command con el comando reconstruido
-        # Esto evitará la recursión y reutilizará la lógica de envío y actualización de estado.
         try:
             await send_arduino_command(command_to_send)
-            # Después de enviar el comando, obtener el estado actualizado del dispositivo
             updated_device_state = await device_manager.get_device_state_by_id(session, device_id)
             if updated_device_state is None:
-                raise HTTPException(status_code=404, detail="Updated device state not found")
+                raise HTTPException(status_code=404, detail="Estado del dispositivo actualizado no encontrado")
             logger.info(f"Estado del dispositivo con ID {device_id} actualizado exitosamente.")
             return DeviceState(id=updated_device_state.id, device_name=updated_device_state.device_name, device_type=updated_device_state.device_type, state_json=json.loads(updated_device_state.state_json), last_updated=updated_device_state.last_updated)
         except HTTPException as e:
             raise e
         except Exception as e:
             logger.error(f"Error al actualizar el estado del dispositivo {device_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error updating device state: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al actualizar el estado del dispositivo: {e}")

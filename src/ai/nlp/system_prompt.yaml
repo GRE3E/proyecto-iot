@@ -1,7 +1,7 @@
 ---
 metadata:
-  version: "1.25.1"
-  description: "System Prompt Final - Optimizado"
+  version: "2.0.0"
+  description: "System Prompt"
 
 sections:
   identity: |

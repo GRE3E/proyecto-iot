@@ -34,7 +34,6 @@ async def register_speaker(
 
             if existing_user:
                 if existing_user.speaker_embedding is None:
-                    # User exists but has no speaker embedding, update it
                     with tempfile.TemporaryDirectory() as tmpdir:
                         file_location = Path(tmpdir) / audio_file.filename
                         with open(file_location, "wb+") as file_object:
@@ -63,10 +62,8 @@ async def register_speaker(
                     logger.info(f"Embedding de voz actualizado para el usuario {name} exitosamente")
                     return token
                 else:
-                    # User exists and already has a speaker embedding
                     raise HTTPException(status_code=409, detail="El usuario ya tiene un embedding de voz registrado.")
             else:
-                # User does not exist, proceed with new registration
                 with tempfile.TemporaryDirectory() as tmpdir:
                     file_location = Path(tmpdir) / audio_file.filename
                     with open(file_location, "wb+") as file_object:

@@ -48,21 +48,26 @@ def _load_from_yaml() -> Optional[str]:
             logger.error("El YAML no contiene una clave 'sections' válida.")
             return None
 
+        # Orden preferido según la estructura actual del YAML
         ordered_keys = [
             "identity",
-            "policies",
-            "objectives",
-            "decision_flow",
-            "context",
-            "formats",
-            "style",
-            "examples",
-            "principles"
+            "available_commands",
+            "the_algorithm",
+            "critical_examples",
+            "golden_rule",
+            "intent_detection",
+            "device_context",
+            "examples"
         ]
 
-        combined_prompt = "\n\n".join(
-            [sections[k] for k in ordered_keys if k in sections]
-        )
+        combined_parts = [sections[k] for k in ordered_keys if k in sections]
+
+        # Incluir cualquier otra sección que exista en el YAML y no esté en ordered_keys
+        for key, value in sections.items():
+            if key not in ordered_keys:
+                combined_parts.append(value)
+
+        combined_prompt = "\n\n".join(combined_parts)
 
         footer = yaml_data.get("footer")
         if footer:

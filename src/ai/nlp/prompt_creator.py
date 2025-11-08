@@ -122,7 +122,7 @@ def create_system_prompt(
 
     prompt_text = f"Usuario: {prompt}"
     
-    logger.debug(f"System prompt final (primeros 500 chars):\n{system_prompt[:500]}...")
+    logger.debug(f"System prompt final:\n{system_prompt}")
     
     return system_prompt, prompt_text
     

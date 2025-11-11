@@ -19,24 +19,29 @@ def _extract_device_info_from_topic(mqtt_topic: str, command_payload: str) -> Tu
     state_value = command_payload
 
     if len(topic_parts) >= 3:
+        device_name_raw = topic_parts[2]
+        base_device_name = device_name_raw
+
         if topic_parts[1] == "lights":
             device_type = "luz"
-            if topic_parts[2].startswith("LIGHT_"):
-                device_name = topic_parts[2][len("LIGHT_"):]
-            else:
-                device_name = topic_parts[2]
+            if base_device_name.startswith("LIGHT_"):
+                base_device_name = base_device_name[len("LIGHT_"):]
+            elif base_device_name.startswith("LUZ_"):
+                base_device_name = base_device_name[len("LUZ_"):]
+            device_name = f"LUZ_{base_device_name.upper()}"
         elif topic_parts[1] == "doors":
             device_type = "puerta"
-            if topic_parts[2].startswith("DOOR_"):
-                device_name = topic_parts[2][len("DOOR_"):]
-            else:
-                device_name = topic_parts[2]
+            if base_device_name.startswith("DOOR_"):
+                base_device_name = base_device_name[len("DOOR_"):]
+            elif base_device_name.startswith("PUERTA_"):
+                base_device_name = base_device_name[len("PUERTA_"):]
+            device_name = f"PUERTA_{base_device_name.upper()}"
         elif topic_parts[1] == "actuators":
             device_type = "actuador"
-            device_name = topic_parts[2]
+            device_name = device_name_raw
         elif topic_parts[1] == "sensors":
             device_type = "sensor"
-            device_name = topic_parts[2]
+            device_name = device_name_raw
     
     return device_type, device_name, state_value
 
@@ -133,7 +138,6 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
     device_type = device_state.device_type
     device_name = device_state.device_name
     
-    # Mapeo de tipos de dispositivo a segmentos de topic MQTT y prefijos
     type_to_topic_segment = {
         "luz": "lights",
         "puerta": "doors",
@@ -141,8 +145,8 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
         "sensor": "sensors"
     }
     type_to_prefix = {
-        "luz": "LIGHT_",
-        "puerta": "DOOR_",
+        "luz": "LUZ_",
+        "puerta": "PUERTA_",
         "actuador": "",
         "sensor": ""
     }
@@ -156,8 +160,13 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
     
     if "status" in new_state:
         command_payload = str(new_state["status"]).upper()
-        # Asegurarse de que el device_name en el topic tenga el prefijo correcto
-        full_device_name_in_topic = f"{prefix}{device_name.upper()}"
+        clean_device_name = device_name
+        if device_type.lower() == "luz" and device_name.startswith("LUZ_"):
+            clean_device_name = device_name[len("LUZ_"):]
+        elif device_type.lower() == "puerta" and device_name.startswith("PUERTA_"):
+            clean_device_name = device_name[len("PUERTA_"):]
+
+        full_device_name_in_topic = f"{prefix}{clean_device_name.upper()}"
         mqtt_topic = f"iot/{topic_segment}/{full_device_name_in_topic}/command"
         return mqtt_topic, command_payload
     

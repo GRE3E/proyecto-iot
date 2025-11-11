@@ -1,8 +1,8 @@
-// GestionDispositivos.tsx
 "use client"
 
 import React from "react"
 import SimpleCard from "../components/UI/Card"
+import PageHeader from "../components/UI/PageHeader"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Zap,
@@ -22,7 +22,6 @@ import {
 } from "lucide-react"
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
 import EnergyGauge from "../components/widgets/EnergyGauge"
-import ProfileNotifications from "../components/UI/ProfileNotifications";
 
 interface Device {
   id: number
@@ -59,78 +58,72 @@ export default function GestionDispositivos() {
       case "ventilador":
         return <Wind className="w-5 h-5 sm:w-6 sm:h-6" />
       default:
-         return <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
+        return <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
     }
   }
 
-
   const filteredDevices = devices.filter((d) => {
-    const statusMatch = filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on)
+    const statusMatch =
+      filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on)
     const typeMatch = deviceTypeFilter === null || d.device_type === deviceTypeFilter
     return statusMatch && typeMatch
   })
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
-      {/* Header - Título arriba, pestañas debajo */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
-          {/* Título con ícono */}
-          <div className="flex items-center gap-4 -mt-6 md:-mt-7">
-            <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
-              <Computer className="w-8 md:w-10 h-8 md:h-10 text-white" />
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
-              Gestión de dispositivos
-            </h2>
-          </div>
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+      {/* Header */}
+      <PageHeader
+        title="Gestión de dispositivos"
+        icon={<Computer className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+      />
 
-          {/* Perfil + Notificaciones */}
-          <ProfileNotifications userName="Usuario" />
-        </div>
-
-        {/* Pestañas debajo del título */}
-        <div
-          className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50"
-          role="tablist"
-          aria-label="Gestion de Dispositivos Tabs"
+      {/* Pestañas */}
+      <div
+        className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50"
+        role="tablist"
+        aria-label="Gestion de Dispositivos Tabs"
+      >
+        <button
+          onClick={() => setActiveTab("control")}
+          role="tab"
+          aria-selected={activeTab === "control"}
+          className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
+            activeTab === "control" ? "text-white" : "text-slate-400 hover:text-white"
+          }`}
         >
-          <button
-            onClick={() => setActiveTab("control")}
-            role="tab"
-            aria-selected={activeTab === "control"}
-            className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
-              activeTab === "control" ? "text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="text-center sm:text-left leading-tight font-semibold">Control de dispositivos</span>
-            {activeTab === "control" && (
-              <motion.span
-                layoutId="underline"
-                className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-              />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("energia")}
-            role="tab"
-            aria-selected={activeTab === "energia"}
-            className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
-              activeTab === "energia" ? "text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="text-center sm:text-left leading-tight font-semibold">Consumo de energía</span>
-            {activeTab === "energia" && (
-              <motion.span
-                layoutId="underline"
-                className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full"
-              />
-            )}
-          </button>
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span className="text-center sm:text-left leading-tight font-semibold">
+            Control de dispositivos
+          </span>
+          {activeTab === "control" && (
+            <motion.span
+              layoutId="underline"
+              className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+            />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("energia")}
+          role="tab"
+          aria-selected={activeTab === "energia"}
+          className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative group ${
+            activeTab === "energia" ? "text-white" : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          <span className="text-center sm:text-left leading-tight font-semibold">
+            Consumo de energía
+          </span>
+          {activeTab === "energia" && (
+            <motion.span
+              layoutId="underline"
+              className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full"
+            />
+          )}
+        </button>
       </div>
 
-      {/* Contenido de las pestañas */}
+      {/* Contenido de pestañas */}
       <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6 px-3 sm:px-4 md:px-6">
         <AnimatePresence mode="wait">
           {activeTab === "control" && (
@@ -143,7 +136,7 @@ export default function GestionDispositivos() {
               role="tabpanel"
               aria-hidden={activeTab !== "control"}
             >
-              {/* Filtros por estado y tipo */}
+              {/* Filtros */}
               <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-start sm:justify-between gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
                 {/* Filtros de tipo */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 sm:justify-items-start sm:justify-start gap-1 sm:gap-2 pb-2 sm:pb-0 w-full sm:w-auto sm:max-w-fit">
@@ -179,7 +172,7 @@ export default function GestionDispositivos() {
                   ))}
                 </div>
 
-                {/* Filtros de estado a la derecha */}
+                {/* Filtros de estado */}
                 <div className="flex w-full sm:w-auto items-center gap-2 sm:gap-3 justify-between sm:justify-end mt-1 sm:mt-0 sm:self-center">
                   {[
                     { name: "Encendidos", icon: CheckCircle, color: "green" },
@@ -188,7 +181,6 @@ export default function GestionDispositivos() {
                     <motion.button
                       key={f.name}
                       onClick={() => {
-                        // Si ya está seleccionado, deseleccionar (mostrar todos)
                         if (filter === f.name) {
                           setFilter("Todos")
                         } else {
@@ -211,14 +203,13 @@ export default function GestionDispositivos() {
                 </div>
               </div>
 
-              {/* Tarjetas de resumen*/}
+              {/* Tarjetas de resumen */}
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 sm:mb-7 md:mb-8">
-
                 {/* TOTAL */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-blue-500/20 shadow-lg shadow-blue-500/20">
-                      <Activity className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-blue-400" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center bg-blue-500/20 shadow-lg shadow-blue-500/20">
+                      <Activity className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-400" />
                     </div>
                   </div>
                   <p className="text-xs sm:text-sm md:text-base text-blue-400 font-semibold mb-1 uppercase tracking-wider">
@@ -232,8 +223,8 @@ export default function GestionDispositivos() {
                 {/* ACTIVOS */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-green-500/20 shadow-lg shadow-green-500/20">
-                      <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-green-400" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center bg-green-500/20 shadow-lg shadow-green-500/20">
+                      <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-green-400" />
                     </div>
                   </div>
                   <p className="text-xs sm:text-sm md:text-base text-green-400 font-semibold mb-1 uppercase tracking-wider">
@@ -247,8 +238,8 @@ export default function GestionDispositivos() {
                 {/* INACTIVOS */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-red-500/20 shadow-lg shadow-red-500/20">
-                      <XCircle className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-red-400" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center bg-red-500/20 shadow-lg shadow-red-500/20">
+                      <XCircle className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-red-400" />
                     </div>
                   </div>
                   <p className="text-xs sm:text-sm md:text-base text-red-400 font-semibold mb-1 uppercase tracking-wider">
@@ -262,8 +253,8 @@ export default function GestionDispositivos() {
                 {/* CONSUMO */}
                 <SimpleCard className="p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300">
                   <div className="flex justify-center items-center mb-2 sm:mb-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 rounded-full flex items-center justify-center bg-yellow-500/20 shadow-lg shadow-yellow-500/20">
-                      <Zap className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-yellow-400" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center bg-yellow-500/20 shadow-lg shadow-yellow-500/20">
+                      <Zap className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-yellow-400" />
                     </div>
                   </div>
                   <p className="text-xs sm:text-sm md:text-base text-yellow-400 font-semibold mb-1 uppercase tracking-wider">
@@ -273,7 +264,6 @@ export default function GestionDispositivos() {
                     {energyUsage}W
                   </p>
                 </SimpleCard>
-
               </div>
 
               {/* Lista de dispositivos */}
@@ -402,7 +392,7 @@ export default function GestionDispositivos() {
                 <SimpleCard className="p-5 sm:p-6 md:p-7 lg:p-8">
                   <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-4 sm:mb-5 md:mb-6 text-purple-400 font-inter flex items-center gap-2">
                     <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
-                    <span>Tendencia de Consumo (últimos 14 días)</span>
+                    <span>Tendencia de Consumo (Últimos 14 días)</span>
                   </h3>
                   <div className="w-full h-24 sm:h-32 md:h-40 bg-slate-900/40 rounded-lg p-2 sm:p-3">
                     <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">

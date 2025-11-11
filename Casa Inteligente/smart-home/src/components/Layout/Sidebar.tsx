@@ -1,4 +1,4 @@
-// Menu Hamburguesa con animación corta al seleccionar sección
+// Sidebar.tsx - Menú Hamburguesa Original Funcional
 "use client"
 import { useEffect, useRef, useState } from "react"
 import { Home, LogOut } from "lucide-react"
@@ -65,9 +65,9 @@ export default function HamburgerMenu({
         </div>
       )}
 
-      {/* Botón flotante (menú cerrado) */}
+      {/* Botón flotante MOBILE - TOP LEFT */}
       {!isSidebarOpen && (
-        <div className="md:hidden fixed top-4 right-4 z-50">
+        <div className="md:hidden fixed top-12 left-4 z-50">
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Abrir menú"
@@ -128,13 +128,13 @@ export default function HamburgerMenu({
                   aria-label="Cerrar menú"
                   className="h-11 w-11 flex items-center justify-center rounded-xl
                     bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                    transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97]"
+                    transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0"
                 >
                   <Home className="w-5 h-5 text-white transition-transform duration-300 hover:scale-110" />
                 </button>
 
                 <h1
-                  className={`text-xl md:text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent tracking-tight`}
+                  className={`text-xl md:text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent tracking-tight whitespace-nowrap`}
                 >
                   SmartHome
                 </h1>

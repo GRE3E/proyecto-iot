@@ -1,10 +1,10 @@
-"use client";
+"use client"
 
-import { useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Send, Bot} from "lucide-react";
-import ProfileNotifications from "../components/UI/ProfileNotifications";
-import { useVoiceChat } from "../hooks/useVoiceChat";
+import { useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Mic, Send, Bot } from "lucide-react"
+import PageHeader from "../components/UI/PageHeader"
+import { useVoiceChat } from "../hooks/useVoiceChat"
 
 export default function Chat() {
   const {
@@ -16,42 +16,32 @@ export default function Chat() {
     toggleVoiceActive,
     sendMessage,
     messagesEndRef,
-  } = useVoiceChat();
+  } = useVoiceChat()
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && text.trim()) {
-      e.preventDefault();
-      sendMessage();
+      e.preventDefault()
+      sendMessage()
     }
-  };
+  }
 
-  const canSend = text.trim() !== "";
+  const canSend = text.trim() !== ""
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter">
-      {/* 🔹 HEADER PRINCIPAL — igual que las otras secciones */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
-        {/* Título con ícono */}
-        <div className="flex items-center gap-4 -mt-6 md:-mt-7">
-          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
-            <Bot className="w-8 md:w-10 h-8 md:h-10 text-white" />
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
-            CHAT
-          </h2>
-        </div>
+    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+      {/* Header */}
+      <PageHeader
+        title="CHAT"
+        icon={<Bot className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+      />
 
-        {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications />
-      </div>
-
-      {/* 🔹 ÁREA DEL CHAT */}
+      {/* ÁREA DEL CHAT */}
       <div className="flex flex-col w-full h-[78vh] bg-slate-900/60 backdrop-blur-md rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
 
         {/* Sub-header dentro del chat */}
@@ -62,7 +52,7 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* 💬 Mensajes */}
+        {/* Mensajes */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 custom-scrollbar">
           <AnimatePresence>
             {messages.map((msg, i) => (
@@ -100,7 +90,7 @@ export default function Chat() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* 🔹 INPUT BAR */}
+        {/* INPUT BAR */}
         <div className="flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t border-slate-800 bg-slate-900/70 backdrop-blur-sm">
           {/* Mic */}
           <button
@@ -140,5 +130,5 @@ export default function Chat() {
         </div>
       </div>
     </div>
-  );
+  )
 }

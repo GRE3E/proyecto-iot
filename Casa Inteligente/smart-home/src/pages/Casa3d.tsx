@@ -1,27 +1,26 @@
-"use client";
+"use client"
 
-import { Suspense, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useRef, useState } from "react"
+import { Canvas } from "@react-three/fiber"
 import {
   OrbitControls,
   Html,
   Loader,
   Environment,
   ContactShadows,
-} from "@react-three/drei";
-import SimpleCard from "../components/UI/Card";
-import SimpleButton from "../components/UI/Button";
-import { Model, SceneHelpers } from "../hooks/useModel3D";
+} from "@react-three/drei"
+import SimpleCard from "../components/UI/Card"
+import SimpleButton from "../components/UI/Button"
+import PageHeader from "../components/UI/PageHeader"
+import { Model, SceneHelpers } from "../hooks/useModel3D"
 import {
   zoomToFit,
   presets,
   handleSnapshot,
-} from "../utils/casa3dUtils";
-import * as THREE from "three";
-import { Home, RotateCw, Grid3x3, Lightbulb, Globe, Camera, Zap, Settings2,ArrowUp,Eye,Box} from "lucide-react";
-import ProfileNotifications from "../components/UI/ProfileNotifications";
+} from "../utils/casa3dUtils"
+import * as THREE from "three"
+import { Home, RotateCw, Grid3x3, Lightbulb, Globe, Camera, Zap, Settings2, ArrowUp, Eye, Box } from "lucide-react"
 
-// Switch ON/OFF Component
 function SwitchToggle({ 
   isOn, 
   onChange, 
@@ -29,11 +28,11 @@ function SwitchToggle({
   icon: Icon,
   tooltip = ""
 }: { 
-  isOn: boolean; 
-  onChange: (value: boolean) => void; 
-  label: string;
-  icon?: any;
-  tooltip?: string;
+  isOn: boolean
+  onChange: (value: boolean) => void
+  label: string
+  icon?: any
+  tooltip?: string
 }) {
   return (
     <div className="flex flex-col gap-2 group relative">
@@ -69,10 +68,9 @@ function SwitchToggle({
         </button>
       </div>
     </div>
-  );
+  )
 }
 
-// Slider Component mejorado
 function SliderControl({ 
   label, 
   value, 
@@ -84,15 +82,15 @@ function SliderControl({
   format = (v: number) => v.toFixed(2),
   tooltip = ""
 }: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  icon?: any;
-  format?: (v: number) => string;
-  tooltip?: string;
+  label: string
+  value: number
+  onChange: (v: number) => void
+  min: number
+  max: number
+  step: number
+  icon?: any
+  format?: (v: number) => string
+  tooltip?: string
 }) {
   return (
     <div className="space-y-2 group relative">
@@ -122,52 +120,42 @@ function SliderControl({
         className="w-full h-2.5 bg-gradient-to-r from-slate-700 to-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all"
       />
     </div>
-  );
+  )
 }
 
 export default function Casa3d({
   lightOn = true,
   securityOn = true,
 }: {
-  lightOn?: boolean;
-  securityOn?: boolean;
-}) {
-  const modelPath = "/models/Coso.glb";
-  const groupRef = useRef<THREE.Group | null>(null);
-  const controlsRef = useRef<any>(null);
+  lightOn?: boolean
+  securityOn?: boolean
+} = {}) {
+  const modelPath = "/models/Coso.glb"
+  const groupRef = useRef<THREE.Group | null>(null)
+  const controlsRef = useRef<any>(null)
 
-  const [autoRotate, setAutoRotate] = useState(true);
-  const [wireframe, setWireframe] = useState(false);
-  const [shadowsEnabled, setShadowsEnabled] = useState(true);
-  const [envEnabled, setEnvEnabled] = useState(true);
-  const [lightIntensity] = useState(1);
-  const [autoSpeed, setAutoSpeed] = useState(1.2);
-  const [dayTime] = useState(0.5);
+  const [autoRotate, setAutoRotate] = useState(true)
+  const [wireframe, setWireframe] = useState(false)
+  const [shadowsEnabled, setShadowsEnabled] = useState(true)
+  const [envEnabled, setEnvEnabled] = useState(true)
+  const [lightIntensity] = useState(1)
+  const [autoSpeed, setAutoSpeed] = useState(1.2)
+  const [dayTime] = useState(0.5)
 
-  const resetView = () => zoomToFit(groupRef, controlsRef);
+  const resetView = () => zoomToFit(groupRef, controlsRef)
 
   return (
     <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
-      {/* HEADER: Título + Perfil + Notificaciones */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 -mt-1 md:-mt-2 relative">
-        {/* Título con ícono */}
-        <div className="flex items-center gap-4 -mt-6 md:-mt-7">
-          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
-            <Home className="w-8 md:w-10 h-8 md:h-10 text-white" />
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight translate-y-[0px] md:translate-y-[-4px]">
-            Casa 3D
-          </h2>
-        </div>
+      {/* Header */}
+      <PageHeader
+        title="Casa 3D"
+        icon={<Home className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+      />
 
-        {/* PERFIL + NOTIFICACIONES */}
-        <ProfileNotifications userName="Usuario" />
-      </div>
-
-      {/* CONTENIDO ORIGINAL */}
+      {/* CONTENIDO */}
       <SimpleCard className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* === Escena 3D Desktop === */}
+          {/* Escena 3D Desktop */}
           <div className="hidden md:flex flex-1 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 h-[680px]">
             <Canvas
               shadows={shadowsEnabled}
@@ -213,7 +201,7 @@ export default function Casa3d({
             <Loader />
           </div>
 
-          {/* === Escena 3D Mobile === */}
+          {/* Escena 3D Mobile */}
           <div className="flex md:hidden flex-1 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 h-[400px]">
             <Canvas
               shadows={shadowsEnabled}
@@ -258,10 +246,8 @@ export default function Casa3d({
             <Loader />
           </div>
 
-          {/* === Panel Lateral Premium === */}
+          {/* Panel Lateral */}
           <aside className="w-full md:w-96 flex flex-col gap-2 max-h-[680px] overflow-hidden">
-            
-            {/* PRESETS DE CÁMARA */}
             <SimpleCard className="p-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
                 <Zap className="w-3 h-3" />
@@ -297,7 +283,6 @@ export default function Casa3d({
               </div>
             </SimpleCard>
 
-            {/* CONTROLES VISUALES - Grid 2x2 */}
             <SimpleCard className="p-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
                 <Lightbulb className="w-3 h-3" />
@@ -338,7 +323,6 @@ export default function Casa3d({
               </div>
             </SimpleCard>
 
-            {/* ANIMACIÓN */}
             <SimpleCard className="p-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-4">
                 <Settings2 className="w-3 h-3" />
@@ -359,7 +343,6 @@ export default function Casa3d({
               </div>
             </SimpleCard>
 
-            {/* BOTONES DE ACCIÓN */}
             <SimpleCard className="p-3">
               <div className="flex gap-2.5">
                 <SimpleButton
@@ -381,7 +364,6 @@ export default function Casa3d({
               </div>
             </SimpleCard>
 
-            {/* STATS DASHBOARD */}
             <SimpleCard className="p-4">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
                 <Zap className="w-3 h-3" />
@@ -406,5 +388,5 @@ export default function Casa3d({
         </div>
       </SimpleCard>
     </div>
-  );
+  )
 }

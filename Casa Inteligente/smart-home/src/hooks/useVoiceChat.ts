@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from './useAuth';
 import { useVoiceRecognition } from "./useVoiceRecognition";
 import { speakText, SpeechSynthesisSupported } from "../utils/voiceUtils";
 import { useAnimation } from "framer-motion";
+import { axiosInstance } from "../services/authService";
 
 export interface Message {
   sender: "Tú" | "CasaIA";
@@ -20,21 +21,12 @@ export function useVoiceChat() {
   const waveControls = useAnimation();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const accessToken = localStorage.getItem('access_token'); // Obtener el token de acceso
-
+  
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/nlp/nlp/history?limit=100`, {
-          headers: {
-            'accept': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
+        const response = await axiosInstance.get(`/nlp/nlp/history?limit=50`);
+        const data = response.data;
         const formattedMessages: Message[] = data.history.flatMap((item: any) => {
           const msgs: Message[] = [];
           if (item.user_message) {
@@ -127,21 +119,9 @@ export function useVoiceChat() {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/nlp/nlp/query`, {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ prompt: msg.text })
-      });
+      const response = await axiosInstance.post(`/nlp/nlp/query`, { prompt: msg.text });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log("API Response Data:", data); // Agregado para depuración
       const aiResponseText = data.response || "Lo siento, no pude obtener una respuesta.";
 

@@ -1,0 +1,354 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+
+export interface TimezoneConfig {
+  region: string;
+  timezone: string;
+  offset: string;
+  daylightSaving: boolean;
+  utcOffset: number;
+}
+
+export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
+  "América Latina": [
+    {
+      region: "Argentina",
+      timezone: "America/Argentina/Buenos_Aires",
+      offset: "UTC-3",
+      daylightSaving: false,
+      utcOffset: -3,
+    },
+    {
+      region: "Bolivia",
+      timezone: "America/La_Paz",
+      offset: "UTC-4",
+      daylightSaving: false,
+      utcOffset: -4,
+    },
+    {
+      region: "Brasil",
+      timezone: "America/Sao_Paulo",
+      offset: "UTC-3",
+      daylightSaving: true,
+      utcOffset: -3,
+    },
+    {
+      region: "Chile",
+      timezone: "America/Santiago",
+      offset: "UTC-3",
+      daylightSaving: true,
+      utcOffset: -3,
+    },
+    {
+      region: "Colombia",
+      timezone: "America/Bogota",
+      offset: "UTC-5",
+      daylightSaving: false,
+      utcOffset: -5,
+    },
+    {
+      region: "Costa Rica",
+      timezone: "America/Costa_Rica",
+      offset: "UTC-6",
+      daylightSaving: false,
+      utcOffset: -6,
+    },
+    {
+      region: "Ecuador",
+      timezone: "America/Guayaquil",
+      offset: "UTC-5",
+      daylightSaving: false,
+      utcOffset: -5,
+    },
+    {
+      region: "El Salvador",
+      timezone: "America/El_Salvador",
+      offset: "UTC-6",
+      daylightSaving: false,
+      utcOffset: -6,
+    },
+    {
+      region: "Guatemala",
+      timezone: "America/Guatemala",
+      offset: "UTC-6",
+      daylightSaving: false,
+      utcOffset: -6,
+    },
+    {
+      region: "Honduras",
+      timezone: "America/Tegucigalpa",
+      offset: "UTC-6",
+      daylightSaving: false,
+      utcOffset: -6,
+    },
+    {
+      region: "México",
+      timezone: "America/Mexico_City",
+      offset: "UTC-6",
+      daylightSaving: true,
+      utcOffset: -6,
+    },
+    {
+      region: "Nicaragua",
+      timezone: "America/Managua",
+      offset: "UTC-6",
+      daylightSaving: false,
+      utcOffset: -6,
+    },
+    {
+      region: "Panamá",
+      timezone: "America/Panama",
+      offset: "UTC-5",
+      daylightSaving: false,
+      utcOffset: -5,
+    },
+    {
+      region: "Paraguay",
+      timezone: "America/Asuncion",
+      offset: "UTC-4",
+      daylightSaving: true,
+      utcOffset: -4,
+    },
+    {
+      region: "Perú",
+      timezone: "America/Lima",
+      offset: "UTC-5",
+      daylightSaving: false,
+      utcOffset: -5,
+    },
+    {
+      region: "Uruguay",
+      timezone: "America/Montevideo",
+      offset: "UTC-3",
+      daylightSaving: true,
+      utcOffset: -3,
+    },
+    {
+      region: "Venezuela",
+      timezone: "America/Caracas",
+      offset: "UTC-4",
+      daylightSaving: false,
+      utcOffset: -4,
+    },
+  ],
+  Europa: [
+    {
+      region: "España",
+      timezone: "Europe/Madrid",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+    {
+      region: "Francia",
+      timezone: "Europe/Paris",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+    {
+      region: "Alemania",
+      timezone: "Europe/Berlin",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+    {
+      region: "Italia",
+      timezone: "Europe/Rome",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+    {
+      region: "Reino Unido",
+      timezone: "Europe/London",
+      offset: "UTC+0",
+      daylightSaving: true,
+      utcOffset: 0,
+    },
+    {
+      region: "Portugal",
+      timezone: "Europe/Lisbon",
+      offset: "UTC+0",
+      daylightSaving: true,
+      utcOffset: 0,
+    },
+    {
+      region: "Suiza",
+      timezone: "Europe/Zurich",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+    {
+      region: "Países Bajos",
+      timezone: "Europe/Amsterdam",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
+  ],
+  Asia: [
+    {
+      region: "China",
+      timezone: "Asia/Shanghai",
+      offset: "UTC+8",
+      daylightSaving: false,
+      utcOffset: 8,
+    },
+    {
+      region: "Japón",
+      timezone: "Asia/Tokyo",
+      offset: "UTC+9",
+      daylightSaving: false,
+      utcOffset: 9,
+    },
+    {
+      region: "India",
+      timezone: "Asia/Kolkata",
+      offset: "UTC+5:30",
+      daylightSaving: false,
+      utcOffset: 5.5,
+    },
+    {
+      region: "Tailandia",
+      timezone: "Asia/Bangkok",
+      offset: "UTC+7",
+      daylightSaving: false,
+      utcOffset: 7,
+    },
+    {
+      region: "Vietnam",
+      timezone: "Asia/Ho_Chi_Minh",
+      offset: "UTC+7",
+      daylightSaving: false,
+      utcOffset: 7,
+    },
+    {
+      region: "Filipinas",
+      timezone: "Asia/Manila",
+      offset: "UTC+8",
+      daylightSaving: false,
+      utcOffset: 8,
+    },
+  ],
+  Oceanía: [
+    {
+      region: "Australia (Sidney)",
+      timezone: "Australia/Sydney",
+      offset: "UTC+11",
+      daylightSaving: true,
+      utcOffset: 11,
+    },
+    {
+      region: "Australia (Melbourne)",
+      timezone: "Australia/Melbourne",
+      offset: "UTC+11",
+      daylightSaving: true,
+      utcOffset: 11,
+    },
+    {
+      region: "Nueva Zelanda",
+      timezone: "Pacific/Auckland",
+      offset: "UTC+13",
+      daylightSaving: true,
+      utcOffset: 13,
+    },
+  ],
+};
+
+export function useZonaHoraria() {
+  const [selectedTimezone, setSelectedTimezone] = useState<TimezoneConfig | null>(null);
+  const [currentTime, setCurrentTime] = useState<string>("");
+  const [currentDate, setCurrentDate] = useState<string>("");
+
+  // Cargar zona horaria guardada
+  useEffect(() => {
+    const saved = localStorage.getItem("userTimezone");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setSelectedTimezone(parsed);
+    } else {
+      // Usar Perú por defecto
+      const defaultTimezone = TIMEZONE_DATA["América Latina"].find(
+        (tz) => tz.region === "Perú"
+      );
+      if (defaultTimezone) {
+        setSelectedTimezone(defaultTimezone);
+        localStorage.setItem("userTimezone", JSON.stringify(defaultTimezone));
+      }
+    }
+  }, []);
+
+  // Actualizar hora y fecha en tiempo real
+  useEffect(() => {
+    const updateTime = () => {
+      if (!selectedTimezone) return;
+
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat("es-ES", {
+        timeZone: selectedTimezone.timezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+
+      const dateFormatter = new Intl.DateTimeFormat("es-ES", {
+        timeZone: selectedTimezone.timezone,
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      setCurrentTime(formatter.format(now));
+      setCurrentDate(dateFormatter.format(now));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedTimezone]);
+
+  // Guardar nueva zona horaria
+  const saveTimezone = useCallback((timezone: TimezoneConfig) => {
+    setSelectedTimezone(timezone);
+    localStorage.setItem("userTimezone", JSON.stringify(timezone));
+  }, []);
+
+  // Obtener todas las zonas horarias en un array
+  const getAllTimezones = useCallback(() => {
+    const allTimezones: TimezoneConfig[] = [];
+    Object.values(TIMEZONE_DATA).forEach((continentTimezones) => {
+      allTimezones.push(...continentTimezones);
+    });
+    return allTimezones;
+  }, []);
+
+  // Obtener zona horaria por timezone string
+  const getTimezoneByTimezone = useCallback(
+    (timezoneString: string): TimezoneConfig | null => {
+      for (const continent of Object.values(TIMEZONE_DATA)) {
+        const found = continent.find((tz) => tz.timezone === timezoneString);
+        if (found) return found;
+      }
+      return null;
+    },
+    []
+  );
+
+  return {
+    selectedTimezone,
+    setSelectedTimezone,
+    currentTime,
+    currentDate,
+    saveTimezone,
+    getAllTimezones,
+    getTimezoneByTimezone,
+    TIMEZONE_DATA,
+  };
+}

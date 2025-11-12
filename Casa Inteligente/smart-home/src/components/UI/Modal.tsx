@@ -1,9 +1,9 @@
-//Ventanas emergentes o confirmacion
 "use client";
 
-import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface ModalProps {
   title?: string;
@@ -22,12 +22,14 @@ export default function Modal({
   className = "",
   closeLabel = "Cerrar",
 }: ModalProps) {
-  return (
+  if (typeof window === "undefined") return null; // seguridad SSR
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
           key="modal-backdrop"
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -41,7 +43,7 @@ export default function Modal({
             onClick={onClose}
           />
 
-          {/* Modal panel */}
+          {/* Panel */}
           <motion.div
             key="modal-panel"
             className={`relative w-[90%] max-w-md rounded-2xl p-6 bg-slate-900 shadow-lg text-white ${className}`}
@@ -50,7 +52,7 @@ export default function Modal({
             exit={{ y: 12, scale: 0.98, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 24 }}
           >
-            {/* Close button */}
+            {/* Botón cerrar */}
             <button
               onClick={onClose}
               aria-label={closeLabel}
@@ -59,14 +61,15 @@ export default function Modal({
               <X className="w-5 h-5" />
             </button>
 
-            {/* Title */}
+            {/* Título */}
             {title && <h3 className="text-xl font-semibold mb-4">{title}</h3>}
 
-            {/* Content */}
+            {/* Contenido */}
             <div>{children}</div>
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body // 🔥 se renderiza sobre todo
   );
 }

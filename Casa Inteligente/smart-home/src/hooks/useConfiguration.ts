@@ -12,6 +12,7 @@ declare global {
 
 export function useConfiguracion() {
   const [ownerName, setOwnerName] = useState("Usuario Principal");
+  const [ownerPassword, setOwnerPassword] = useState("contraseña123");
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("GMT-5");
   const [notifications, setNotifications] = useState(true);
@@ -32,19 +33,21 @@ export function useConfiguracion() {
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [changeVoiceModalOpen, setChangeVoiceModalOpen] = useState(false);
+  const [changeFaceModalOpen, setChangeFaceModalOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
   const [modalOwnerName, setModalOwnerName] = useState(ownerName);
+  const [modalPassword, setModalPassword] = useState("");
   const [modalTimezone, setModalTimezone] = useState(timezone);
-  const [modalLanguage, setModalLanguage] = useState(language);
 
   // ✏️ Editar perfil
   const handleEditProfile = () => {
     setModalOwnerName(ownerName);
+    setModalPassword("");
     setModalTimezone(timezone);
-    setModalLanguage(language);
     setIsProfileModalOpen(true);
   };
 
@@ -54,17 +57,20 @@ export function useConfiguracion() {
       return;
     }
     setOwnerName(modalOwnerName.trim());
-    setLanguage(modalLanguage);
+    if (modalPassword.trim()) {
+      setOwnerPassword(modalPassword.trim());
+    }
     setTimezone(modalTimezone);
     setIsProfileModalOpen(false);
   };
 
-  // 🔁 Flujo del registro paso a paso
+  // 📝 Flujo del registro paso a paso
   const [currentStep, setCurrentStep] = useState(1);
   const [newMember, setNewMember] = useState({
     username: "",
     password: "",
     confirmPassword: "",
+    isAdmin: false,
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [voiceConfirmed, setVoiceConfirmed] = useState(false);
@@ -72,12 +78,8 @@ export function useConfiguracion() {
 
   // ✅ Validación de usuario y contraseña
   const handleAccountStep = () => {
-    if (!newMember.username || !newMember.password || !newMember.confirmPassword) {
+    if (!newMember.username || !newMember.password) {
       setErrorMessage("Completa todos los campos.");
-      return;
-    }
-    if (newMember.password !== newMember.confirmPassword) {
-      setErrorMessage("Las contraseñas no coinciden.");
       return;
     }
     setErrorMessage("");
@@ -86,7 +88,7 @@ export function useConfiguracion() {
     }, 400);
   };
 
-  // 🎙 Reconocimiento de voz (Paso 2) - Frase natural
+  // 🎙️ Reconocimiento de voz mejorado - Frase natural
   const handleVoiceRecognitionEnhanced = () => {
     const SpeechRecognitionClass =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -112,7 +114,7 @@ export function useConfiguracion() {
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript.trim();
       setTranscript(result);
-      setStatusMessage("🔎 Procesando voz...");
+      setStatusMessage("🔄 Procesando voz...");
 
       const lower = result.toLowerCase();
       if (lower.includes("murphy") && lower.includes("soy parte del hogar")) {
@@ -140,10 +142,66 @@ export function useConfiguracion() {
     recognition.start();
   };
 
+  // 🎙️ Cambiar voz del propietario
+  const handleChangeVoice = () => {
+    const SpeechRecognitionClass =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      alert("Tu navegador no soporta reconocimiento de voz.");
+      return;
+    }
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.lang = "es-ES";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setTranscript("");
+      setStatusMessage(
+        "🎙️ Escuchando... Di la frase: 'Murphy soy parte del hogar' para cambiar tu voz."
+      );
+    };
+
+    recognition.onresult = (event: any) => {
+      const result = event.results[0][0].transcript.trim();
+      setTranscript(result);
+      setStatusMessage("🔄 Procesando voz...");
+
+      const lower = result.toLowerCase();
+      if (lower.includes("murphy") && lower.includes("soy parte del hogar")) {
+        setStatusMessage(`✅ Voz actualizada correctamente: "${result}"`);
+      } else {
+        setStatusMessage(
+          "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+        );
+      }
+    };
+
+    recognition.onerror = () => {
+      setStatusMessage("⚠️ Ocurrió un error con el reconocimiento de voz.");
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
   // 📸 Simulación de reconocimiento facial
   const handleFaceDetection = () => {
     setFaceDetected(true);
     setStatusMessage("✅ Rostro detectado correctamente.");
+  };
+
+  // 📸 Cambiar rostro del propietario
+  const handleChangeFace = () => {
+    setFaceDetected(true);
+    setStatusMessage("✅ Rostro actualizado correctamente.");
   };
 
   // 🎯 Finalizar registro
@@ -151,8 +209,11 @@ export function useConfiguracion() {
     const nuevoMiembro: FamilyMember = {
       id: Date.now().toString(),
       name: newMember.username,
-      role: "Familiar",
-      privileges: { controlDevices: false, viewCamera: false },
+      role: newMember.isAdmin ? "Administrador" : "Familiar",
+      privileges: { 
+        controlDevices: newMember.isAdmin, 
+        viewCamera: true 
+      },
     };
 
     setMembers((prev) => [...prev, nuevoMiembro]);
@@ -161,12 +222,14 @@ export function useConfiguracion() {
     setCurrentStep(1);
     setVoiceConfirmed(false);
     setFaceDetected(false);
-    setNewMember({ username: "", password: "", confirmPassword: "" });
+    setNewMember({ username: "", password: "", confirmPassword: "", isAdmin: false });
   };
 
   return {
     ownerName,
     setOwnerName,
+    ownerPassword,
+    setOwnerPassword,
     language,
     setLanguage,
     timezone,
@@ -178,12 +241,16 @@ export function useConfiguracion() {
 
     isProfileModalOpen,
     setIsProfileModalOpen,
+    changeVoiceModalOpen,
+    setChangeVoiceModalOpen,
+    changeFaceModalOpen,
+    setChangeFaceModalOpen,
     modalOwnerName,
     setModalOwnerName,
+    modalPassword,
+    setModalPassword,
     modalTimezone,
     setModalTimezone,
-    modalLanguage,
-    setModalLanguage,
 
     isAddMemberModalOpen,
     setIsAddMemberModalOpen,
@@ -194,6 +261,10 @@ export function useConfiguracion() {
     // funciones perfil
     handleEditProfile,
     handleSaveProfile,
+
+    // funciones cambiar voz y rostro
+    handleChangeVoice,
+    handleChangeFace,
 
     // flujo registro
     currentStep,

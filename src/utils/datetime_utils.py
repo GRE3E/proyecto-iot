@@ -1,6 +1,9 @@
 import datetime
 import pytz
 import locale
+import logging
+
+logger = logging.getLogger("DateTimeUtils")
 
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
@@ -18,7 +21,7 @@ def get_current_datetime(timezone_str: str = 'UTC') -> datetime.datetime:
         tz = pytz.timezone(timezone_str)
         return datetime.datetime.now(tz)
     except pytz.exceptions.UnknownTimeZoneError:
-        print(f"Advertencia: Zona horaria desconocida '{timezone_str}'. Usando UTC por defecto.")
+        logger.warning("Zona horaria desconocida '{timezone_str}'. Usando UTC por defecto.")
         return datetime.datetime.now(pytz.utc)
 
 def format_datetime(dt: datetime.datetime, format_str: str = '%Y-%m-%d %H:%M:%S %Z%z') -> str:

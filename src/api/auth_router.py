@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordRequestForm
 import logging
 from src.db.database import get_db
@@ -6,6 +6,7 @@ from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
 from src.auth.device_auth import get_device_api_key
 from .auth_schemas import UserRegister, TokenRefresh, OwnerRegister
+from src.auth.voice_auth_recovery import voice_password_recovery
 
 logger = logging.getLogger("APIRoutes")
 
@@ -89,4 +90,21 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Error al obtener perfil de usuario: {e}")
         raise
+
+@router.post("/voice-password-recovery", status_code=status.HTTP_200_OK)
+async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), new_password: str = Form(...)):
+    """
+    Inicia el proceso de recuperación de contraseña por voz.
+    """
+    try:
+        audio_content = await audio_file.read()
+        success = await voice_password_recovery(audio_content, new_password)
+        if success:
+            logger.info(f"Recuperación de contraseña por voz exitosa.")
+            return {"message": "Contraseña actualizada exitosamente."}
+        else:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hablante no identificado o error al actualizar la contraseña.")
+    except Exception as e:
+        logger.error(f"Error en la recuperación de contraseña por voz: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
     

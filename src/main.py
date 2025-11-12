@@ -17,6 +17,7 @@ from src.api.utils import (
 from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
 from src.ai.nlp.config_manager import ConfigManager
+from src.auth.default_owner_init import init_default_owner_startup
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RC_DIR = os.path.join(BASE_DIR, "src", "rc")
@@ -47,6 +48,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# La creación del usuario por defecto se invoca explícitamente tras crear las tablas
+
 @app.on_event("startup")
 @ErrorHandler.handle_async_exceptions
 async def startup_event() -> None:
@@ -57,6 +60,8 @@ async def startup_event() -> None:
     logger.info(f"Configuración cargada: {config}")
 
     await create_all_tables()
+    # Crear usuario owner por defecto tras crear la BD/tables en el primer arranque
+    await init_default_owner_startup()
 
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     await initialize_all_modules(config_manager=config_manager, ollama_host=ollama_host)

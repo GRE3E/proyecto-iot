@@ -124,7 +124,7 @@ export default function GestionDispositivos() {
       </div>
 
       {/* Contenido de pestañas */}
-      <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6 px-3 sm:px-4 md:px-6">
+      <div className="space-y-5 sm:space-y-6 md:space-y-7 xl:space-y-0 mt-4 sm:mt-5 md:mt-6 px-3 sm:px-4 md:px-6">
         <AnimatePresence mode="wait">
           {activeTab === "control" && (
             <motion.div
@@ -137,9 +137,9 @@ export default function GestionDispositivos() {
               aria-hidden={activeTab !== "control"}
             >
               {/* Filtros */}
-              <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-start sm:justify-between gap-2 sm:gap-3 pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
+              <div className="mb-5 sm:mb-6 xl:mb-0 flex flex-col xl:flex-row md:grid md:grid-cols-[1fr_1fr_1.25fr] md:grid-rows-2 lg:grid lg:grid-cols-[1fr_1fr_1.35fr] lg:grid-rows-2 items-stretch sm:items-center md:items-stretch xl:items-start justify-start xl:justify-between gap-2 sm:gap-3 pb-2 xl:pb-0 -mx-3 px-3 sm:mx-0 sm:px-0 md:mx-0 md:px-6 lg:mx-0 lg:px-6">
                 {/* Filtros de tipo */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 sm:justify-items-start sm:justify-start gap-1 sm:gap-2 pb-2 sm:pb-0 w-full sm:w-auto sm:max-w-fit">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 justify-items-start justify-start gap-1 sm:gap-2 md:gap-1 lg:gap-1 pb-0 w-full md:w-full lg:w-full xl:w-auto md:flex-1 md:min-w-0 lg:flex-1 lg:min-w-0 xl:max-w-fit md:col-span-2 md:row-span-2 xl:self-start">
                   {[
                     { name: "Todos", icon: Filter, type: null, color: "purple" },
                     { name: "Luz", icon: Lightbulb, type: "luz", color: "yellow" },
@@ -149,7 +149,7 @@ export default function GestionDispositivos() {
                     <motion.button
                       key={btn.type}
                       onClick={() => setDeviceTypeFilter(btn.type)}
-                      className={`w-full min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base border ${
+                      className={`w-full sm:w-full md:w-40 lg:w-40 xl:w-40 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-6 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm sm:text-base border ${
                         deviceTypeFilter === btn.type
                           ? `bg-gradient-to-r ${
                               btn.color === "yellow"
@@ -173,7 +173,7 @@ export default function GestionDispositivos() {
                 </div>
 
                 {/* Filtros de estado */}
-                <div className="flex w-full sm:w-auto items-center gap-2 sm:gap-3 justify-between sm:justify-end mt-1 sm:mt-0 sm:self-center">
+                <div className="flex w-full sm:w-auto md:w-full lg:w-full xl:w-auto items-center gap-2 sm:gap-3 justify-between md:justify-start lg:justify-end xl:justify-end mt-0 md:flex-col md:gap-1 lg:gap-1 md:col-span-1 md:row-span-2 xl:flex-row xl:gap-3 xl:col-auto xl:row-auto xl:self-start">
                   {[
                     { name: "Encendidos", icon: CheckCircle, color: "green" },
                     { name: "Apagados", icon: XCircle, color: "red" },
@@ -187,7 +187,7 @@ export default function GestionDispositivos() {
                           setFilter(f.name)
                         }
                       }}
-                      className={`flex-1 sm:flex-none w-full sm:w-auto min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
+                      className={`flex-1 sm:flex-none w-full sm:w-auto xl:w-40 min-h-[52px] sm:min-h-[48px] px-5 sm:px-6 md:px-7 py-3 sm:py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 text-sm sm:text-base whitespace-nowrap ${
                         filter === f.name
                           ? `bg-gradient-to-r ${f.color === "green" ? "from-green-600 to-emerald-600" : "from-red-600 to-rose-600"} text-white shadow-lg shadow-${f.color}-500/30`
                           : "bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40"

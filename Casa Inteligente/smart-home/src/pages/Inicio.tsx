@@ -6,6 +6,7 @@ import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget"
 import SimpleCard from "../components/UI/Card"
 import { generateSparklinePoints, donutParams } from "../utils/chatUtils"
 import MiniChat from "../components/widgets/MiniChat"
+import { useZonaHoraria } from "../hooks/useZonaHoraria"
 
 interface Device {
   name: string
@@ -29,6 +30,8 @@ export default function Inicio({
   energyUsage?: number
   devices?: Device[]
 } = {}) {
+  const { selectedTimezone } = useZonaHoraria()
+
   const sparkPoints = generateSparklinePoints([110, 130, 125, 140, 155, 150, energyUsage])
   const tempSparkPoints = generateSparklinePoints([18, 20, 22, 24, temperature])
   const humiditySparkPoints = generateSparklinePoints([40, 42, 43, 44, humidity])
@@ -53,6 +56,8 @@ export default function Inicio({
         title="Bienvenido"
         icon={<Home className="w-8 md:w-10 h-8 md:h-10 text-white" />}
       />
+
+
 
       {/* Reloj Inteligente */}
       <div className="mb-6 md:mb-10">

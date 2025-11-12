@@ -119,7 +119,7 @@ class UserManager:
         """
         logger.debug(f"Buscando en la memoria del usuario {user_id} con la consulta: {query}")
         
-        from src.ai.nlp.memory_manager import MemoryManager
+        from src.ai.nlp.memory_brain.memory_manager import MemoryManager
         memory_manager = MemoryManager()
         return await memory_manager.search_conversation_logs(db, user_id, query, limit=5)
 
@@ -256,3 +256,4 @@ class UserManager:
             logger.error(f"Error al cambiar el nombre: {e}")
             await db.rollback()
             return None
+            

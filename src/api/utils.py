@@ -149,6 +149,7 @@ async def initialize_all_modules(config_manager: ConfigManager, ollama_host: str
     
     if _nlp_module:
         await _set_nlp_iot_managers()
+        await _nlp_module.start() # Iniciar el RoutineScheduler
         
     logger.info("Módulos inicializados según la configuración.")
 

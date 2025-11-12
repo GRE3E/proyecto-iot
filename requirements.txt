@@ -40,6 +40,7 @@ python-multipart
 python-dotenv
 paho-mqtt
 ollama==0.1.5
+pytest==8.0.0
 
 # ====== VALIDACIÓN / CONFIGURACIÓN / UTILIDADES ======
 pydantic==2.6.1

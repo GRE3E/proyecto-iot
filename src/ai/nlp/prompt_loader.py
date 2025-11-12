@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 logger = logging.getLogger("PromptLoader")
 
@@ -13,22 +13,25 @@ except ImportError:
 
 YAML_PATH = os.path.join(os.path.dirname(__file__), "system_prompt.yaml")
 
-def load_system_prompt_template() -> str:
+def load_system_prompt_template() -> Dict[str, str]:
     """
     Carga el template del system prompt desde YAML si está disponible,
     o desde el módulo Python como fallback.
     """
-    yaml_template = _load_from_yaml()
-    if yaml_template:
+    yaml_data = _load_from_yaml()
+    if yaml_data:
         logger.info("System prompt cargado desde YAML (estructura modular).")
-        return yaml_template
+        return yaml_data
 
     logger.info("Usando fallback: system prompt desde módulo Python.")
     from src.ai.nlp.system_prompt import SYSTEM_PROMPT_TEMPLATE
-    return SYSTEM_PROMPT_TEMPLATE
+    return {
+        "template": SYSTEM_PROMPT_TEMPLATE,
+        "routine_creation_instructions": "" # Fallback for routine creation instructions
+    }
 
 
-def _load_from_yaml() -> Optional[str]:
+def _load_from_yaml() -> Optional[Dict[str, str]]:
     """
     Intenta cargar y ensamblar el template desde el archivo YAML modular.
     """
@@ -57,10 +60,21 @@ def _load_from_yaml() -> Optional[str]:
             "golden_rule",
             "intent_detection",
             "device_context",
-            "examples"
+            "scheduled_routines_header",
+            "routine_creation_instructions_content"
         ]
 
-        combined_parts = [sections[k] for k in ordered_keys if k in sections]
+        combined_parts = []
+        routine_creation_instructions_content = ""
+
+        for k in ordered_keys:
+            if k in sections:
+                combined_parts.append(sections[k])
+                if k == "scheduled_routines_header":
+                    combined_parts.append("{scheduled_routines_info}")
+                elif k == "routine_creation_instructions_content":
+                    routine_creation_instructions_content = sections[k] # Store the content
+                    combined_parts.append("{routine_creation_instructions}")
 
         # Incluir cualquier otra sección que exista en el YAML y no esté en ordered_keys
         for key, value in sections.items():
@@ -73,7 +87,10 @@ def _load_from_yaml() -> Optional[str]:
         if footer:
             combined_prompt += f"\n\n{footer}"
 
-        return combined_prompt.strip()
+        return {
+            "template": combined_prompt.strip(),
+            "routine_creation_instructions": routine_creation_instructions_content
+        }
 
     except Exception as e:
         logger.error(f"Error al cargar o parsear system_prompt.yaml: {e}")

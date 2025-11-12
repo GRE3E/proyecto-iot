@@ -696,6 +696,79 @@ The following endpoints are available for managing IoT devices and commands:
 
 The following endpoints are available for Natural Language Processing (NLP) functionalities:
 
+
+#### `GET /memory/status`
+
+- **URL**: `/memory/status`
+- **Method**: `GET`
+- **Description**: Checks the current status of the MemoryBrain, including whether it's active and its last activity timestamp.
+- **Response**:
+  ```json
+  {
+    "status": "active",
+    "last_activity": "2024-01-01T12:00:00Z"
+  }
+  ```
+
+#### `GET /memory/patterns`
+
+- **URL**: `/memory/patterns`
+- **Method**: `GET`
+- **Description**: Retrieves a list of learned behavior patterns and suggested routines from the MemoryBrain.
+- **Response**:
+  ```json
+  [
+    {
+      "pattern_id": "string",
+      "description": "string",
+      "suggested_routine": "string",
+      "confidence": 0.95
+    }
+  ]
+  ```
+
+#### `POST /memory/routine/{routine_id}/confirm`
+
+- **URL**: `/memory/routine/{routine_id}/confirm`
+- **Method**: `POST`
+- **Description**: Confirms and activates a suggested routine identified by the MemoryBrain.
+- **Path Parameters**:
+  - `routine_id`: The ID of the routine to confirm. (string)
+- **Response**:
+  ```json
+  {
+    "message": "Routine {routine_id} confirmed and activated."
+  }
+  ```
+
+#### `POST /memory/routine/{routine_id}/reject`
+
+- **URL**: `/memory/routine/{routine_id}/reject`
+- **Method**: `POST`
+- **Description**: Rejects and dismisses a suggested routine identified by the MemoryBrain.
+- **Path Parameters**:
+  - `routine_id`: The ID of the routine to reject. (string)
+- **Response**:
+  ```json
+  {
+    "message": "Routine {routine_id} rejected."
+  }
+  ```
+
+#### `POST /memory/routine/{routine_id}/delete`
+
+- **URL**: `/memory/routine/{routine_id}/delete`
+- **Method**: `POST`
+- **Description**: Deletes an active routine from the MemoryBrain.
+- **Path Parameters**:
+  - `routine_id`: The ID of the routine to delete. (string)
+- **Response**:
+  ```json
+  {
+    "message": "Routine {routine_id} deleted."
+  }
+  ```
+
 #### `POST /nlp/query`
 
 - **URL**: `/nlp/query`

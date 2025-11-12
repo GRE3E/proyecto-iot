@@ -56,7 +56,9 @@ def create_system_prompt(
     user_preferences_dict: dict,
     prompt: str,
     system_prompt_template: str,
-    conversation_history: str = ""
+    conversation_history: str = "",
+    scheduled_routines_info: str = "",
+    routine_creation_instructions: str = ""
 ) -> tuple[str, str]:
     """
     Crea el system_prompt y el prompt_text para Ollama.
@@ -91,22 +93,22 @@ def create_system_prompt(
 
     # Preparar valores para formateo
     format_dict = {
-        "assistant_name": config.get("assistant_name", "Asistente"),
-        "language": config.get("language", "español"),
-        "capabilities": capabilities_str,
-        "iot_commands": formatted_iot_commands or "No hay comandos IoT disponibles",
+        "assistant_name": config["assistant_name"],
+        "language": config["language"],
+        "iot_commands": formatted_iot_commands,
+        "iot_command_names": ", ".join(iot_command_names),
+        "identified_speaker": user_name,
+        "current_date": datetime.now().strftime("%Y-%m-%d"),
+        "current_time": datetime.now().strftime("%H:%M"),
+        "user_preferences": _safe_format_value(user_preferences_dict),
+        "conversation_history": conversation_history,
+        "scheduled_routines_info": scheduled_routines_info,
+        "routine_creation_instructions": routine_creation_instructions,
         "last_interaction": last_interaction_value,
-        "device_states": _safe_format_value(device_states_value),
-        "user_preferences": _safe_format_value(user_preferences_dict or {}),
-        "identified_speaker": user_name if user_name else "Desconocido",
-        "is_owner": str(is_owner).lower(),
-        "user_permissions": _safe_format_value(user_permissions_str or "Sin permisos asignados"),
-        "current_date": current_date_formatted,
-        "current_time": current_time_formatted,
-        "current_timezone": timezone_str,
-        "search_results": _safe_format_value(search_results_str or "Sin resultados de búsqueda"),
-        "current_country": current_country,
-        "conversation_history": conversation_history or "Sin historial previo",
+        "device_states": device_states_value,
+        "search_results": search_results_str,
+        "user_permissions": user_permissions_str,
+        "is_owner": str(is_owner).lower()
     }
 
     try:

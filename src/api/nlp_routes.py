@@ -21,11 +21,8 @@ async def query_nlp(
     if not token:
         raise HTTPException(status_code=401, detail="Token de autorización no proporcionado.")
     
-    # Eliminar el prefijo "Bearer " si está presente
     if token.startswith("Bearer "):
         token = token.split(" ")[1]
-
-    """Procesa una consulta NLP y devuelve la respuesta generada."""
 
     try:
         response = await utils._nlp_module.generate_response(
@@ -47,7 +44,7 @@ async def query_nlp(
             user_id=current_user.id,
         )
 
-        logger.info(f"Consulta NLP procesada exitosamente. Respuesta completa: {response_obj.dict()}")
+        logger.info("Consulta NLP procesada exitosamente.")
 
         async with get_db() as db:
             try:
@@ -60,7 +57,7 @@ async def query_nlp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error inesperado en consulta NLP para /nlp/query: {e}", exc_info=True)
+        logger.error(f"Error inesperado en consulta NLP: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al procesar la consulta NLP: {str(e)}")
 
 @nlp_router.put("/config/assistant-name", response_model=StatusResponse)
@@ -68,7 +65,7 @@ async def update_assistant_name(update: AssistantNameUpdate):
     """Actualiza el nombre del asistente en la configuración."""
     try:
         await utils._nlp_module.update_assistant_name(update.name)
-        logger.info(f"Nombre del asistente actualizado exitosamente a '{update.name}' para /config/assistant-name.")
+        logger.info(f"Nombre del asistente actualizado exitosamente a '{update.name}'")
 
         response_data = utils.get_module_status()
         async with get_db() as db:
@@ -76,7 +73,7 @@ async def update_assistant_name(update: AssistantNameUpdate):
         return response_data
 
     except Exception as e:
-        logger.error(f"Error al actualizar nombre del asistente para /config/assistant-name: {e}")
+        logger.error(f"Error al actualizar nombre del asistente: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar el nombre del asistente: {str(e)}")
 
 @nlp_router.put("/config/capabilities", response_model=StatusResponse)
@@ -84,7 +81,7 @@ async def update_capabilities(update: CapabilitiesUpdate):
     """Actualiza las capacidades del asistente en la configuración."""
     try:
         await utils._nlp_module.update_capabilities(update.capabilities)
-        logger.info("Capacidades del asistente actualizadas exitosamente para /config/capabilities.")
+        logger.info("Capacidades del asistente actualizadas exitosamente")
 
         response_data = utils.get_module_status()
         async with get_db() as db:
@@ -92,7 +89,7 @@ async def update_capabilities(update: CapabilitiesUpdate):
         return response_data
 
     except Exception as e:
-        logger.error(f"Error al actualizar capacidades para /config/capabilities: {e}")
+        logger.error(f"Error al actualizar capacidades: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar las capacidades: {str(e)}")
 
 @nlp_router.get("/nlp/history", response_model=ConversationHistoryResponse)
@@ -104,10 +101,11 @@ async def get_user_conversation_history(
     try:
         async with get_db() as db:
             logs = await utils._nlp_module.get_conversation_history(db, current_user.id, limit)
+            
             response_data = ConversationHistoryResponse(history=[
                 ConversationLogEntry(
                     user_message=log.prompt,
-                    assistant_message=log.response
+                    assistant_message=log.response.split("mqtt_publish:")[0].strip()
                 ) for log in logs
             ])
             await utils._save_api_log(
@@ -118,7 +116,7 @@ async def get_user_conversation_history(
             )
             return response_data
     except Exception as e:
-        logger.error(f"Error al recuperar el historial de conversación para el usuario {current_user.id}: {e}", exc_info=True)
+        logger.error(f"Error al recuperar el historial de conversación: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al recuperar el historial de conversación: {str(e)}")
 
 @nlp_router.delete("/nlp/history", response_model=MessageResponse)
@@ -138,7 +136,7 @@ async def delete_user_conversation_history(
             )
             return response_obj
     except Exception as e:
-        logger.error(f"Error al eliminar el historial de conversación para el usuario {current_user.id}: {e}", exc_info=True)
+        logger.error(f"Error al eliminar el historial: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al eliminar el historial de conversación: {str(e)}")
 
 @nlp_router.delete("/nlp/history/{user_id}", response_model=MessageResponse)
@@ -164,5 +162,200 @@ async def delete_conversation_history_by_user_id(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al eliminar el historial de conversación para el usuario {user_id}: {e}", exc_info=True)
+        logger.error(f"Error al eliminar el historial: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al eliminar el historial de conversación: {str(e)}")
+
+
+# ============================================================================
+# NUEVOS ENDPOINTS PARA MEMORY BRAIN
+# ============================================================================
+
+@nlp_router.get("/memory/status", response_model=dict)
+async def get_memory_brain_status(
+    current_user: User = Depends(get_current_user)
+):
+    """NUEVO: Obtiene estado de Memory Brain del usuario"""
+    try:
+        if not utils._nlp_module:
+            raise HTTPException(status_code=503, detail="NLP Module no disponible")
+        
+        if not utils._nlp_module._memory_brain:
+            raise HTTPException(status_code=503, detail="Memory Brain no inicializado")
+        
+        status = await utils._nlp_module.get_memory_brain_status(current_user.id)
+        logger.info(f"Status Memory Brain obtenido para usuario {current_user.id}")
+        
+        async with get_db() as db:
+            await utils._save_api_log(
+                "/memory/status",
+                {"user_id": current_user.id},
+                status,
+                db
+            )
+        
+        return status
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo Memory Brain status: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener Memory Brain status")
+
+
+@nlp_router.get("/memory/patterns", response_model=dict)
+async def get_user_patterns(
+    current_user: User = Depends(get_current_user)
+):
+    """NUEVO: Obtiene patrones detectados en comportamiento del usuario"""
+    try:
+        if not utils._nlp_module:
+            raise HTTPException(status_code=503, detail="NLP Module no disponible")
+        
+        if not utils._nlp_module._memory_brain:
+            raise HTTPException(status_code=503, detail="Memory Brain no inicializado")
+
+        patterns = utils._nlp_module._memory_brain.analyze_user(current_user.id)
+        logger.info(f"Patrones obtenidos para usuario {current_user.id}")
+        
+        async with get_db() as db:
+            await utils._save_api_log(
+                "/memory/patterns",
+                {"user_id": current_user.id},
+                patterns,
+                db
+            )
+        
+        return patterns
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo patrones: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener patrones")
+
+
+@nlp_router.post("/memory/routine/{routine_id}/confirm", response_model=dict)
+async def confirm_routine(
+    routine_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """NUEVO: Confirma una rutina sugerida"""
+    try:
+        if not utils._nlp_module:
+            raise HTTPException(status_code=503, detail="NLP Module no disponible")
+        
+        if not utils._nlp_module._memory_brain:
+            raise HTTPException(status_code=503, detail="Memory Brain no inicializado")
+
+        routine = utils._nlp_module._memory_brain.routine_manager.confirm_routine(routine_id)
+        if not routine:
+            raise HTTPException(status_code=404, detail="Rutina no encontrada")
+
+        if routine.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="No tiene permiso para confirmar esta rutina")
+
+        logger.info(f"Rutina confirmada: {routine_id} por usuario {current_user.id}")
+        
+        response_obj = {
+            "message": f"✅ Rutina confirmada: {routine.name}",
+            "routine": routine.to_dict()
+        }
+        
+        async with get_db() as db:
+            await utils._save_api_log(
+                f"/memory/routine/{routine_id}/confirm",
+                {"routine_id": routine_id},
+                response_obj,
+                db
+            )
+        
+        return response_obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirmando rutina: {e}")
+        raise HTTPException(status_code=500, detail="Error al confirmar rutina")
+
+
+@nlp_router.post("/memory/routine/{routine_id}/reject", response_model=dict)
+async def reject_routine(
+    routine_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """NUEVO: Rechaza una rutina sugerida"""
+    try:
+        if not utils._nlp_module:
+            raise HTTPException(status_code=503, detail="NLP Module no disponible")
+        
+        if not utils._nlp_module._memory_brain:
+            raise HTTPException(status_code=503, detail="Memory Brain no inicializado")
+
+        routine_manager = utils._nlp_module._memory_brain.routine_manager
+        routine = routine_manager.routines.get(routine_id)
+
+        if not routine:
+            raise HTTPException(status_code=404, detail="Rutina no encontrada")
+
+        if routine.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="No tiene permiso para rechazar esta rutina")
+
+        routine_manager.reject_routine(routine_id)
+        logger.info(f"Rutina rechazada: {routine_id} por usuario {current_user.id}")
+        
+        response_obj = {"message": "❌ Rutina rechazada y eliminada"}
+        
+        async with get_db() as db:
+            await utils._save_api_log(
+                f"/memory/routine/{routine_id}/reject",
+                {"routine_id": routine_id},
+                response_obj,
+                db
+            )
+        
+        return response_obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rechazando rutina: {e}")
+        raise HTTPException(status_code=500, detail="Error al rechazar rutina")
+
+
+@nlp_router.post("/memory/routine/{routine_id}/delete", response_model=dict)
+async def delete_routine(
+    routine_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """NUEVO: Elimina una rutina confirmada"""
+    try:
+        if not utils._nlp_module:
+            raise HTTPException(status_code=503, detail="NLP Module no disponible")
+        
+        if not utils._nlp_module._memory_brain:
+            raise HTTPException(status_code=503, detail="Memory Brain no inicializado")
+
+        routine_manager = utils._nlp_module._memory_brain.routine_manager
+        routine = routine_manager.routines.get(routine_id)
+
+        if not routine:
+            raise HTTPException(status_code=404, detail="Rutina no encontrada")
+
+        if routine.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="No tiene permiso para eliminar esta rutina")
+
+        routine_manager.reject_routine(routine_id)
+        logger.info(f"Rutina eliminada: {routine_id} por usuario {current_user.id}")
+        
+        response_obj = {"message": "🗑️ Rutina eliminada correctamente"}
+        
+        async with get_db() as db:
+            await utils._save_api_log(
+                f"/memory/routine/{routine_id}/delete",
+                {"routine_id": routine_id},
+                response_obj,
+                db
+            )
+        
+        return response_obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error eliminando rutina: {e}")
+        raise HTTPException(status_code=500, detail="Error al eliminar rutina")

@@ -68,21 +68,13 @@ sections:
 
     NOTA: Solo preguntas porque REALMENTE existen 2 opciones en la lista
 
-    EJEMPLO 3: CONTEO = 3 (PREGUNTA)
-    Usuario: "Enciende la luz de la cocina"
-    BUSCA: "cocina"
-    CUENTA: 3 comandos -> "Encender Luz Cocina", "Encender Luz Cocina Barra", "Encender Luz Cocina Isla"
-    RESPUESTA: "Que zona de la cocina deseas? General, barra o isla?"
-
-    NOTA: Solo preguntas porque REALMENTE existen 3 opciones en la lista
-
-    EJEMPLO 4: CONTEO = 1 (EJECUTA INMEDIATAMENTE)
+    EJEMPLO 3: CONTEO = 1 (EJECUTA INMEDIATAMENTE)
     Usuario: "Enciende la luz del garaje"
     BUSCA: "garaje"
     CUENTA: 1 comando -> "Encender Luz Garaje"
     RESPUESTA: "Claro, encendiendo la luz del garaje. mqtt_publish:iot/lights/LIGHT_GARAJE/command,ON"
 
-    EJEMPLO 5: CONTEO_TIPO_DISPOSITIVO >= 2 (PREGUNTA POR UBICACIÓN)
+    EJEMPLO 4: CONTEO_TIPO_DISPOSITIVO >= 2 (PREGUNTA POR UBICACIÓN)
     Usuario: "Prende la luz"
     BUSCA: "luz" (tipo de dispositivo), NO se encuentra ubicación específica.
     CUENTA: Múltiples comandos de luz (ej. Sala, Habitación Principal, Habitación Invitados)
@@ -128,6 +120,15 @@ sections:
     - Usuario: {identified_speaker}
     - Fecha: {current_date}
     - Hora: {current_time}
+
+  scheduled_routines_header: |
+    RUTINAS AUTOMATICAS PROGRAMADAS:
+
+  routine_creation_instructions_content: |
+    Si el usuario solicita crear una nueva rutina, tu respuesta DEBE seguir estrictamente el siguiente formato:
+    crear rutina: [nombre de la rutina]; disparador: [condición de disparo, ej. "todos los días a las 6am"]; acciones: [lista de acciones separadas por comas, ej. "mqtt_publish:iot/lights/LIGHT_SALA/command,ON", "mqtt_publish:iot/lights/LIGHT_COCINA/command,OFF"]
+    Ejemplo: crear rutina: Despertar; disparador: todos los días a las 7am; acciones: mqtt_publish:iot/lights/LIGHT_HABITACION/command,ON, mqtt_publish:iot/music/PLAY/command,SUAVE
+    Asegúrate de que el nombre de la rutina sea descriptivo y que las acciones sean comandos IoT válidos en el formato mqtt_publish:topic,payload.
 
 footer: |
   INSTRUCCIONES FINALES:

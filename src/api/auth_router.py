@@ -31,7 +31,7 @@ async def register(user: UserRegister):
         raise
 
 @router.post("/register-owner", status_code=status.HTTP_201_CREATED)
-async def register_owner(user: OwnerRegister, api_key: str = Depends(get_device_api_key)):
+async def register_owner(user: OwnerRegister, api_key: str =  Depends(get_current_user)):
     """
     Registra un nuevo usuario propietario en el sistema (protegido por API Key).
     """
@@ -90,6 +90,19 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Error al obtener perfil de usuario: {e}")
         raise
+
+@router.get("/owners", response_model=list[str], dependencies=[Depends(get_current_user)])
+async def list_owners():
+    """Retorna solo los nombres de usuario de los propietarios."""
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            owners_data = await auth_service.get_owner_users()
+            usernames = [o["username"] for o in owners_data]
+            return usernames
+    except Exception as e:
+        logger.error(f"Error al listar propietarios: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al listar propietarios")
 
 @router.post("/voice-password-recovery", status_code=status.HTTP_200_OK)
 async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), new_password: str = Form(...)):

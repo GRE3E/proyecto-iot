@@ -18,11 +18,11 @@
     "administrar_comandos_iot"
   ],
   "modules": {
-    "nlp": true,
+    "nlp": false,
     "stt": false,
     "speaker": false,
     "hotword": false,
-    "mqtt": true,
+    "mqtt": false,
     "tts": false,
     "face_recognition": false
   },

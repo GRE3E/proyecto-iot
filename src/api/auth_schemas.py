@@ -20,4 +20,15 @@ class OwnerRegister(BaseModel):
     username: str
     password: str
     is_owner: bool = True
+
+class OwnerSummary(BaseModel):
+    """Resumen de usuario propietario."""
+    id: int
+    username: str
+    is_owner: bool = True
+
+class OwnerListResponse(BaseModel):
+    """Respuesta para la lista de propietarios."""
+    owner_count: int
+    owners: list[OwnerSummary]
     

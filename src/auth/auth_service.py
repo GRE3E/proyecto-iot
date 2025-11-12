@@ -212,6 +212,22 @@ class AuthService:
             "is_owner": user.is_owner
         }
 
+    async def get_owner_users(self) -> list[dict]:
+        """
+        Obtiene la lista de usuarios que son propietarios.
+
+        Returns:
+            list[dict]: Lista con dicts {id, username, is_owner} de propietarios.
+        """
+        logger.info("Obteniendo lista de usuarios propietarios")
+        result = await self.db.execute(select(User).filter(User.is_owner == True))
+        owners = result.scalars().all()
+        logger.debug(f"Se encontraron {len(owners)} usuarios propietarios")
+        return [
+            {"id": u.id, "username": u.nombre, "is_owner": u.is_owner}
+            for u in owners
+        ]
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
     logger.debug("Intentando obtener usuario actual desde el token.")

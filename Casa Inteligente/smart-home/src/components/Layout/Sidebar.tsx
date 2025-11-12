@@ -1,4 +1,4 @@
-// Sidebar.tsx - Menú Hamburguesa Original Funcional
+// Menú Hamburguesa
 "use client"
 import { useEffect, useRef, useState } from "react"
 import { Home, LogOut } from "lucide-react"
@@ -25,6 +25,8 @@ export default function HamburgerMenu({
 }: HamburgerMenuProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
   const [transitionItem, setTransitionItem] = useState<{ name: string; icon: any } | null>(null)
+  const [buttonTranslate, setButtonTranslate] = useState(0)
+  const [lastScrollY, setLastScrollY] = useState(0)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -43,6 +45,29 @@ export default function HamburgerMenu({
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [isSidebarOpen, setIsSidebarOpen])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const difference = currentScrollY - lastScrollY
+
+      // Solo en mobile
+      if (window.innerWidth < 768) {
+        if (difference > 0) {
+          setButtonTranslate((prev) => Math.min(prev + difference, 100))
+        } else {
+          setButtonTranslate((prev) => Math.max(prev + difference, 0))
+        }
+      } else {
+        setButtonTranslate(0)
+      }
+
+      setLastScrollY(currentScrollY)
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [lastScrollY])
 
   const handleSelect = (menu: { name: string; icon: any }) => {
     setTransitionItem(menu)
@@ -67,7 +92,12 @@ export default function HamburgerMenu({
 
       {/* Botón flotante MOBILE - TOP LEFT */}
       {!isSidebarOpen && (
-        <div className="md:hidden fixed top-12 left-4 z-50">
+        <div
+          className="md:hidden fixed top-7 left-4 z-50 transition-transform duration-200 ease-out"
+          style={{
+            transform: `translateY(${buttonTranslate}px)`,
+          }}
+        >
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Abrir menú"

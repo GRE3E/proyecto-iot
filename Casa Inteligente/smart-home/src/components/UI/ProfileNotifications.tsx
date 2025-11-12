@@ -1,19 +1,19 @@
-import { Bell} from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import { useNotifications } from "../../hooks/useNotification";
-import { initialNotifications } from "../../utils/notificationsUtils";
+import { Bell } from "lucide-react"
+import { useAuth } from "../../hooks/useAuth"
+import { useNotifications } from "../../hooks/useNotification"
+import { initialNotifications } from "../../utils/notificationsUtils"
 
 interface ProfileNotificationsProps {
-  userName?: string;
+  userName?: string
 }
 
 export default function ProfileNotifications({ userName }: ProfileNotificationsProps) {
-  const { user } = useAuth();
-  const displayUserName = user?.user?.username || userName || "Usuario";
-  const { notifications } = useNotifications(initialNotifications);
+  const { user } = useAuth()
+  const displayUserName = user?.user?.username || userName || "Usuario"
+  const { notifications } = useNotifications(initialNotifications)
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3 md:gap-4 -mt-1 md:-mt-7">
       {/* Usuario */}
       <div className="flex items-center gap-2">
         <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
@@ -32,5 +32,5 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
         </span>
       </div>
     </div>
-  );
+  )
 }

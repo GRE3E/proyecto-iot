@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 from .database import Base
@@ -235,8 +235,10 @@ class DeviceState(Base):
         last_updated (datetime): Marca de tiempo de la última actualización del estado.
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_name = Column(String(100), unique=True, nullable=False)
+    device_name = Column(String(100), nullable=False)
     device_type = Column(String(50), nullable=False)
     state_json = Column(Text, default="{}")
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    __table_args__ = (UniqueConstraint('device_name', 'device_type', name='_device_name_type_uc'),)
     

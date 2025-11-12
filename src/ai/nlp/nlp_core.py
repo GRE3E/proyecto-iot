@@ -94,6 +94,8 @@ class NLPModule:
         
         # Contexto de dispositivo persistente por usuario
         self._user_device_context = {}  # {user_id: UserDeviceContext}
+        self._location_keywords = self._extract_location_keywords(DEVICE_LOCATION_REGEX)
+        self._iot_command_processor = IoTCommandProcessor(self._config, self._location_keywords)
         
         logger.info("NLPModule inicializado.")
 
@@ -114,7 +116,7 @@ class NLPModule:
         if self.mqtt_client:
             await self.mqtt_client.disconnect()
         self.mqtt_client = mqtt_client
-        self._iot_command_processor = IoTCommandProcessor(mqtt_client)
+        self._iot_command_processor = IoTCommandProcessor(mqtt_client, self._extract_location_keywords(DEVICE_LOCATION_REGEX))
         await self._iot_command_processor.initialize(db)
         logger.info("IoT managers configurados en NLPModule.")
 
@@ -211,6 +213,31 @@ class NLPModule:
             return match.group(1).lower()
         return None
     
+    def _extract_location_keywords(self, regex_pattern: re.Pattern) -> list[str]:
+        """Extrae las palabras clave de ubicación de un patrón regex."""
+        match = re.search(r"\((.*?)\)", regex_pattern.pattern)
+        if match:
+            keywords_str = match.group(1)
+            keywords = [kw.strip().lower() for kw in keywords_str.split('|')]
+            return sorted(list(set(keywords)))
+        return []
+    
+    def _extract_location_keywords(self, regex_pattern: re.Pattern) -> list[str]:
+        """Extrae las palabras clave de ubicación de un patrón regex."""
+        match = re.search(r"\((.*?)\)", regex_pattern.pattern)
+        if match:
+            keywords_str = match.group(1)
+            keywords = [kw.strip().lower() for kw in keywords_str.split('|')]
+            return sorted(list(set(keywords)))
+    def _extract_location_keywords(self, regex_pattern: re.Pattern) -> list[str]:
+        """Extrae las palabras clave de ubicación de un patrón regex."""
+        match = re.search(r"\((.*?)\)", regex_pattern.pattern)
+        if match:
+            keywords_str = match.group(1)
+            keywords = [kw.strip().lower() for kw in keywords_str.split('|')]
+            return sorted(list(set(keywords)))
+        return []
+
     def _get_or_create_user_context(self, user_id: int) -> UserDeviceContext:
         """Obtiene o crea el contexto de dispositivo del usuario"""
         if user_id not in self._user_device_context:

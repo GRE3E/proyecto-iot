@@ -53,7 +53,7 @@ def _load_from_yaml() -> Optional[str]:
             "identity",
             "available_commands",
             "the_algorithm",
-            "critical_examples",
+            "examples",
             "golden_rule",
             "intent_detection",
             "device_context",

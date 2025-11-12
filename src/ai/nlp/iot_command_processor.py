@@ -15,11 +15,12 @@ from src.ai.nlp.iot_command_cache import IoTCommandCache
 logger = logging.getLogger("IoTCommandProcessor")
 
 class IoTCommandProcessor:
-    def __init__(self, mqtt_client: MQTTClient):
+    def __init__(self, mqtt_client: MQTTClient, locations: list[str]):
         self._mqtt_client = mqtt_client
         self._command_cache = IoTCommandCache(ttl_seconds=60)
         self._cleanup_task = None
         self._last_parsed_command = None
+        self.locations = locations # Store locations
         
         self._last_command_time = defaultdict(float)
         self._min_interval_seconds = 1.0
@@ -141,14 +142,16 @@ class IoTCommandProcessor:
         self._command_counter[user_id].append(now)
         logger.debug(f"Comando registrado para usuario {user_id} a las {now}")
     
-    def _extract_device_info_from_prompt(self, prompt: str, response: str) -> Tuple[str, str]:
-        """Extrae tipo de dispositivo y ubicacion del prompt y respuesta del LLM."""
+    def _extract_device_info_from_prompt(self, prompt: str, response: str) -> Tuple[str, str, bool]:
+        """Extrae tipo de dispositivo y ubicacion del prompt y respuesta del LLM,
+        indicando si la ubicacion fue encontrada en el prompt original."""
         device_types = ["luz", "puerta", "ventilador", "sensor", "clima", "actuador", "valve", 
                        "lamp", "light", "door", "fan", "heater", "ac"]
         locations = ["salon", "sala", "cocina", "dormitorio", "pasillo", "bano", "garaje", "principal", 
                     "barra", "isla", "lavandera", "invitados", "habitacion", "living", "comedor"]
         
-        prompt_lower = (prompt + " " + response).lower()
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
         
         device_type = ""
         for dt in device_types:
@@ -157,12 +160,21 @@ class IoTCommandProcessor:
                 break
         
         location = ""
+        location_in_prompt = False
         for loc in locations:
             if loc in prompt_lower:
                 location = loc
+                location_in_prompt = True
                 break
         
-        return device_type or "desconocido", location or "desconocida"
+        # Si no se encontro en el prompt, buscar en la respuesta del LLM
+        if not location:
+            for loc in locations:
+                if loc in response_lower:
+                    location = loc
+                    break
+        
+        return device_type or "desconocido", location or "desconocida", location_in_prompt
     
     def _find_similar_commands(self, iot_commands_db: list, device_type: str, location: str) -> list:
         """Encuentra comandos similares/variantes para una ubicacion especifica."""
@@ -215,46 +227,70 @@ class IoTCommandProcessor:
     ) -> Optional[str]:
         """
         Detecta si la respuesta del LLM intenta ejecutar un comando ambiguo.
-        Solo marca como ambiguo si hay REALMENTE multiples zonas diferentes.
+        Solo marca como ambiguo si hay REALMENTE multiples zonas diferentes o si la ubicacion no fue especificada por el usuario.
         """
         iot_match = re.search(r"mqtt_publish:(.+)", response)
         if not iot_match:
             return None
         
-        device_type, location = self._extract_device_info_from_prompt(prompt, response)
+        device_type, location, location_in_prompt = self._extract_device_info_from_prompt(prompt, response)
         
+        # Si la ubicación no fue especificada por el usuario en el prompt original
+        # y hay múltiples comandos para ese tipo de dispositivo, preguntar por la ubicación.
+        if not location_in_prompt and device_type != "desconocido":
+            similar_commands_by_device_type = self._find_similar_commands(iot_commands_db, device_type, "")
+            if len(similar_commands_by_device_type) > 1:
+                all_possible_locations = set()
+                for cmd in similar_commands_by_device_type:
+                    for loc_keyword in self.locations:
+                        if loc_keyword in cmd.name.lower() or loc_keyword in cmd.mqtt_topic.lower():
+                            all_possible_locations.add(loc_keyword)
+                
+                if len(all_possible_locations) > 1:
+                    ambiguity_msg = (
+                        f"Detecte multiples opciones de {device_type}. "
+                        f"Cual {device_type} deseas? {', '.join(sorted(list(all_possible_locations)))}?"
+                    )
+                    logger.info(f"Ambiguedad por tipo de dispositivo detectada (ubicacion no especificada por usuario): {all_possible_locations}")
+                    return ambiguity_msg
+        
+        # Lógica existente para cuando la ubicación es detectada (ya sea por prompt o por LLM)
+        # y hay múltiples comandos para ese tipo de dispositivo y ubicación.
         if location == "desconocida":
-            logger.debug("Ubicacion no detectada, sin check de ambiguedad")
-            return None
-        
-        similar_commands = self._find_similar_commands(iot_commands_db, device_type, location)
+            logger.debug("Ubicacion no detectada, buscando ambiguedad solo por tipo de dispositivo.")
+            similar_commands = self._find_similar_commands(iot_commands_db, device_type, "")
+        else:
+            similar_commands = self._find_similar_commands(iot_commands_db, device_type, location)
         
         logger.debug(f"Comandos similares encontrados para {device_type} en {location}: {len(similar_commands)}")
         
-        if len(similar_commands) <= 1:
-            return None
-        
-        zones_found = {}
-        
-        for cmd in similar_commands:
-            zone = self._extract_zone_from_command(cmd.name, location)
-            
-            if zone:
-                zones_found[zone] = zones_found.get(zone, 0) + 1
+        if len(similar_commands) > 1:
+            if location == "desconocida":
+                # Esta rama ya fue cubierta por la nueva lógica de `not location_in_prompt`
+                # Si llegamos aquí, significa que `location_in_prompt` era True o `device_type` era desconocido
+                # o solo había una ubicación posible.
+                return None
             else:
-                zones_found["default"] = zones_found.get("default", 0) + 1
+                zones_found = {}
+                for cmd in similar_commands:
+                    zone = self._extract_zone_from_command(cmd.name, location)
+                    if zone:
+                        zones_found[zone] = zones_found.get(zone, 0) + 1
+                    else:
+                        zones_found["default"] = zones_found.get("default", 0) + 1
+                
+                unique_zones = [z for z in zones_found.keys() if z != "default"]
+                
+                if len(unique_zones) > 1:
+                    ambiguity_msg = (
+                        f"Detecte multiples opciones de {device_type} en {location}: "
+                        f"{', '.join(sorted(unique_zones))}. Cual especificamente?"
+                    )
+                    logger.info(f"Ambiguedad REAL detectada: {unique_zones}")
+                    return ambiguity_msg
+                
+                logger.debug(f"Sin ambiguedad real: {len(similar_commands)} comando(s) pero solo 1 zona efectiva")
         
-        unique_zones = [z for z in zones_found.keys() if z != "default"]
-        
-        if len(unique_zones) > 1:
-            ambiguity_msg = (
-                f"Detecte multiples opciones de {device_type} en {location}: "
-                f"{', '.join(sorted(unique_zones))}. Cual especificamente?"
-            )
-            logger.info(f"Ambiguedad REAL detectada: {unique_zones}")
-            return ambiguity_msg
-        
-        logger.debug(f"Sin ambiguedad real: {len(similar_commands)} comando(s) pero solo 1 zona efectiva")
         return None
 
     async def process_iot_command(

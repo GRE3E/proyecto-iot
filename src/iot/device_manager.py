@@ -24,18 +24,20 @@ def _extract_device_info_from_topic(mqtt_topic: str, command_payload: str) -> Tu
 
         if topic_parts[1] == "lights":
             device_type = "luz"
+            # Eliminar prefijos conocidos (tanto en inglés como en español)
             if base_device_name.startswith("LIGHT_"):
                 base_device_name = base_device_name[len("LIGHT_"):]
-            elif base_device_name.startswith("LUZ_"):
+            if base_device_name.startswith("LUZ_"):
                 base_device_name = base_device_name[len("LUZ_"):]
-            device_name = f"LUZ_{base_device_name.upper()}"
+            device_name = base_device_name.upper() # Almacenar solo el nombre base en mayúsculas
         elif topic_parts[1] == "doors":
             device_type = "puerta"
+            # Eliminar prefijos conocidos (tanto en inglés como en español)
             if base_device_name.startswith("DOOR_"):
                 base_device_name = base_device_name[len("DOOR_"):]
-            elif base_device_name.startswith("PUERTA_"):
+            if base_device_name.startswith("PUERTA_"):
                 base_device_name = base_device_name[len("PUERTA_"):]
-            device_name = f"PUERTA_{base_device_name.upper()}"
+            device_name = base_device_name.upper() # Almacenar solo el nombre base en mayúsculas
         elif topic_parts[1] == "actuators":
             device_type = "actuador"
             device_name = device_name_raw
@@ -45,11 +47,14 @@ def _extract_device_info_from_topic(mqtt_topic: str, command_payload: str) -> Tu
     
     return device_type, device_name, state_value
 
-async def get_device_state(db: AsyncSession, device_name: str) -> DeviceState | None:
+async def get_device_state(db: AsyncSession, device_name: str, device_type: Optional[str] = None) -> DeviceState | None:
     """
-    Obtiene el estado actual de un dispositivo por su nombre.
+    Obtiene el estado actual de un dispositivo por su nombre (y tipo, si se proporciona).
     """
-    result = await db.execute(select(DeviceState).filter(DeviceState.device_name == device_name))
+    query = select(DeviceState).filter(DeviceState.device_name == device_name)
+    if device_type:
+        query = query.filter(DeviceState.device_type == device_type)
+    result = await db.execute(query)
     return result.scalars().first()
 
 async def delete_device_state(db: AsyncSession, device_name: str) -> bool:
@@ -83,7 +88,7 @@ async def update_device_state(db: AsyncSession, device_name: str, new_state: Dic
     Actualiza el estado de un dispositivo existente.
     Si el dispositivo no existe, lo crea.
     """
-    db_device_state = await get_device_state(db, device_name)
+    db_device_state = await get_device_state(db, device_name, device_type)
     if db_device_state:
         current_state = json.loads(db_device_state.state_json)
         current_state.update(new_state)
@@ -136,6 +141,10 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
     y el nuevo estado deseado.
     """
     device_type = device_state.device_type
+    if device_type.lower() == "light":
+        device_type = "luz"
+    elif device_type.lower() == "door":
+        device_type = "puerta"
     device_name = device_state.device_name
     
     type_to_topic_segment = {
@@ -145,8 +154,8 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
         "sensor": "sensors"
     }
     type_to_prefix = {
-        "luz": "LUZ_",
-        "puerta": "PUERTA_",
+        "luz": "LIGHT_",
+        "puerta": "DOOR_",
         "actuador": "",
         "sensor": ""
     }
@@ -160,13 +169,8 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
     
     if "status" in new_state:
         command_payload = str(new_state["status"]).upper()
-        clean_device_name = device_name
-        if device_type.lower() == "luz" and device_name.startswith("LUZ_"):
-            clean_device_name = device_name[len("LUZ_"):]
-        elif device_type.lower() == "puerta" and device_name.startswith("PUERTA_"):
-            clean_device_name = device_name[len("PUERTA_"):]
-
-        full_device_name_in_topic = f"{prefix}{clean_device_name.upper()}"
+        
+        full_device_name_in_topic = f"{prefix}{device_name.upper()}"
         mqtt_topic = f"iot/{topic_segment}/{full_device_name_in_topic}/command"
         return mqtt_topic, command_payload
     

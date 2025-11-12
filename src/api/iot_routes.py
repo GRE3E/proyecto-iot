@@ -28,7 +28,7 @@ async def send_arduino_command(command: ArduinoCommandSend):
         raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
 
     async with get_db() as session:
-        current_device_state = await device_manager.get_device_state(session, device_name)
+        current_device_state = await device_manager.get_device_state(session, device_name, device_type)
 
         if current_device_state:
             current_state_json = json.loads(current_device_state.state_json)
@@ -56,7 +56,7 @@ async def send_arduino_command(command: ArduinoCommandSend):
 
         await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
         
-        updated_device_state = await device_manager.get_device_state(session, device_name)
+        updated_device_state = await device_manager.get_device_state(session, device_name, device_type)
         if updated_device_state:
             await manager.broadcast(json.dumps({"device_name": updated_device_state.device_name, "device_type": updated_device_state.device_type, "state": json.loads(updated_device_state.state_json), "message": "Estado del dispositivo actualizado"}))
 
@@ -121,12 +121,12 @@ async def delete_iot_command(command_id: int):
         return {"message": "Comando eliminado exitosamente"}
 
 @iot_router.get("/device_states/{device_name}", response_model=DeviceState)
-async def get_single_device_state(device_name: str):
+async def get_single_device_state(device_name: str, device_type: str):
     """
-    Obtiene el estado de un único dispositivo IoT por su nombre.
+    Obtiene el estado de un único dispositivo IoT por su nombre y tipo.
     """
     async with get_db() as session:
-        device_state = await device_manager.get_device_state(session, device_name)
+        device_state = await device_manager.get_device_state(session, device_name, device_type)
         if device_state is None:
             logger.warning(f"Estado del dispositivo {device_name} no encontrado.")
             raise HTTPException(status_code=404, detail="Estado del dispositivo no encontrado")
@@ -186,6 +186,8 @@ async def update_device_state_by_id(device_id: int, device_update: DeviceStateUp
             raise HTTPException(status_code=500, detail="No se pudo reconstruir el comando MQTT.")
 
         command_to_send = ArduinoCommandSend(mqtt_topic=mqtt_topic, command_payload=command_payload)
+        logger.debug(f"Reconstructed MQTT Topic: {mqtt_topic}")
+        logger.debug(f"Reconstructed MQTT Payload: {command_payload}")
         
         try:
             await send_arduino_command(command_to_send)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, Query
 from fastapi.security import OAuth2PasswordRequestForm
 import logging
 from src.db.database import get_db
@@ -7,6 +7,7 @@ from src.auth.auth_service import AuthService
 from src.auth.device_auth import get_device_api_key
 from .auth_schemas import UserRegister, TokenRefresh, OwnerRegister
 from src.auth.voice_auth_recovery import voice_password_recovery
+from src.auth.face_auth_recovery import face_password_recovery
 
 logger = logging.getLogger("APIRoutes")
 
@@ -119,5 +120,29 @@ async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), n
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hablante no identificado o error al actualizar la contraseña.")
     except Exception as e:
         logger.error(f"Error en la recuperación de contraseña por voz: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
+
+
+@router.post("/face-password-recovery", status_code=status.HTTP_200_OK)
+async def face_password_recovery_endpoint(new_password: str = Form(...), source: str = Query("camera", pattern="^(camera|file)$"), image_file: UploadFile = File(None)):
+    """
+    Inicia el proceso de recuperación de contraseña por reconocimiento facial.
+    """
+    try:
+        if source == "file":
+            if not image_file:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Se requiere un archivo de imagen para el reconocimiento por archivo.")
+            image_content = await image_file.read()
+            success = await face_password_recovery(new_password, source=source, image_content=image_content)
+        else:
+            success = await face_password_recovery(new_password, source=source)
+
+        if success:
+            logger.info(f"Recuperación de contraseña por reconocimiento facial exitosa.")
+            return {"message": "Contraseña actualizada exitosamente."}
+        else:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Rostro no identificado o error al actualizar la contraseña.")
+    except Exception as e:
+        logger.error(f"Error en la recuperación de contraseña por reconocimiento facial: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
     

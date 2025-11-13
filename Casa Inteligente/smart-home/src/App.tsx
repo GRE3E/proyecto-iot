@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Login from "./pages/login";
+import RecuperarContraseña from "./pages/RecuperarContraseña";
 import { useThemeByTime } from "./hooks/useThemeByTime";
 import { Home, Settings, Monitor, Shield, MessageCircle, Cpu } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
@@ -32,7 +33,7 @@ export default function App() {
   ];
 
   if (isLoading) {
-    return <div>Cargando...</div>; // O un spinner de carga
+    return <div>Cargando...</div>;
   }
 
   return (
@@ -42,7 +43,14 @@ export default function App() {
       {/* === LOGIN === */}
       {!isAuthenticated && (
         <div className="absolute inset-0 z-50">
-          <Login />
+          <Login onNavigate={setSelectedMenu} />
+        </div>
+      )}
+
+      {/* === RECUPERAR CONTRASEÑA === */}
+      {!isAuthenticated && selectedMenu === "Recuperar Contraseña" && (
+        <div className="absolute inset-0 z-50">
+          <RecuperarContraseña />
         </div>
       )}
 
@@ -56,7 +64,6 @@ export default function App() {
             menuItems={menuItems}
             selectedMenu={selectedMenu}
             handleMenuSelect={(menu) => {
-              // Mantener la sidebar abierta al navegar entre secciones
               setSelectedMenu(menu);
             }}
             onLogout={logout}

@@ -81,7 +81,11 @@ const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ th
   );
 };
 
-export default function Login() {
+interface LoginProps {
+  onNavigate?: (section: string) => void;
+}
+
+export default function Login({ onNavigate }: LoginProps) {
   const { login: authLogin } = useAuth();
   const {
     username,
@@ -220,6 +224,16 @@ export default function Login() {
                     </span>
                   )}
                 </span>
+              </button>
+
+              {/* Forgot Password Link */}
+              <button
+                type="button"
+                onClick={() => onNavigate?.("Recuperar Contraseña")}
+                disabled={isLoading}
+                className="w-full text-center text-xs xs:text-sm text-slate-400 hover:text-blue-400 transition-colors mt-3 xs:mt-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ¿Olvidaste tu contraseña?
               </button>
             </form>
           </div>

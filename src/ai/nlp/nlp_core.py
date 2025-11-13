@@ -17,6 +17,7 @@ from src.iot.mqtt_client import MQTTClient
 from src.ai.nlp.device_context import DeviceContextManager, DEVICE_LOCATION_REGEX
 from src.ai.nlp.memory_brain.routine_scheduler import RoutineScheduler
 from src.ai.nlp.handlers import ResponseHandler, RoutineHandler, ContextHandler, ResponseProcessor
+from src.api import utils
 
 logger = logging.getLogger("NLPModule")
 
@@ -84,7 +85,7 @@ class NLPModule:
                 self._context_handler = ContextHandler(
                     config, None, self._memory_manager, self._user_manager, self._memory_brain
                 )
-                self._routine_handler = RoutineHandler(self._memory_brain, None)
+                self._routine_handler = RoutineHandler(self._memory_brain, None, utils._tts_module)
                 
         except Exception as e:
             logger.error(f"Error inicializando MemoryBrain: {e}")
@@ -92,7 +93,7 @@ class NLPModule:
             self._context_handler = ContextHandler(
                 config, None, self._memory_manager, self._user_manager, None
             )
-            self._routine_handler = RoutineHandler(None, None)
+            self._routine_handler = RoutineHandler(None, None, utils._tts_module)
         
         logger.info("NLPModule inicializado.")
 
@@ -128,7 +129,7 @@ class NLPModule:
         
         # Actualizar response processor
         self._response_processor = ResponseProcessor(
-            self._user_manager, self._iot_command_processor, self._memory_manager
+            self._user_manager, self._iot_command_processor, self._memory_manager, self._routine_handler
         )
         
         await self._iot_command_processor.initialize(db)
@@ -231,7 +232,7 @@ class NLPModule:
                 await self._routine_handler.execute_automatic_routines(user_id, token)
             
             processed_response, extracted_command = await self._response_processor.process_response(
-                db, user_id, full_response_content, token, context_result["has_negation"], iot_commands_db
+                db, user_id, full_response_content, token, context_result["has_negation"], iot_commands_db, prompt
             )
             
             # Actualizar contexto de dispositivo

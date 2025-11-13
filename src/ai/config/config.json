@@ -19,11 +19,11 @@
   ],
   "modules": {
     "nlp": true,
-    "stt": false,
-    "speaker": false,
-    "hotword": false,
+    "stt": true,
+    "speaker": true,
+    "hotword": true,
     "mqtt": true,
-    "tts": false,
+    "tts": true,
     "face_recognition": true
   },
   "memory_size": 50,

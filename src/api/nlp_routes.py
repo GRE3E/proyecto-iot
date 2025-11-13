@@ -49,6 +49,7 @@ async def query_nlp(
         )
 
         logger.info("Consulta NLP procesada exitosamente.")
+        logger.info(f"Respuesta del LLM: '{response_obj.response}'")
 
         async with get_db() as db:
             try:
@@ -223,7 +224,7 @@ async def get_user_routines(
                 enabled_only=enabled_only
             )
             
-            response = [RoutineResponse.model_validate(r) for r in routines]
+            response = [RoutineResponse.model_validate(r.to_dict()) for r in routines]
             logger.info(f"Rutinas obtenidas para usuario {current_user.id}: {len(response)} encontradas")
             
             await utils._save_api_log(
@@ -245,10 +246,14 @@ async def create_routine(
 ):
     try:
         async with get_db() as db:
+            pattern = dict(routine_req.trigger)
+            if 'type' not in pattern and getattr(routine_req, 'trigger_type', None):
+                pattern['type'] = routine_req.trigger_type
+
             routine = await utils._nlp_module._memory_brain.routine_manager.create_routine_from_pattern(
                 db,
                 current_user.id,
-                routine_req.trigger,
+                pattern,
                 command_ids=routine_req.command_ids,
                 confirmed=False
             )
@@ -263,7 +268,7 @@ async def create_routine(
             
             logger.info(f"Rutina creada: {routine.name} (ID: {routine.id})")
             
-            response = RoutineResponse.model_validate(routine)
+            response = RoutineResponse.model_validate(routine.to_dict())
             await utils._save_api_log(
                 "/routines",
                 routine_req.dict(),
@@ -291,7 +296,7 @@ async def get_routine(
             if routine.user_id != current_user.id:
                 raise HTTPException(status_code=403, detail="No tiene permiso para ver esta rutina")
             
-            response = RoutineResponse.model_validate(routine)
+            response = RoutineResponse.model_validate(routine.to_dict())
             return response
     except HTTPException:
         raise
@@ -336,7 +341,7 @@ async def update_routine(
             
             logger.info(f"Rutina actualizada: {routine.name} (ID: {routine_id})")
             
-            response = RoutineResponse.model_validate(routine)
+            response = RoutineResponse.model_validate(routine.to_dict())
             await utils._save_api_log(
                 f"/routines/{routine_id}",
                 routine_req.dict(),
@@ -477,7 +482,7 @@ async def toggle_routine(
             status = "habilitada" if routine.enabled else "deshabilitada"
             logger.info(f"Rutina {status}: {routine.name}")
             
-            response = RoutineResponse.model_validate(routine)
+            response = RoutineResponse.model_validate(routine.to_dict())
             return response
     except HTTPException:
         raise
@@ -499,7 +504,7 @@ async def suggest_new_routines(
                 min_confidence=min_confidence
             )
             
-            response = [RoutineResponse.model_validate(r) for r in suggested]
+            response = [RoutineResponse.model_validate(r.to_dict()) for r in suggested]
             logger.info(f"Se sugirieron {len(response)} rutinas para usuario {current_user.id}")
             
             await utils._save_api_log(

@@ -249,7 +249,7 @@ class IoTCommandProcessor:
                 if len(all_possible_locations) > 1:
                     ambiguity_msg = (
                         f"Detecte multiples opciones de {device_type}. "
-                        f"Cual {device_type} deseas? {', '.join(sorted(list(all_possible_locations)))}?"
+                        f"¿Qué {device_type} deseas que prenda?"
                     )
                     logger.info(f"Ambiguedad por tipo de dispositivo detectada (ubicacion no especificada por usuario): {all_possible_locations}")
                     return ambiguity_msg

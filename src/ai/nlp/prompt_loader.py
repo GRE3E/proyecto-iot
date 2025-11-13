@@ -60,8 +60,10 @@ def _load_from_yaml() -> Optional[Dict[str, str]]:
             "golden_rule",
             "intent_detection",
             "device_context",
-            "scheduled_routines_header",
-            "routine_creation_instructions_content"
+            "conversation_context",
+            "routine_instructions",
+            "routine_creation_instructions_content",
+            "footer"
         ]
 
         combined_parts = []

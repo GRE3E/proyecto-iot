@@ -38,7 +38,7 @@ class ContextHandler:
         
         enhanced_prompt = self._device_context_manager.enhance_prompt(user_id, prompt)
         
-        scheduled_routines_info = await self._get_scheduled_routines_info(user_id, db_user)
+        scheduled_routines_info = ""  # No incluir rutinas automáticamente en el system_prompt
         
         formatted_iot_commands, iot_command_names, iot_error = await self._load_iot_commands()
         
@@ -74,7 +74,7 @@ class ContextHandler:
             "formatted_iot_commands": formatted_iot_commands
         }
     
-    async def _get_scheduled_routines_info(self, user_id: int, db_user) -> str:
+    async def _get_scheduled_routines_info(self, user_id: int, db_user, prompt: str) -> str:
         """Obtiene información de rutinas programadas para el usuario"""
         from src.db.database import get_db
         
@@ -82,11 +82,47 @@ class ContextHandler:
         if self._memory_brain:
             async with get_db() as db:
                 scheduled_routines_data = await self._memory_brain.get_routine_status(db, user_id)
-                if scheduled_routines_data and scheduled_routines_data["routines"]: 
-                    scheduled_routines_info = "\n".join([
-                        f"- {r['name']} a las {r['trigger']['hour']}:00 (Acciones: {', '.join(r['iot_commands'])})"
-                        for r in scheduled_routines_data["routines"]
-                    ])
+                
+                if scheduled_routines_data and scheduled_routines_data["routines"]:
+                    all_routines = scheduled_routines_data["routines"]
+                    
+                    # Extraer palabras clave del prompt
+                    prompt_lower = prompt.lower()
+                    
+                    device_types = ["luz", "puerta", "ventilador", "sensor", "clima", "actuador", "valve", 
+                                    "lamp", "light", "door", "fan", "heater", "ac"]
+                    locations = ["salon", "sala", "cocina", "dormitorio", "pasillo", "bano", "garaje", "principal", 
+                                 "barra", "isla", "lavandera", "invitados", "habitacion", "living", "comedor"]
+                    
+                    found_device_types = [dt for dt in device_types if dt in prompt_lower]
+                    found_locations = [loc for loc in locations if loc in prompt_lower]
+                    
+                    filtered_routines = []
+                    if found_device_types or found_locations:
+                        for routine in all_routines:
+                            routine_name_lower = routine['name'].lower()
+                            routine_commands_lower = " ".join([cmd.lower() for cmd in routine['iot_commands']])
+                            
+                            # Filtrar por tipo de dispositivo
+                            device_match = any(dt in routine_name_lower or dt in routine_commands_lower for dt in found_device_types)
+                            
+                            # Filtrar por ubicación
+                            location_match = any(loc in routine_name_lower or loc in routine_commands_lower for loc in found_locations)
+                            
+                            if (found_device_types and device_match) or (found_locations and location_match):
+                                filtered_routines.append(routine)
+                    else:
+                        # Si no hay palabras clave en el prompt, mostrar un número limitado de rutinas o un resumen
+                        # Por ahora, mostraremos todas si no hay filtro específico, pero esto podría optimizarse
+                        filtered_routines = all_routines[:3] # Limitar a 3 rutinas si no hay filtro
+                    
+                    if filtered_routines:
+                        scheduled_routines_info = "\n".join([
+                            f"- {r['name']} a las {r['trigger']['hour']}:00 (Acciones: {', '.join(r['iot_commands'])})"
+                            for r in filtered_routines
+                        ])
+                    else:
+                        scheduled_routines_info = "No se encontraron rutinas automáticas relevantes para tu consulta."
                 else:
                     scheduled_routines_info = "No hay rutinas automáticas programadas para este usuario."
         

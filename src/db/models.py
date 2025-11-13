@@ -51,6 +51,7 @@ class Routine(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     last_executed = Column(DateTime, nullable=True)
     execution_count = Column(Integer, default=0)
+    actions = Column(JSON, nullable=False, default=[])
 
     user: Mapped["User"] = relationship("User", back_populates="routines")
     iot_commands: Mapped[List["IoTCommand"]] = relationship(
@@ -74,6 +75,7 @@ class Routine(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_executed": self.last_executed.isoformat() if self.last_executed else None,
             "execution_count": self.execution_count,
+            "actions": self.actions,
             "iot_commands": [cmd.name for cmd in self.iot_commands]
         }
 

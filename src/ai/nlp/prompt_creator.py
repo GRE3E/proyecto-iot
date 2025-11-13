@@ -78,8 +78,9 @@ def create_system_prompt(
         current_time_formatted = format_time_only(current_full_datetime)
     except Exception as e:
         logger.error(f"Error al obtener datetime: {e}")
-        current_date_formatted = "Fecha no disponible"
+        pass  # current_date_formatted will be set below
         current_time_formatted = "Hora no disponible"
+        current_date_formatted = "Fecha no disponible"
     
     try:
         current_country = get_country_from_timezone(timezone_str)
@@ -98,8 +99,8 @@ def create_system_prompt(
         "iot_commands": formatted_iot_commands,
         "iot_command_names": ", ".join(iot_command_names),
         "identified_speaker": user_name,
-        "current_date": datetime.now().strftime("%Y-%m-%d"),
-        "current_time": datetime.now().strftime("%H:%M"),
+        "current_date": current_date_formatted,
+        "current_time": current_time_formatted,
         "user_preferences": _safe_format_value(user_preferences_dict),
         "conversation_history": conversation_history,
         "scheduled_routines_info": scheduled_routines_info,
@@ -108,7 +109,9 @@ def create_system_prompt(
         "device_states": device_states_value,
         "search_results": search_results_str,
         "user_permissions": user_permissions_str,
-        "is_owner": str(is_owner).lower()
+        "is_owner": str(is_owner).lower(),
+        "current_country": current_country,
+        "capabilities": capabilities_str
     }
 
     try:
@@ -116,7 +119,6 @@ def create_system_prompt(
         logger.debug("System_prompt construido correctamente.")
     except KeyError as e:
         logger.error(f"Error: Clave de formato no encontrada en el template: {e}")
-        # Fallback: usar template sin formateo si falla
         system_prompt = system_prompt_template
     except Exception as e:
         logger.error(f"Error al formatear system_prompt: {e}")

@@ -9,7 +9,7 @@ logger = logging.getLogger("Database")
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATABASE_DIR = PROJECT_ROOT / "data"
-DATABASE_PATH = DATABASE_DIR / "casa_inteligente.db"
+DATABASE_PATH = DATABASE_DIR / "smart_home.db"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 SQLALCHEMY_DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
 
@@ -48,7 +48,7 @@ async def create_all_tables() -> None:
         from db.models import (
             User, Face, Preference, Permission,
             UserPermission, UserMemory, ConversationLog,
-            APILog, IoTCommand, DeviceState
+            APILog, IoTCommand, DeviceState, Routine
         )
     except Exception as e:
         logger.warning(f"No se pudieron importar todos los modelos: {e}. Intentando importar lo que exista.")
@@ -61,4 +61,12 @@ async def create_all_tables() -> None:
             logger.info("Índices NLP creados exitosamente")
     except Exception as e:
         logger.error(f"Error al crear índices NLP: {e}")
+    
+    try:
+        from src.db.migrations import create_routine_indexes
+        async with SessionLocal() as db:
+            await create_routine_indexes(db)
+            logger.info("Índices de rutinas creados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al crear índices de rutinas: {e}")
         

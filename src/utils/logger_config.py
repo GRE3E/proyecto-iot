@@ -21,6 +21,10 @@ class ColoredFormatter(logging.Formatter):
     # ====== Colores únicos por módulo ======
     MODULE_COLORS = {
         'HotwordDetector': '\033[38;5;39m',             # Azul cian intenso (ANSI 39)
+        'ContextHandler': '\033[38;5;208m',             # Naranja vibrante (ANSI 208)
+        'ResponseHandler': '\033[38;5;184m',          # Verde amarillento (ANSI 184)
+        'ResponseProcessor': '\033[38;5;184m',          # Verde amarillento (ANSI 184)
+        'RoutineHandler': '\033[38;5;159m',             # Morado claro (ANSI 159)
         'ContextTracker': '\033[38;5;201m',             # Rosa oscuro (ANSI 201)
         'MemoryBrain': '\033[38;5;160m',                # Rojo oscuro (ANSI 160)
         'MemoryManager': '\033[38;5;109m',              # Verde lima (ANSI 109)
@@ -37,7 +41,6 @@ class ColoredFormatter(logging.Formatter):
         'PromptCreator': '\033[38;5;226m',              # Amarillo brillante (ANSI 226)
         'PromptLoader': '\033[38;5;198m',               # Rosa fuerte (ANSI 198)
         'PromptProcessor': '\033[38;5;219m',            # Amarillo claro (ANSI 219)
-        'ResponseProcessor': '\033[38;5;184m',          # Verde amarillento (ANSI 184)
         'ValidationHelper': '\033[38;5;153m',           # Cian (ANSI 153)
         'SpeakerRecognitionModule': '\033[38;5;170m',   # Púrpura claro (ANSI 170)
         'STTModule': '\033[38;5;34m',                   # Verde bosque (ANSI 34)

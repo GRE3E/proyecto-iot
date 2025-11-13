@@ -7,6 +7,7 @@ from src.db.database import get_db
 from src.db.models import User
 import logging
 import asyncio
+import torch
 from sqlalchemy import select
 
 logger = logging.getLogger("SpeakerRecognitionModule")
@@ -17,7 +18,8 @@ Módulo para el reconocimiento de hablantes utilizando resemblyzer y SQLAlchemy 
 Permite registrar nuevos hablantes y identificar hablantes existentes a partir de muestras de audio.
     """
     def __init__(self):
-        self._encoder = VoiceEncoder()
+        self.device: str = "cuda" if torch.cuda.is_available() else "cpu"
+        self._encoder = VoiceEncoder(device=self.device)
         self._online = True
         self._registered_users: List[User] = []
         self._executor = ThreadPoolExecutor(max_workers=4)

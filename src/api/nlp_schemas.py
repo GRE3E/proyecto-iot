@@ -1,12 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 class NLPQuery(BaseModel):
-    """Modelo para validar las consultas al módulo NLP."""
     prompt: str
 
 class NLPResponse(BaseModel):
-    """Modelo para las respuestas del módulo NLP."""
     prompt_sent: Optional[str] = None
     response: str
     command: Optional[str] = None
@@ -16,15 +14,12 @@ class NLPResponse(BaseModel):
     user_id: Optional[int] = None
 
 class AssistantNameUpdate(BaseModel):
-    """Modelo para actualizar el nombre del asistente."""
     name: str
 
 class CapabilitiesUpdate(BaseModel):
-    """Modelo para actualizar las capacidades del asistente."""
     capabilities: list[str]
 
 class ConversationLogEntry(BaseModel):
-    """Modelo para una entrada individual del log de conversación."""
     user_message: str
     assistant_message: str
 
@@ -32,9 +27,41 @@ class ConversationLogEntry(BaseModel):
         from_attributes = True
 
 class ConversationHistoryResponse(BaseModel):
-    """Modelo para la respuesta del historial de conversación."""
     history: list[ConversationLogEntry]
 
 class MessageResponse(BaseModel):
-    """Modelo para devolver un mensaje simple de confirmación."""
     message: str
+
+class RoutineCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    trigger: Dict[str, Any]
+    trigger_type: str
+    command_ids: Optional[List[int]] = None
+    enabled: bool = True
+
+class RoutineUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    trigger: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = None
+    confidence: Optional[float] = None
+
+class RoutineResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    trigger: Dict[str, Any]
+    trigger_type: str
+    confirmed: bool
+    enabled: bool
+    confidence: float
+    created_at: str
+    updated_at: str
+    last_executed: Optional[str]
+    execution_count: int
+    iot_commands: List[str]
+
+    class Config:
+        from_attributes = True
+        

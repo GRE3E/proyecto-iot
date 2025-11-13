@@ -18,6 +18,53 @@ class ResponseProcessor:
         self._iot_processor = iot_processor
         self._memory_manager = memory_manager
     
+    async def process_response(self, db: AsyncSession, user_id: int, response: str, token: str, has_negation: bool, iot_commands_db: list) -> Tuple[str, Optional[str]]:
+        """Procesa la respuesta completa del LLM"""
+        
+        # Procesar búsqueda en memoria
+        response = await self.process_memory_search(db, user_id, response)
+        
+        # Procesar cambio de nombre
+        response = await self.process_name_change(db, response, user_id)
+        
+        # Procesar preferencias
+        db_user = await self._get_user_from_db(db, user_id)
+        
+        if db_user:
+            response = await self._user_manager.handle_preference_setting(db, db_user, response)
+        
+        # Limpiar marcadores de preferencias
+        response = PREFERENCE_MARKERS_REGEX.sub("", response).strip()
+        
+        # Procesar comandos IoT si no hay negación
+        extracted_command = None
+        if not has_negation:
+            response, extracted_command = await self.process_iot_command(db, response, token, user_id, iot_commands_db)
+        else:
+            logger.info("Comando IoT no procesado debido a negación en prompt")
+            response = re.sub(IOT_COMMAND_REGEX, "", response).strip()
+        
+        return response, extracted_command
+    
+    async def _get_user_from_db(self, db: AsyncSession, user_id: int):
+        from sqlalchemy import select
+        from sqlalchemy.orm import joinedload
+        from src.db.models import User, UserPermission
+        if user_id is None:
+            return None
+        try:
+            result = await db.execute(
+                select(User)
+                .options(
+                    joinedload(User.permissions).joinedload(UserPermission.permission),
+                    joinedload(User.preferences)
+                )
+                .filter(User.id == user_id)
+            )
+            return result.scalars().first()
+        except Exception:
+            return None
+    
     async def process_memory_search(self, db: AsyncSession, user_id: int, response: str) -> str:
         """Procesa memory_search y retorna los resultados formateados al usuario"""
         memory_search_match = MEMORY_SEARCH_REGEX.search(response)
@@ -66,9 +113,7 @@ class ResponseProcessor:
         else:
             return re.sub(NAME_CHANGE_REGEX, "", response).strip()
     
-    async def process_iot_command(
-        self, db: AsyncSession, response: str, token: str, user_id: int, iot_commands_db: list
-    ) -> Tuple[str, Optional[str]]:
+    async def process_iot_command(self, db: AsyncSession, response: str, token: str, user_id: int, iot_commands_db: list) -> Tuple[str, Optional[str]]:
         """Procesa comandos IoT con throttling y detección de ambigüedad"""
         if not response:
             return response, None
@@ -97,4 +142,3 @@ class ResponseProcessor:
             return iot_response, extracted_command
         
         return clean_response, extracted_command
-        

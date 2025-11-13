@@ -1,8 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Table, LargeBinary, UniqueConstraint, Float, JSON
 from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 from .database import Base
 from typing import List
+
+routine_iot_command_association = Table(
+    'routine_iot_command_association',
+    Base.metadata,
+    Column('routine_id', Integer, ForeignKey('routines.id'), primary_key=True),
+    Column('iot_command_id', Integer, ForeignKey('iot_commands.id'), primary_key=True)
+)
 
 iot_command_permission_association = Table(
     'iot_command_permission_association',
@@ -10,10 +17,69 @@ iot_command_permission_association = Table(
     Column('iot_command_id', Integer, ForeignKey('iot_commands.id'), primary_key=True),
     Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
 )
-"""
-Tabla de asociación para la relación muchos a muchos entre IoTCommand y Permission.
-Permite asignar múltiples permisos a un comando IoT y un permiso a múltiples comandos IoT.
-"""
+class Routine(Base):
+    __tablename__ = "routines"
+    """
+    Modelo para almacenar rutinas aprendidas o creadas manualmente.
+    
+    Atributos:
+        id (int): Identificador único de la rutina.
+        user_id (int): ID del usuario propietario de la rutina.
+        name (str): Nombre descriptivo de la rutina.
+        description (str): Descripción de la rutina.
+        trigger (dict): Configuración del disparador en JSON.
+        trigger_type (str): Tipo de disparador (time_based, event_based, context_based).
+        confirmed (bool): Si la rutina ha sido confirmada por el usuario.
+        enabled (bool): Si la rutina está habilitada.
+        confidence (float): Nivel de confianza del patrón detectado.
+        created_at (datetime): Fecha de creación.
+        updated_at (datetime): Fecha de última actualización.
+        last_executed (datetime): Fecha de última ejecución.
+        execution_count (int): Número de veces ejecutada.
+        iot_commands (List[IoTCommand]): Comandos IoT asociados.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    trigger = Column(JSON, nullable=False)
+    trigger_type = Column(String(50), nullable=False)
+    confirmed = Column(Boolean, default=False)
+    enabled = Column(Boolean, default=True)
+    confidence = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_executed = Column(DateTime, nullable=True)
+    execution_count = Column(Integer, default=0)
+
+    user: Mapped["User"] = relationship("User", back_populates="routines")
+    iot_commands: Mapped[List["IoTCommand"]] = relationship(
+        "IoTCommand", 
+        secondary=routine_iot_command_association, 
+        back_populates="routines"
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "trigger": self.trigger,
+            "trigger_type": self.trigger_type,
+            "confirmed": self.confirmed,
+            "enabled": self.enabled,
+            "confidence": self.confidence,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "last_executed": self.last_executed.isoformat() if self.last_executed else None,
+            "execution_count": self.execution_count,
+            "iot_commands": [cmd.name for cmd in self.iot_commands]
+        }
+
+    def __repr__(self) -> str:
+        return f"<Routine(id={self.id}, user_id={self.user_id}, name='{self.name}', confirmed={self.confirmed})>"
+
 
 class UserMemory(Base):
     __tablename__ = "user_memory"
@@ -56,6 +122,7 @@ class ConversationLog(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="conversation_logs")
 
+
 class APILog(Base):
     __tablename__ = "api_log"
     """
@@ -87,6 +154,7 @@ class IoTCommand(Base):
         command_payload (str): Carga útil del comando.
         mqtt_topic (str): Tópico MQTT si el tipo de comando es "mqtt" (opcional).
         permissions (List[Permission]): Permisos asociados a este comando.
+        routines (List[Routine]): Rutinas que utilizan este comando (NEW).
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
@@ -95,7 +163,16 @@ class IoTCommand(Base):
     command_payload = Column(Text, nullable=False)
     mqtt_topic = Column(String(255), nullable=True)
 
-    permissions: Mapped[List["Permission"]] = relationship("Permission", secondary=iot_command_permission_association, back_populates="iot_commands")
+    permissions: Mapped[List["Permission"]] = relationship(
+        "Permission", 
+        secondary=iot_command_permission_association, 
+        back_populates="iot_commands"
+    )
+    routines: Mapped[List["Routine"]] = relationship(
+        "Routine", 
+        secondary=routine_iot_command_association, 
+        back_populates="iot_commands"
+    )
 
 class User(Base):
     __tablename__ = "users"
@@ -109,6 +186,7 @@ class User(Base):
         is_owner (bool): Indica si el usuario es el propietario del sistema.
         preferences (List[Preference]): Preferencias del usuario.
         permissions (List[UserPermission]): Permisos del usuario.
+        routines (List[Routine]): Rutinas del usuario (NEW).
     """
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(100), unique=True, nullable=False)
@@ -123,6 +201,8 @@ class User(Base):
     memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
     conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user")
     faces: Mapped[List["Face"]] = relationship("Face", back_populates="user")
+    routines: Mapped[List["Routine"]] = relationship("Routine", back_populates="user", cascade="all, delete-orphan")
+    context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -143,7 +223,6 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, nombre='{self.nombre}', is_owner={self.is_owner})>"
-
 
 class Preference(Base):
     __tablename__ = "preferences"
@@ -179,11 +258,14 @@ class Permission(Base):
     name = Column(String(50), unique=True, nullable=False)
 
     users: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="permission")
-    iot_commands: Mapped[List["IoTCommand"]] = relationship("IoTCommand", secondary=iot_command_permission_association, back_populates="permissions")
+    iot_commands: Mapped[List["IoTCommand"]] = relationship(
+        "IoTCommand", 
+        secondary=iot_command_permission_association, 
+        back_populates="permissions"
+    )
 
     def __repr__(self) -> str:
         return f"<Permission(id={self.id}, name='{self.name}')>"
-
 
 class UserPermission(Base):
     __tablename__ = "user_permissions"
@@ -204,7 +286,6 @@ class UserPermission(Base):
 
     def __repr__(self) -> str:
         return f"<UserPermission(user_id={self.user_id}, permission_id={self.permission_id})>"
-
 
 class Face(Base):
     __tablename__ = "faces"
@@ -241,6 +322,40 @@ class DeviceState(Base):
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
 
     __table_args__ = (UniqueConstraint('device_name', 'device_type', name='_device_name_type_uc'),)
+
+class ContextEvent(Base):
+    __tablename__ = "context_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_name = Column(String(100), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    intent = Column(String(100), nullable=False)
+    action = Column(String(100), nullable=False)
+    context = Column(JSON, nullable=False)
+    device_type = Column(String(50), nullable=True)
+    location = Column(String(100), nullable=True)
+    success = Column(Boolean, default=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="context_events")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "intent": self.intent,
+            "action": self.action,
+            "context": self.context,
+            "device_type": self.device_type,
+            "location": self.location,
+            "success": self.success
+        }
+
+    def __repr__(self) -> str:
+        return f"<ContextEvent(id={self.id}, user_id={self.user_id}, intent='{self.intent}', action='{self.action}')>"
+    
 
 
 class Notification(Base):

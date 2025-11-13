@@ -1,30 +1,22 @@
 import asyncio
 import logging
 import re
-from typing import Optional, Dict, Tuple, Any
 from pathlib import Path
 from datetime import datetime
-from ollama import ResponseError
-from httpx import ConnectError
+from typing import Dict, Any, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.ai.nlp.memory_brain.memory_manager import MemoryManager
 from src.ai.nlp.ollama_manager import OllamaManager
 from src.ai.nlp.config_manager import ConfigManager
 from src.ai.nlp.iot_command_processor import IoTCommandProcessor
 from src.ai.nlp.memory_brain.user_manager import UserManager
-from src.ai.nlp.prompt_creator import create_system_prompt
 from src.ai.nlp.prompt_loader import load_system_prompt_template
 from src.ai.nlp.memory_brain.memory_brain import MemoryBrain
-from src.ai.nlp.memory_brain.routine_manager import Routine
 from src.db.database import get_db
 from src.iot.mqtt_client import MQTTClient
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.ai.nlp.device_context import DeviceContextManager, DEVICE_LOCATION_REGEX
-from src.ai.nlp.prompt_processor import PromptProcessor
-from src.ai.nlp.response_processor import ResponseProcessor, PREFERENCE_MARKERS_REGEX, IOT_COMMAND_REGEX
-from src.ai.nlp.validation_helper import ValidationHelper
 from src.ai.nlp.memory_brain.routine_scheduler import RoutineScheduler
-
-ROUTINE_CREATION_REGEX = re.compile(r"crear rutina: (.+?); disparador: (.+?); acciones: (.+)", re.IGNORECASE)
+from src.ai.nlp.handlers import ResponseHandler, RoutineHandler, ContextHandler, ResponseProcessor
 
 logger = logging.getLogger("NLPModule")
 
@@ -57,31 +49,50 @@ class NLPModule:
         self._online = self._ollama_manager.is_online()
         self._is_closing = False
         self.mqtt_client = None
+        
+        # Inicializar componentes base
         self._user_manager = UserManager()
         self._memory_manager = MemoryManager()
         self._iot_command_processor = None
         self._reload_lock = asyncio.Lock()
+        
+        # Inicializar handlers
+        self._response_handler = ResponseHandler(ollama_manager, config)
+        self._context_handler = None  # Se inicializará después
+        self._routine_handler = None  # Se inicializará después
+        self._response_processor = None  # Se inicializará después
+        
+        # Configuración del sistema
         self._system_prompt_data = load_system_prompt_template()
         self._system_prompt_template = self._system_prompt_data["template"]
         self._routine_creation_instructions = self._system_prompt_data["routine_creation_instructions"]
         self._location_keywords = _extract_location_keywords(DEVICE_LOCATION_REGEX)
-        self._iot_command_processor = IoTCommandProcessor(self.mqtt_client, self._location_keywords)
-        self._device_context_manager = DeviceContextManager(self._iot_command_processor)
-        self._prompt_processor = PromptProcessor()
-        self._response_processor = ResponseProcessor(self._user_manager, self._iot_command_processor, self._memory_manager)
-        self._validation_helper = ValidationHelper(self._user_manager)
-        self._routine_scheduler: Optional[RoutineScheduler] = None
         
+        # Inicializar MemoryBrain
         try:
-            memory_dir = Path(__file__).parent.parent.parent.parent / "data" / "memory_brain"
-            self._memory_brain: Optional[MemoryBrain] = MemoryBrain(memory_dir)
+            self._memory_brain: Optional[MemoryBrain] = MemoryBrain()
+            self._memory_brain: Optional[MemoryBrain] = MemoryBrain()
             logger.info("MemoryBrain inicializado en NLPModule")
+            
+            # Inicializar handlers que dependen de MemoryBrain
+            self._routine_scheduler: Optional[RoutineScheduler] = None
             if self._memory_brain:
-                self._routine_scheduler = RoutineScheduler(self._memory_brain.routine_manager, self._iot_command_processor)
+                self._routine_scheduler = RoutineScheduler(self._memory_brain.routine_manager)
                 logger.info("RoutineScheduler inicializado en NLPModule")
+                
+                # Ahora sí inicializar los handlers restantes
+                self._context_handler = ContextHandler(
+                    config, None, self._memory_manager, self._user_manager, self._memory_brain
+                )
+                self._routine_handler = RoutineHandler(self._memory_brain, None)
+                
         except Exception as e:
             logger.error(f"Error inicializando MemoryBrain: {e}")
             self._memory_brain = None
+            self._context_handler = ContextHandler(
+                config, None, self._memory_manager, self._user_manager, None
+            )
+            self._routine_handler = RoutineHandler(None, None)
         
         logger.info("NLPModule inicializado.")
 
@@ -105,14 +116,31 @@ class NLPModule:
         if self.mqtt_client:
             await self.mqtt_client.disconnect()
         self.mqtt_client = mqtt_client
+        
+        # Actualizar el command processor
         self._iot_command_processor = IoTCommandProcessor(mqtt_client, self._location_keywords)
-        self._device_context_manager = DeviceContextManager(self._iot_command_processor)
+        self._context_handler._iot_command_processor = self._iot_command_processor
+        self._routine_handler._iot_command_processor = self._iot_command_processor
+        
+        # Actualizar device context manager
+        device_context_manager = DeviceContextManager(self._iot_command_processor)
+        self._context_handler._device_context_manager = device_context_manager
+        
+        # Actualizar response processor
+        self._response_processor = ResponseProcessor(
+            self._user_manager, self._iot_command_processor, self._memory_manager
+        )
+        
         await self._iot_command_processor.initialize(db)
         logger.info("IoT managers configurados en NLPModule.")
 
     def is_online(self) -> bool:
         """Devuelve True si el módulo NLP está online."""
-        return self._ollama_manager.is_online()
+        return self._response_handler.is_online()
+
+    async def get_conversation_history(self, db: AsyncSession, user_id: int, limit: int = 10) -> list:
+        """Obtiene el historial de conversación para un usuario."""
+        return await self._memory_manager.search_conversation_logs(db, user_id, query="", limit=limit)
 
     async def reload(self) -> None:
         """Recarga configuración y valida conexión."""
@@ -121,59 +149,21 @@ class NLPModule:
             self._config_manager.load_config()
             self._config = self._config_manager.get_config()
             self._ollama_manager.reload(self._config["model"])
-            self._online = self._ollama_manager.is_online()
+            self._online = self._response_handler.is_online()
+            
             if self._iot_command_processor:
                 self._iot_command_processor.invalidate_command_cache()
+            
             self._system_prompt_data = load_system_prompt_template()
             self._system_prompt_template = self._system_prompt_data["template"]
             self._routine_creation_instructions = self._system_prompt_data["routine_creation_instructions"]
+            
+            # Actualizar handlers con nueva configuración
+            self._response_handler = ResponseHandler(self._ollama_manager, self._config)
+            self._context_handler._config = self._config
+            
             log_fn = logger.info if self._online else logger.warning
             log_fn("NLPModule recargado." if self._online else "NLPModule recargado pero no en línea.")
-
-    async def _get_llm_response(self, system_prompt: str, prompt_text: str) -> Tuple[Optional[str], Optional[str]]:
-        """Obtiene la respuesta del modelo de lenguaje"""
-        client = self._ollama_manager.get_async_client()
-        retries = self._config["model"].get("llm_retries", 2)
-        llm_timeout = self._config["model"].get("llm_timeout", 60)
-
-        for attempt in range(retries):
-            try:
-                response_stream = await asyncio.wait_for(client.chat(
-                    model=self._config["model"]["name"],
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt_text}
-                    ],
-                    options={
-                        "temperature": self._config["model"]["temperature"],
-                        "num_predict": self._config["model"]["max_tokens"],
-                        "top_p": self._config["model"].get("top_p"),
-                        "top_k": self._config["model"].get("top_k"),
-                        "repeat_penalty": self._config["model"].get("repeat_penalty"),
-                        "num_ctx": self._config["model"].get("num_ctx"),
-                    },
-                    stream=True,
-                ), timeout=llm_timeout)
-
-                full_response_content = ""
-                async for chunk in response_stream:
-                    if "content" in chunk["message"]:
-                        full_response_content += chunk["message"]["content"]
-
-                if not full_response_content:
-                    logger.warning("Respuesta vacía de Ollama. Reintentando...")
-                    continue
-                
-                return full_response_content, None
-                
-            except (ResponseError, ConnectError, asyncio.TimeoutError) as e:
-                error_type = "Timeout" if isinstance(e, asyncio.TimeoutError) else "Error con Ollama"
-                logger.error(f"{error_type}: {e}. Reintentando...")
-                if attempt == retries - 1:
-                    return None, f"{error_type} después de {retries} intentos: {e}"
-                continue
-        
-        return None, "No se pudo generar una respuesta después de varios intentos."
 
     async def generate_response(self, prompt: str, user_id: int, token: str) -> Optional[dict]:
         """Genera una respuesta usando Ollama, gestionando memoria, permisos, comandos IoT y Memory Brain."""
@@ -197,132 +187,71 @@ class NLPModule:
         if user_id is None:
             return self._error_response("user_id es requerido para consultas NLP.", "user_id es requerido")
         
-        has_negation = self._prompt_processor.contains_negation(prompt)
-        if has_negation:
-            logger.info(f"Negación detectada en prompt: '{prompt}'. No se procesarán comandos IoT.")
-
+        # Validar usuario y cargar datos
         async with get_db() as db:
-            db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = await self._validation_helper.validate_user(user_id)
-            formatted_iot_commands, iot_command_names, iot_error = await self._validation_helper.load_iot_commands(self._iot_command_processor)
+            db_user, user_name, is_owner, user_permissions_str, user_preferences_dict = await self._validate_user(db, user_id)
             
             if not db_user:
                 return self._error_response("Usuario no autorizado o no encontrado.", "Usuario no autorizado o no encontrado.")
-
-            if iot_error:
-                return self._error_response(iot_error, iot_error, user_name=user_name, is_owner=is_owner)
-
-            formatted_conversation_history = ""
-            if self._prompt_processor.should_load_conversation_history(prompt):
-                formatted_conversation_history = await self._memory_manager.get_conversation_logs_by_user_id(db, user_id, limit=5)
-                logger.debug("Historial de conversación cargado (detectada palabra clave)")
-
-            enhanced_prompt = self._device_context_manager.enhance_prompt(user_id, prompt)
-
-            scheduled_routines_info = ""
-            if self._routine_scheduler:
-                scheduled_routines_data = self._routine_scheduler.get_scheduled_routines_info(user_id)
-                if scheduled_routines_data and scheduled_routines_data["scheduled_routines"]:
-                    scheduled_routines_info = "\n".join([
-                        f"- {r['name']} a las {r['hour']}:00 (Acciones: {', '.join(r['actions'])})"
-                        for r in scheduled_routines_data["scheduled_routines"]
-                    ])
-                else:
-                    scheduled_routines_info = "No hay rutinas automáticas programadas para este usuario."
-
-            system_prompt, prompt_text = create_system_prompt(
-                config=self._config,
-                user_name=user_name,
-                is_owner=is_owner,
-                user_permissions_str=user_permissions_str,
-                formatted_iot_commands=formatted_iot_commands,
-                iot_command_names=iot_command_names,
-                search_results_str="",
-                user_preferences_dict=user_preferences_dict,
-                prompt=enhanced_prompt,
-                conversation_history=formatted_conversation_history,
-                system_prompt_template=self._system_prompt_template,
-                scheduled_routines_info=scheduled_routines_info,
-                routine_creation_instructions=self._routine_creation_instructions
+            
+            # Preparar contexto
+            context_result = await self._context_handler.prepare_context(
+                user_id, prompt, db_user, user_name, is_owner, user_permissions_str, user_preferences_dict
             )
-
-            full_response_content, llm_error = await self._get_llm_response(system_prompt, prompt_text)
+            
+            if "error" in context_result:
+                return self._error_response(context_result["error"], context_result["error"], 
+                                          user_name=user_name, is_owner=is_owner)
+            
+            # Generar respuesta del LLM
+            full_response_content, llm_error = await self._response_handler.generate_llm_response(
+                context_result["system_prompt"], context_result["prompt_text"]
+            )
             
             if llm_error:
                 return self._error_response(llm_error, llm_error, user_name=user_name, is_owner=is_owner)
-
-            # Check for routine creation command
-            routine_match = ROUTINE_CREATION_REGEX.match(full_response_content)
-            if routine_match:
-                routine_name = routine_match.group(1).strip()
-                # routine_name is intentionally unused; the routine is created via pattern/actions only
-                routine_trigger = routine_match.group(2).strip()
-                routine_actions_str = routine_match.group(3).strip()
-                
-                # Assuming actions are comma-separated for now, adjust as needed
-                routine_actions = [action.strip() for action in routine_actions_str.split(',')]
-
-                try:
-                    # Parse routine_trigger to extract trigger_type and trigger details
-                    trigger_parts = routine_trigger.split(' ', 1)
-                    trigger_type_str = trigger_parts[0].lower()
-                    trigger_value = trigger_parts[1] if len(trigger_parts) > 1 else ""
-
-                    pattern = {}
-                    if trigger_type_str == "hora":
-                        pattern = {
-                            "type": "time_based",
-                            "hour": trigger_value # e.g., "2:30"
-                        }
-                    # Add more trigger types here as needed
-                    else:
-                        raise ValueError(f"Tipo de disparador desconocido: {trigger_type_str}")
-
-                    new_routine = self._memory_brain.routine_manager.create_routine_from_pattern(
-                        user_id=user_id,
-                        pattern=pattern,
-                        actions=routine_actions,
-                        confirmed=True
-                    )
-                    response_text = f"He creado la rutina '{new_routine.name}' con el disparador '{routine_trigger}' y las acciones: {', '.join(routine_actions)}."
-                    return self._success_response(response_text, response_text, user_name=user_name, is_owner=is_owner)
-                except Exception as e:
-                    logger.error(f"Error al crear la rutina: {e}")
-                    return self._error_response(f"No pude crear la rutina. Error: {e}", "Error al crear la rutina.", user_name=user_name, is_owner=is_owner)
             
-            full_response_content = await self._response_processor.process_memory_search(db, user_id, full_response_content)
-            full_response_content = await self._response_processor.process_name_change(db, full_response_content, user_id)
-            full_response_content = await self._user_manager.handle_preference_setting(db, db_user, full_response_content)
-            full_response_content = PREFERENCE_MARKERS_REGEX.sub("", full_response_content).strip()
+            # Procesar rutinas
+            routine_result = await self._routine_handler.handle_routine_creation(
+                full_response_content, user_id, user_name, is_owner
+            )
             
-            response_for_memory = full_response_content
+            if routine_result:
+                return self._success_response(
+                    routine_result["response"],
+                    routine_result.get("command"),
+                    user_name=user_name,
+                    is_owner=is_owner
+                )
+            
+            # Procesar respuesta
             _, iot_commands_db = await self._iot_command_processor.load_commands_from_db(db)
             
-            if self._memory_brain and user_id and not has_negation:
-                await self._execute_automatic_routines(db, user_id, token)
+            if self._memory_brain and user_id and not context_result["has_negation"]:
+                await self._routine_handler.execute_automatic_routines(user_id, token)
             
-            extracted_command = None
-            if not has_negation:
-                full_response_content, extracted_command = await self._response_processor.process_iot_command(
-                    db, full_response_content, token, user_id, iot_commands_db
-                )
-                self._device_context_manager.update(user_id, prompt, extracted_command)
-            else:
-                logger.info("Comando IoT no procesado debido a negación en prompt")
-                full_response_content = re.sub(IOT_COMMAND_REGEX, "", full_response_content).strip()
+            processed_response, extracted_command = await self._response_processor.process_response(
+                db, user_id, full_response_content, token, context_result["has_negation"], iot_commands_db
+            )
             
+            # Actualizar contexto de dispositivo
+            self._context_handler.update_device_context(user_id, prompt, extracted_command)
+            
+            # Registrar en Memory Brain
             if self._memory_brain and user_id and db_user:
-                await self._track_in_memory_brain(db, user_id, user_name, prompt, full_response_content, extracted_command)
+                await self._track_in_memory_brain(db, user_id, user_name, prompt, processed_response, extracted_command)
             
+            # Actualizar memoria conversacional
             if user_id != 0:
                 try:
-                    await self._user_manager.update_memory(db, user_id, prompt, response_for_memory)
+                    await self._user_manager.update_memory(db, user_id, prompt, processed_response)
                 except Exception as e:
                     logger.error(f"Error al actualizar memoria: {e}")
                     return self._error_response(f"Error interno al actualizar la memoria: {e}", str(e), user_name=user_name, is_owner=is_owner)
 
             return {
                 "identified_speaker": user_name or "Desconocido",
-                "response": full_response_content,
+                "response": processed_response,
                 "command": extracted_command,
                 "user_name": user_name,
                 "preference_key": None,
@@ -330,34 +259,18 @@ class NLPModule:
                 "is_owner": is_owner
             }
 
-    async def _execute_automatic_routines(self, db: AsyncSession, user_id: int, token: str):
-        """Verifica y ejecuta rutinas automáticas de Memory Brain"""
-        try:
-            current_context = {
-                "hour": datetime.now().hour,
-                "day": datetime.now().weekday(),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            automatic_actions = self._memory_brain.routine_manager.check_routine_triggers(
-                user_id, current_context
-            )
-            
-            if automatic_actions:
-                logger.info(f"Rutinas automáticas detectadas para usuario {user_id}: {len(automatic_actions)}")
-                for action in automatic_actions:
-                    try:
-                        await self._iot_command_processor.process_iot_command(
-                            db, action, token, user_id=user_id
-                        )
-                    except Exception as e:
-                        logger.error(f"Error ejecutando rutina automática: {e}")
-        except Exception as e:
-            logger.warning(f"Error verificando rutinas automáticas: {e}")
+    async def _validate_user(self, db: AsyncSession, user_id: int):
+        """Helper para validar usuario"""
+        if user_id is None:
+            return None, None, None, None, None
 
-    async def _track_in_memory_brain(
-        self, db: AsyncSession, user_id: int, user_name: str, prompt: str, response: str, extracted_command: Optional[str]
-    ):
+        db_user, user_permissions_str, user_preferences_dict = await self._user_manager.get_user_data_by_id(db, user_id)
+        if not db_user:
+            return None, None, None, None, None
+            
+        return db_user, db_user.nombre, db_user.is_owner, user_permissions_str, user_preferences_dict
+
+    async def _track_in_memory_brain(self, db: AsyncSession, user_id: int, user_name: str, prompt: str, response: str, extracted_command: Optional[str]):
         """Registra interacción en Memory Brain"""
         try:
             device_type = None
@@ -368,9 +281,10 @@ class NLPModule:
                     prompt, response
                 )
 
-            intent = self._prompt_processor.extract_intent(prompt)
+            intent = self._context_handler.extract_intent(prompt)
 
-            self._memory_brain.track_interaction(
+            await self._memory_brain.track_interaction(
+                db=db,
                 user_id=user_id,
                 user_name=user_name,
                 intent=intent,
@@ -384,10 +298,10 @@ class NLPModule:
                 location=location
             )
 
-            event_count = len(self._memory_brain.context_tracker.get_user_events(user_id))
+            event_count = len(await self._memory_brain.context_tracker.get_user_events(db, user_id))
             if event_count > 0 and event_count % 10 == 0:
-                suggested_routines = self._memory_brain.suggest_routines(
-                    user_id, min_confidence=0.6
+                suggested_routines = await self._memory_brain.suggest_routines(
+                    db, user_id, min_confidence=0.6
                 )
                 if suggested_routines:
                     routine_suggestions = await self._format_routine_suggestions(suggested_routines)
@@ -450,7 +364,8 @@ class NLPModule:
         if not self._memory_brain:
             return {"status": "Memory Brain no inicializado"}
 
-        return self._memory_brain.get_routine_status(user_id)
+        async with get_db() as db:
+            return await self._memory_brain.get_routine_status(db, user_id)
 
     async def update_assistant_name(self, new_name: str):
         """Actualiza el nombre del asistente."""
@@ -473,10 +388,5 @@ class NLPModule:
         logger.info(f"Actualizando configuración NLP con: {new_config}")
         self._config_manager.update_config(new_config)
         await self.reload()
-        log_fn = logger.info if self._online else logger.warning
-        log_fn("Configuración NLP actualizada y módulos recargados." if self._online else "Configuración NLP actualizada pero Ollama no está en línea.")
-
-    async def get_conversation_history(self, db: AsyncSession, user_id: int, limit: int = 100):
-        """Recupera el historial de conversación para un usuario específico."""
-        return await self._memory_manager.get_raw_conversation_logs_by_user_id(db, user_id, limit)
-        
+        log_fn = logger.info if self._online else logger
+        log_fn("NLP configuración actualizada y módulos recargados.")

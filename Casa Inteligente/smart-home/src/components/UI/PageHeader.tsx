@@ -13,46 +13,25 @@ export default function PageHeader({
   title,
   icon,
 }: PageHeaderProps) {
-  const [headerTranslate, setHeaderTranslate] = useState(0)
-  const [lastScrollY, setLastScrollY] = useState(0)
-
+  // Header fijo en mobile: sin desplazamiento
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const difference = currentScrollY - lastScrollY
-
-      // Solo en mobile (md:hidden)
-      if (window.innerWidth < 768) {
-        // Si scrollea hacia abajo, baja el header
-        if (difference > 0) {
-          setHeaderTranslate((prev) => Math.min(prev + difference, 100))
-        } else {
-          // Si scrollea hacia arriba, sube el header
-          setHeaderTranslate((prev) => Math.max(prev + difference, 0))
-        }
-      } else {
-        // En desktop, siempre visible
-        setHeaderTranslate(0)
-      }
-
-      setLastScrollY(currentScrollY)
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [lastScrollY])
+    // Asegura que el body tenga suficiente padding-top si fuese necesario
+    // (la página ya maneja sus paddings; aquí no forzamos nada)
+    return () => {}
+  }, [])
 
   return (
+    <>
     <div
-      className="md:relative transition-transform duration-200 ease-out"
+      className="fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out bg-black/20 backdrop-blur-sm border-b border-white/10 md:bg-transparent md:border-0 md:backdrop-blur-0"
       style={{
-        transform: window.innerWidth < 768 ? `translateY(${headerTranslate}px)` : "translateY(0px)",
+        transform: "translateY(0px)",
       }}
     >
       {/* MOBILE LAYOUT */}
-      <div className="md:hidden flex items-center justify-between gap-3 -mt-8 py-2 relative">
+      <div className="md:hidden flex items-center justify-between gap-3 h-17 px-5 pt-1 pb-2 md:pt-0 relative">
         {/* IZQUIERDA: Espacio para hamburguesa (vacío, se controla desde Sidebar) */}
-        <div className="w-11 h-11 flex-shrink-0" />
+        <div className="w-12 h-12 flex-shrink-0" />
 
         {/* CENTRO: ICONO + TITULO */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -65,7 +44,7 @@ export default function PageHeader({
         </div>
 
         {/* DERECHA: Perfil + Notificaciones */}
-        <div className="flex-shrink-0 -mt-1">
+        <div className="flex-shrink-0 pr-2">
           <ProfileNotifications />
         </div>
       </div>
@@ -85,5 +64,8 @@ export default function PageHeader({
         <ProfileNotifications />
       </div>
     </div>
+    {/* Separador bajo el header en móvil para no pegar el contenido */}
+    <div className="md:hidden h-2"/>
+    </>
   )
 }

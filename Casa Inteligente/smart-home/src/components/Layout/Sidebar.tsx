@@ -25,8 +25,7 @@ export default function HamburgerMenu({
 }: HamburgerMenuProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
   const [transitionItem, setTransitionItem] = useState<{ name: string; icon: any } | null>(null)
-  const [buttonTranslate, setButtonTranslate] = useState(0)
-  const [lastScrollY, setLastScrollY] = useState(0)
+  // Botón fijo en mobile: sin desplazamiento
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -46,28 +45,7 @@ export default function HamburgerMenu({
     }
   }, [isSidebarOpen, setIsSidebarOpen])
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const difference = currentScrollY - lastScrollY
-
-      // Solo en mobile
-      if (window.innerWidth < 768) {
-        if (difference > 0) {
-          setButtonTranslate((prev) => Math.min(prev + difference, 100))
-        } else {
-          setButtonTranslate((prev) => Math.max(prev + difference, 0))
-        }
-      } else {
-        setButtonTranslate(0)
-      }
-
-      setLastScrollY(currentScrollY)
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [lastScrollY])
+  // Eliminamos la lógica de scroll para el botón hamburguesa
 
   const handleSelect = (menu: { name: string; icon: any }) => {
     setTransitionItem(menu)
@@ -93,10 +71,7 @@ export default function HamburgerMenu({
       {/* Botón flotante MOBILE - TOP LEFT */}
       {!isSidebarOpen && (
         <div
-          className="md:hidden fixed top-7 left-4 z-50 transition-transform duration-200 ease-out"
-          style={{
-            transform: `translateY(${buttonTranslate}px)`,
-          }}
+          className="md:hidden fixed top-2 left-5 z-[90]"
         >
           <button
             onClick={() => setIsSidebarOpen(true)}
@@ -115,7 +90,7 @@ export default function HamburgerMenu({
       {/* Fondo oscuro al abrir menú */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-500"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80] transition-opacity duration-500"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -130,7 +105,7 @@ export default function HamburgerMenu({
           flex flex-col items-center justify-between py-8 px-6
           pt-[1.5rem] pb-6 pl-4 pr-4 
           transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
-          z-50 transform
+          z-[90] transform
           ${isSidebarOpen 
             ? "translate-x-0 opacity-100 w-[86vw] sm:w-72 md:w-80" 
             : "-translate-x-full md:translate-x-0 opacity-95 w-20"}`}

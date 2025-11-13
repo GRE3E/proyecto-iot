@@ -61,18 +61,6 @@ export default function AnimatedClockWidget({ temperature }: { temperature?: num
   const { selectedTimezone, currentTime, currentDate } = useZonaHoraria()
   const [realTemperature, setRealTemperature] = useState(temperature || 22)
   const [weatherCondition, setWeatherCondition] = useState('Cloudy')
-  const [delayedDeviceTime, setDelayedDeviceTime] = useState<string | null>(null)
-  const [delayedDeviceDate, setDelayedDeviceDate] = useState<string | null>(null)
-
-  // Delay device fallback by 3s
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const now = new Date()
-      setDelayedDeviceTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`)
-      setDelayedDeviceDate(now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }))
-    }, 3000)
-    return () => clearTimeout(timer)
-  }, [])
 
   // Fetch real weather data
   useEffect(() => {
@@ -117,11 +105,8 @@ export default function AnimatedClockWidget({ temperature }: { temperature?: num
     return { hours, minutes }
   }
 
-  const displayTime = currentTime || delayedDeviceTime || "00:00"
-  const displayDate = currentDate || delayedDeviceDate || new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })
-
-  const { hours: parsedHours, minutes: parsedMinutes } = displayTime && displayTime !== "00:00" 
-    ? parseTime(displayTime) 
+  const { hours: parsedHours, minutes: parsedMinutes } = currentTime 
+    ? parseTime(currentTime) 
     : { hours: new Date().getHours() % 12, minutes: new Date().getMinutes() }
 
   const hourDeg = (parsedHours + parsedMinutes / 60) * 30
@@ -158,7 +143,7 @@ export default function AnimatedClockWidget({ temperature }: { temperature?: num
             {/* Left: Time big + small analog */}
             <div className="flex flex-col items-center justify-center gap-4 h-full">
               <div className="text-4xl md:text-6xl lg:text-7xl font-bold text-white font-mono tracking-wider">
-                {displayTime}
+                {currentTime || "00:00"}
               </div>
               <div className="relative w-32 h-32 md:w-44 md:h-44 lg:w-48 lg:h-48 rounded-full border-2 border-slate-500/30 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm shadow-inner">
                 {Array.from({ length: 12 }).map((_, i) => {
@@ -174,7 +159,7 @@ export default function AnimatedClockWidget({ temperature }: { temperature?: num
                 <div className="absolute bg-white rounded-full" style={{ width: "1.2px", height: "35%", bottom: "50%", left: "50%", transformOrigin: "bottom center", transform: `translateX(-50%) rotate(${minuteDeg}deg)` }} />
               </div>
               <div className="text-base text-slate-300">
-                {displayDate}
+                {currentDate || new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
               </div>
             </div>
 

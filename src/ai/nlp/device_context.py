@@ -7,7 +7,7 @@ logger = logging.getLogger("DeviceContext")
 
 # Regex para ubicaciones de dispositivos
 DEVICE_LOCATION_REGEX = re.compile(
-    r"\b(salón|sala|cocina|dormitorio|pasillo|comedor|baño|garaje|lavandería|habitación|principal|invitados)\b",
+    r"\b(salón|salon|sala|cocina|dormitorio|pasillo|comedor|baño|bano|garaje|lavandería|lavanderia|habitación|habitacion|principal|invitados)\b",
     re.IGNORECASE
 )
 
@@ -80,9 +80,10 @@ class DeviceContextManager:
                 
                 context = self.get_or_create(user_id)
                 device_name = topic.split("/")[-2] if "/" in topic else topic
-                context.update(device_name, location or "desconocida", device_type)
+                inferred_location = location or self._infer_location_from_topic(topic) or "desconocida"
+                context.update(device_name, inferred_location, device_type)
                 
-                logger.info(f"Contexto de dispositivo actualizado para usuario {user_id}: {device_name} en {location}")
+                logger.info(f"Contexto de dispositivo actualizado para usuario {user_id}: {device_name} en {inferred_location}")
         except Exception as e:
             logger.warning(f"Error al actualizar contexto de dispositivo: {e}")
     
@@ -126,4 +127,20 @@ class DeviceContextManager:
         elif "climate" in topic.lower():
             device_type = "clima"
         return device_type
+
+    @staticmethod
+    def _infer_location_from_topic(topic: str) -> Optional[str]:
+        device_part = topic.split("/")[-2] if "/" in topic else topic
+        s = device_part.lower()
+        prefixes = ["light_", "door_", "climate_", "actuator_", "sensor_", "valve_"]
+        for p in prefixes:
+            if s.startswith(p):
+                s = s[len(p):]
+                break
+        s = s.replace("_", " ")
+        s = s.replace("baño", "bano").replace("habitación", "habitacion").replace("lavandería", "lavanderia")
+        match = DEVICE_LOCATION_REGEX.search(s)
+        if match:
+            return s if s != match.group(1).lower() else match.group(1).lower()
+        return None
         

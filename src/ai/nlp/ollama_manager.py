@@ -2,6 +2,8 @@ import subprocess
 import time
 import logging
 import os
+import inspect
+import threading
 import ollama
 from ollama import AsyncClient
 from typing import Dict, Any, Optional
@@ -12,13 +14,18 @@ class OllamaManager:
     """
     Gestiona el ciclo de vida del servidor Ollama y la conectividad del modelo.
     """
-    def __init__(self, model_config: Dict[str, Any], ollama_host: str = 'http://localhost:11434'):
+    _GLOBAL_ASYNC_CLIENT: Optional[AsyncClient] = None
+    _CLIENT_INIT_LOCK = threading.Lock()
+
+    def __init__(self, model_config: Dict[str, Any], ollama_host: str = 'http://localhost:11434', start_server: bool = True):
         """
         Inicializa OllamaManager, intentando iniciar el servidor Ollama y verificar la conexión.
 
         Args:
             model_config (Dict[str, Any]): Configuración del modelo Ollama, incluyendo nombre, temperatura y max_tokens.
             ollama_host (str): La URL del host de Ollama. Por defecto es 'http://localhost:11434'.
+            start_server (bool): Si True, intenta iniciar el servidor Ollama si no está corriendo.
+                Si False, omite el arranque y solo verifica la conexión contra un servidor existente.
         """
         self._ollama_process: Optional[subprocess.Popen] = None
         self._online: bool = False
@@ -26,13 +33,19 @@ class OllamaManager:
         self._model_name: Optional[str] = model_config.get("name")
         self._ollama_host: str = ollama_host
         self._async_client: Optional[AsyncClient] = None
-        logger.debug("Iniciando Ollama server...")
-        self._start_ollama_server()
+        if start_server:
+            logger.debug("Iniciando Ollama server...")
+            self._start_ollama_server()
+        else:
+            logger.debug("Omitiendo inicio de servidor Ollama (start_server=False).")
         logger.debug("Verificando conexión a Ollama...")
         self._online = self._check_connection()
 
         if self._online:
-            self._async_client = AsyncClient(host=self._ollama_host)
+            with OllamaManager._CLIENT_INIT_LOCK:
+                if OllamaManager._GLOBAL_ASYNC_CLIENT is None:
+                    OllamaManager._GLOBAL_ASYNC_CLIENT = AsyncClient(host=self._ollama_host)
+            self._async_client = OllamaManager._GLOBAL_ASYNC_CLIENT
             logger.info("OllamaManager inicializado y en línea.")
 
         else:
@@ -110,15 +123,43 @@ class OllamaManager:
 
     def __del__(self):
         """
-        Asegura que el proceso de Ollama se termine al cerrar la aplicación.
+        Evita realizar operaciones de E/S durante la recolección.
+        Los recursos deben cerrarse explícitamente mediante el método asíncrono `close()`.
         """
-        self.close()
+        try:
+            logger.debug("__del__ llamado en OllamaManager; cierre explícito recomendado con close().")
+        except Exception:
+            # Evitar cualquier I/O o excepción durante recolección
+            pass
 
-    def close(self):
+    async def close(self):
         """
-        Termina explícitamente el proceso del servidor de Ollama si está en ejecución.
+        Cierra de forma asíncrona el cliente global de Ollama y termina explícitamente
+        el proceso del servidor si fue iniciado por esta instancia.
         También lee y registra la salida del proceso para depuración.
         """
+        if self._async_client:
+            try:
+                close_method = None
+                if hasattr(self._async_client, "close"):
+                    close_method = getattr(self._async_client, "close")
+                elif hasattr(self._async_client, "aclose"):
+                    close_method = getattr(self._async_client, "aclose")
+
+                if close_method is not None:
+                    if inspect.iscoroutinefunction(close_method):
+                        await close_method()
+                    else:
+                        close_method()
+                    logger.info("AsyncClient de Ollama cerrado correctamente.")
+                else:
+                    logger.debug("El AsyncClient de Ollama no expone métodos de cierre.")
+            except Exception as e:
+                logger.error(f"Error al cerrar el cliente asíncrono de Ollama: {e}")
+            finally:
+                OllamaManager._GLOBAL_ASYNC_CLIENT = None
+                self._async_client = None
+
         if self._ollama_process and self._ollama_process.poll() is None:
             logger.info("Terminando el proceso del servidor de Ollama...")
 
@@ -264,9 +305,10 @@ class OllamaManager:
         self._online = self._check_connection()
         
         if self._online:
-            
-            if not self._async_client:
-                self._async_client = AsyncClient(host=self._ollama_host)
+            with OllamaManager._CLIENT_INIT_LOCK:
+                if OllamaManager._GLOBAL_ASYNC_CLIENT is None:
+                    OllamaManager._GLOBAL_ASYNC_CLIENT = AsyncClient(host=self._ollama_host)
+            self._async_client = OllamaManager._GLOBAL_ASYNC_CLIENT
             logger.info("Ollama recargado y en línea.")
         
         else:
@@ -282,4 +324,64 @@ class OllamaManager:
             raise RuntimeError("El cliente asíncrono de Ollama no ha sido inicializado. Asegúrate de que el servidor Ollama esté corriendo y la conexión se haya establecido correctamente.")
         
         return self._async_client
+
+    async def generate_stateless(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """
+        Genera una respuesta del modelo en modo completamente stateless.
+
+        No mantiene ninguna sesión, historial o contexto entre llamadas,
+        garantizando aislamiento por usuario/hilo.
+
+        Args:
+            prompt (str): Prompt del usuario a enviar al modelo.
+            system_prompt (Optional[str]): Instrucción de sistema opcional para la llamada.
+
+        Returns:
+            str: Texto de respuesta generado por el modelo.
+
+        Raises:
+            RuntimeError: Si el cliente asíncrono no está inicializado o no hay conexión.
+            Exception: Propaga errores de Ollama en caso de fallo de generación.
+        """
+        if not self._online or not self._async_client:
+            logger.error("Intento de generación stateless sin cliente en línea.")
+            raise RuntimeError("OllamaManager no está en línea o el AsyncClient no está inicializado.")
+
+        options: Dict[str, Any] = {}
+        for key in ("temperature", "max_tokens", "top_p", "top_k", "repeat_penalty", "num_ctx"):
+            val = self._model_config.get(key)
+            if val is not None:
+                options[key] = val
+
+        kwargs: Dict[str, Any] = {
+            "model": self._model_name,
+            "prompt": prompt,
+        }
+
+        try:
+            sig = inspect.signature(self._async_client.generate)
+            if "system" in sig.parameters and system_prompt is not None:
+                kwargs["system"] = system_prompt
+            if "options" in sig.parameters:
+                kwargs["options"] = options
+            if "stream" in sig.parameters:
+                kwargs["stream"] = False
+        except (ValueError, TypeError):
+            if system_prompt is not None:
+                kwargs["system"] = system_prompt
+            kwargs["options"] = options
+            kwargs["stream"] = False
+
+        logger.debug("Generando respuesta stateless con Ollama...")
+        try:
+            response: Dict[str, Any] = await self._async_client.generate(**kwargs)
+            text = response.get("response", "")
+            logger.info("Generación stateless completada exitosamente.")
+            return text
+        except ollama.ResponseError as e:
+            logger.error(f"Error de respuesta de Ollama durante generación: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error inesperado durante generación stateless: {e}")
+            raise
         

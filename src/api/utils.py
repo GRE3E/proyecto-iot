@@ -289,7 +289,7 @@ async def _set_nlp_iot_managers() -> None:
 async def shutdown_ollama_manager() -> None:
     global _ollama_manager
     if _ollama_manager:
-        _ollama_manager.close()
+        await _ollama_manager.close()
         logger.info("OllamaManager cerrado.")
         _ollama_manager = None
 

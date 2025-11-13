@@ -241,4 +241,26 @@ class DeviceState(Base):
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
 
     __table_args__ = (UniqueConstraint('device_name', 'device_type', name='_device_name_type_uc'),)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    """
+    Modelo para almacenar notificaciones del sistema.
+
+    Atributos:
+        id (int): Identificador único de la notificación.
+        timestamp (datetime): Marca de tiempo de cuándo se creó la notificación.
+        type (str): Tipo de notificación (e.g., "info", "warning", "error", "mqtt", "user_action").
+        title (str): Título breve de la notificación.
+        message (str): Mensaje detallado de la notificación.
+        status (str): Estado de la notificación (e.g., "read", "unread", "new").
+        extra_data (str): Metadatos adicionales en formato JSON (opcional).
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=func.now())
+    type = Column(String(50), nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String(50), nullable=False, default="new")
     

@@ -24,7 +24,7 @@
     "hotword": false,
     "mqtt": false,
     "tts": false,
-    "face_recognition": false
+    "face_recognition": true
   },
   "memory_size": 50,
   "timezone": "America/Lima",

@@ -32,6 +32,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await db.close()
 
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with get_db() as db:
+        yield db
+
 async def create_all_tables() -> None:
     """
     Crea las tablas definidas por los modelos e índices de optimización.

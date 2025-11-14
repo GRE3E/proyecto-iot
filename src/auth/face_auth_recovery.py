@@ -1,7 +1,6 @@
 import logging
 import tempfile
 import os
-import asyncio
 
 from src.rc.recognize import FaceRecognizer
 from src.db.database import get_db

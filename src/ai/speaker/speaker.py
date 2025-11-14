@@ -23,6 +23,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         self._online = True
         self._registered_users: List[User] = []
         self._executor = ThreadPoolExecutor(max_workers=4)
+        self.identification_threshold: float = 0.25
+        self.registration_threshold: float = 0.2
+        self.identification_margin: float = 0.05
 
     async def _load_registered_users(self) -> None:
         """
@@ -83,7 +86,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     distance = 1 - similarity
                     logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
                     
-                    if distance < 0.5:
+                    if distance < self.registration_threshold:
                         logger.warning(f"La voz proporcionada ya está registrada por el usuario {user.nombre}. No se puede registrar {name}.")
                         return None
 
@@ -130,7 +133,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     distance = 1 - similarity
                     logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
 
-                    if distance < 0.5:
+                    if distance < self.registration_threshold:
                         logger.warning(f"La voz proporcionada ya está registrada por el usuario {user.nombre}. No se puede actualizar la voz para el usuario ID {user_id}.")
                         return None
 
@@ -159,9 +162,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.info("No se encontraron usuarios registrados. Devolviendo solo el embedding generado.")
             return None, new_embedding
 
-        min_dist = float('inf')
-        identified_user = None
-
+        distances = []
         for user in self._registered_users:
             if user.speaker_embedding is None:
                 logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando identificación.")
@@ -171,13 +172,20 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                          (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
             distance = 1 - similarity
             logger.debug(f"Comparando con {user.nombre}: distancia = {distance:.4f}")
-            if distance < min_dist:
-                min_dist = distance
-                identified_user = user
-        
-        if identified_user and min_dist < 0.5:
-            logger.info(f"Hablante identificado: {identified_user.nombre}")
-            return identified_user, new_embedding
+            distances.append((user, distance))
+
+        if not distances:
+            logger.info("No hay embeddings válidos para identificación.")
+            return None, new_embedding
+
+        distances.sort(key=lambda x: x[1])
+        logger.debug(f"Top candidatos: {[(u.nombre, f'{d:.4f}') for u, d in distances[:3]]}")
+        best_user, best_dist = distances[0]
+        second_dist = distances[1][1] if len(distances) > 1 else None
+
+        if best_dist < self.identification_threshold and (second_dist is None or (second_dist - best_dist) >= self.identification_margin):
+            logger.info(f"Hablante identificado: {best_user.nombre} (distancia={best_dist:.4f})")
+            return best_user, new_embedding
         else:
             logger.info("Hablante Desconocido")
             return None, new_embedding
@@ -194,4 +202,55 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
 
         return self._executor.submit(asyncio.run, self._identify_speaker_sync(audio_path))
+
+    async def register_speaker_multi(self, name: str, audio_paths: List[str], is_owner: bool = False) -> Optional[str]:
+        try:
+            wavs = [preprocess_wav(p) for p in audio_paths]
+            if hasattr(self._encoder, "embed_speaker"):
+                new_embedding = self._encoder.embed_speaker(wavs)
+            else:
+                parts = [self._encoder.embed_utterance(w) for w in wavs]
+                new_embedding = np.mean(parts, axis=0)
+            new_embedding_str = json.dumps(new_embedding.tolist())
+            async with get_db() as db:
+                await self._load_registered_users()
+                existing_user_by_name = await db.execute(select(User).filter(User.nombre == name))
+                if existing_user_by_name.scalar_one_or_none():
+                    return None
+                for user in self._registered_users:
+                    if user.speaker_embedding is None:
+                        continue
+                    registered_embedding = np.array(json.loads(user.speaker_embedding))
+                    similarity = np.dot(new_embedding, registered_embedding) / (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    distance = 1 - similarity
+                    if distance < self.registration_threshold:
+                        return None
+                return new_embedding_str
+        except Exception:
+            return None
+
+    async def update_speaker_voice_multi(self, user_id: int, audio_paths: List[str]) -> Optional[str]:
+        try:
+            wavs = [preprocess_wav(p) for p in audio_paths]
+            if hasattr(self._encoder, "embed_speaker"):
+                new_embedding = self._encoder.embed_speaker(wavs)
+            else:
+                parts = [self._encoder.embed_utterance(w) for w in wavs]
+                new_embedding = np.mean(parts, axis=0)
+            new_embedding_str = json.dumps(new_embedding.tolist())
+            async with get_db():
+                await self._load_registered_users()
+                for user in self._registered_users:
+                    if user.id == user_id:
+                        continue
+                    if user.speaker_embedding is None:
+                        continue
+                    registered_embedding = np.array(json.loads(user.speaker_embedding))
+                    similarity = np.dot(new_embedding, registered_embedding) / (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    distance = 1 - similarity
+                    if distance < self.registration_threshold:
+                        return None
+                return new_embedding_str
+        except Exception:
+            return None
         

@@ -25,6 +25,8 @@ export default function Configuracion() {
     setModalOwnerName,
     modalPassword,
     setModalPassword,
+    modalCurrentPassword,
+    setModalCurrentPassword,
     isListening,
     transcript,
     statusMessage,
@@ -37,6 +39,7 @@ export default function Configuracion() {
     errorMessage,
     voiceConfirmed,
     faceDetected,
+    isRegisteringMember,
     handleAccountStep,
     handleVoiceRecognitionEnhanced,
     handleFaceDetection,
@@ -47,6 +50,18 @@ export default function Configuracion() {
     setChangeFaceModalOpen,
     handleChangeVoice,
     handleChangeFace,
+    handleUploadVoiceToUser,
+    handleRegisterFaceToUser,
+    voicePassword,
+    setVoicePassword,
+    voicePasswordVerified,
+    handleVerifyVoicePassword,
+    facePassword,
+    setFacePassword,
+    facePasswordVerified,
+    handleVerifyFacePassword,
+    isCurrentUserOwner,
+    ownerUsernames,
   } = useConfiguracion()
 
   const {
@@ -74,7 +89,7 @@ export default function Configuracion() {
       />
 
       <div className="space-y-6">
-        {/* Perfil del propietario */}
+        {/* Perfil del propietario con propietarios arriba y familiares debajo */}
         <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
           <Perfil
             name={ownerName}
@@ -84,7 +99,8 @@ export default function Configuracion() {
             setMembers={setMembers}
             isOwnerFixed={true}
             onEditProfile={handleEditProfile}
-            onAddMember={() => setIsAddMemberModalOpen(true)}
+            onAddMember={isCurrentUserOwner ? () => setIsAddMemberModalOpen(true) : undefined}
+            owners={ownerUsernames}
           />
         </SimpleCard>
 
@@ -131,13 +147,24 @@ export default function Configuracion() {
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Contraseña</label>
+              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <input
+                type="password"
+                value={modalCurrentPassword}
+                onChange={(e) => setModalCurrentPassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                placeholder="Confirma tu contraseña"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">Nueva contraseña</label>
               <input
                 type="password"
                 value={modalPassword}
                 onChange={(e) => setModalPassword(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
-                placeholder="Ingresa nueva contraseña"
+                placeholder="Ingresa nueva contraseña (opcional)"
               />
             </div>
 
@@ -146,13 +173,13 @@ export default function Configuracion() {
                 onClick={() => setChangeVoiceModalOpen(true)}
                 className="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
               >
-                Cambiar voz
+                Agregar voz
               </button>
               <button
                 onClick={() => setChangeFaceModalOpen(true)}
                 className="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
               >
-                Cambiar rostro
+                Agregar rostro
               </button>
             </div>
 
@@ -173,15 +200,34 @@ export default function Configuracion() {
           </div>
         </Modal>
 
-        {/* Modal cambiar voz */}
+        {/* Modal agregar voz */}
         <Modal
-          title="Cambiar reconocimiento de voz"
+          title="Agregar reconocimiento de voz"
           isOpen={changeVoiceModalOpen}
           onClose={() => setChangeVoiceModalOpen(false)}
         >
           <div className="flex flex-col items-center gap-4">
+            <div className="w-full">
+              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <input
+                type="password"
+                value={voicePassword}
+                onChange={(e) => setVoicePassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                placeholder="Confirma tu contraseña"
+              />
+              <button
+                onClick={handleVerifyVoicePassword}
+                className="mt-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+              >
+                Verificar contraseña
+              </button>
+              {voicePasswordVerified && (
+                <p className="text-green-400 text-xs mt-1">Contraseña verificada ✔️</p>
+              )}
+            </div>
             <p className="text-sm text-slate-400 text-center">
-              Di la siguiente frase para actualizar tu voz:
+              Di la siguiente frase para registrar tu voz:
             </p>
             <p className="text-blue-400 font-semibold text-center text-lg">
               "Murphy soy parte del hogar"
@@ -192,7 +238,7 @@ export default function Configuracion() {
               className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-all w-full md:w-auto ${
                 isListening ? "bg-red-600 animate-pulse cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
               }`}
-              disabled={isListening}
+              disabled={isListening || !voicePasswordVerified}
             >
               <Mic className="w-4 h-4" />
               {isListening ? "Escuchando..." : "Iniciar escucha"}
@@ -217,7 +263,7 @@ export default function Configuracion() {
               {voiceConfirmed && (
                 <button
                   onClick={() => {
-                    setChangeVoiceModalOpen(false)
+                    handleUploadVoiceToUser()
                   }}
                   className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
                 >
@@ -228,15 +274,34 @@ export default function Configuracion() {
           </div>
         </Modal>
 
-        {/* Modal cambiar rostro */}
+        {/* Modal agregar rostro */}
         <Modal
-          title="Cambiar reconocimiento facial"
+          title="Agregar reconocimiento facial"
           isOpen={changeFaceModalOpen}
           onClose={() => setChangeFaceModalOpen(false)}
         >
           <div className="space-y-4 text-center">
+            <div className="text-left">
+              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <input
+                type="password"
+                value={facePassword}
+                onChange={(e) => setFacePassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                placeholder="Confirma tu contraseña"
+              />
+              <button
+                onClick={handleVerifyFacePassword}
+                className="mt-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+              >
+                Verificar contraseña
+              </button>
+              {facePasswordVerified && (
+                <p className="text-green-400 text-xs mt-1">Contraseña verificada ✔️</p>
+              )}
+            </div>
             <p className="text-sm text-slate-400">
-              Usa la cámara para actualizar el reconocimiento de tu rostro.
+              Usa la cámara para registrar el reconocimiento de tu rostro.
             </p>
 
             <div className="bg-slate-800 border border-slate-700 rounded-xl w-full h-48 flex items-center justify-center">
@@ -247,6 +312,7 @@ export default function Configuracion() {
               <button
                 onClick={handleChangeFace}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
+                disabled={!facePasswordVerified}
               >
                 Escanear rostro
               </button>
@@ -268,7 +334,7 @@ export default function Configuracion() {
               {faceDetected && (
                 <button
                   onClick={() => {
-                    setChangeFaceModalOpen(false)
+                    handleRegisterFaceToUser()
                   }}
                   className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
                 >
@@ -289,7 +355,7 @@ export default function Configuracion() {
           }}
         >
           <div className="space-y-6">
-            {/* Paso 1: Registro */}
+            {/* Registro de familiar (solo credenciales y rol) */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div>
@@ -337,99 +403,14 @@ export default function Configuracion() {
 
                 <div className="flex justify-end">
                   <button
-                    onClick={handleAccountStep}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
+                    onClick={handleFinalizeMember}
+                    disabled={isRegisteringMember}
+                    className={`px-4 py-2 rounded-lg text-sm w-full md:w-auto ${
+                      isRegisteringMember ? "bg-slate-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                    }`}
                   >
-                    Registrar usuario
+                    {isRegisteringMember ? "Registrando..." : "Registrar usuario"}
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* Paso 2: Voz */}
-            {currentStep === 2 && (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-sm text-slate-400 text-center">
-                  Di la siguiente frase para registrar tu voz:
-                </p>
-                <p className="text-blue-400 font-semibold text-center text-lg">
-                  "Murphy soy parte del hogar"
-                </p>
-
-                <button
-                  onClick={handleVoiceRecognitionEnhanced}
-                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-all w-full md:w-auto ${
-                    isListening ? "bg-red-600 animate-pulse cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                  disabled={isListening}
-                >
-                  <Mic className="w-4 h-4" />
-                  {isListening ? "Escuchando..." : "Iniciar escucha"}
-                </button>
-
-                {statusMessage && (
-                  <p className="text-sm text-slate-300 text-center">{statusMessage}</p>
-                )}
-                {transcript && (
-                  <p className="text-sm text-slate-400 text-center italic">
-                    🗣️ Detectado: "{transcript}"
-                  </p>
-                )}
-
-                {voiceConfirmed && (
-                  <div className="flex justify-end w-full">
-                    <button
-                      onClick={() => setCurrentStep(3)}
-                      className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
-                    >
-                      Continuar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Paso 3: Rostro */}
-            {currentStep === 3 && (
-              <div className="space-y-4 text-center">
-                <p className="text-sm text-slate-400">
-                  Usa la cámara para registrar el rostro del nuevo familiar.
-                </p>
-
-                <div className="bg-slate-800 border border-slate-700 rounded-xl w-full h-48 flex items-center justify-center">
-                  <span className="text-slate-500 text-sm">📷 Vista previa de cámara</span>
-                </div>
-
-                {!faceDetected && (
-                  <button
-                    onClick={handleFaceDetection}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
-                  >
-                    Escanear rostro
-                  </button>
-                )}
-
-                {faceDetected && (
-                  <p className="text-green-400 text-sm font-medium">
-                    Rostro detectado correctamente ✅
-                  </p>
-                )}
-
-                <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3">
-                  <button
-                    onClick={() => setIsAddMemberModalOpen(false)}
-                    className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
-                  >
-                    Cancelar
-                  </button>
-                  {faceDetected && (
-                    <button
-                      onClick={handleFinalizeMember}
-                      className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
-                    >
-                      Finalizar registro
-                    </button>
-                  )}
                 </div>
               </div>
             )}

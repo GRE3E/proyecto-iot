@@ -22,6 +22,7 @@ interface PerfilProps {
   isOwnerFixed?: boolean
   onEditProfile: () => void
   onAddMember?: () => void
+  owners?: string[]
 }
 
 export default function Perfil({
@@ -32,6 +33,7 @@ export default function Perfil({
   isOwnerFixed = false,
   onEditProfile,
   onAddMember,
+  owners = [],
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
 
@@ -98,6 +100,25 @@ export default function Perfil({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Lista de propietarios */}
+      <div className="space-y-2">
+        <div className="font-semibold">Propietarios</div>
+        {owners && owners.length > 0 ? (
+          <div className="flex gap-2 flex-wrap">
+            {owners.map((name) => (
+              <span
+                key={name}
+                className="bg-slate-800/70 border border-slate-700 px-3 py-1 rounded-lg text-sm"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="text-slate-400 text-sm">No hay propietarios adicionales</div>
+        )}
       </div>
 
       {/* Lista de familiares */}

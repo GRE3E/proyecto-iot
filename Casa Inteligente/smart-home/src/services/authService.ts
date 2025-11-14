@@ -31,7 +31,8 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
 
     // Si el error es 401 y no es una solicitud de refresh-token y no hemos reintentado
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isRefreshCall = (originalRequest?.url || "").includes("/auth/auth/refresh-token");
+    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshCall) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

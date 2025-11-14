@@ -3,7 +3,7 @@ import { useState } from "react";
 import Login from "./pages/login";
 import RecuperarContraseña from "./pages/RecuperarContraseña";
 import { useThemeByTime } from "./hooks/useThemeByTime";
-import { Home, Settings, Monitor, Shield, MessageCircle, Cpu } from "lucide-react";
+import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 
 // Secciones
@@ -13,6 +13,7 @@ import GestionDispositivos from "./pages/GestionDispositivos";
 import MonitoreoSeguridad from "./pages/MonitoreoSeguridad";
 import Configuracion from "./pages/Configuracion";
 import Chat from "./pages/Chat";
+import Rutinas from "./pages/Rutinas";
 
 // Layout
 import HamburgerMenu from "./components/Layout/Sidebar";
@@ -29,6 +30,7 @@ export default function App() {
     { name: "Gestión de Dispositivos", icon: Cpu },
     { name: "Monitoreo y Seguridad", icon: Shield },
     { name: "Chat", icon: MessageCircle },
+    { name: "Rutinas", icon: ListTodo },
     { name: "Configuración", icon: Settings },
   ];
 
@@ -82,6 +84,7 @@ export default function App() {
             {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
             {selectedMenu === "Configuración" && <Configuracion />}
             {selectedMenu === "Chat" && <Chat />}
+            {selectedMenu === "Rutinas" && <Rutinas />}
           </main>
         </div>
       )}

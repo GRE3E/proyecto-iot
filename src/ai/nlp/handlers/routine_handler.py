@@ -1,6 +1,8 @@
 import logging
 import re
 from typing import Optional, List
+from src.notification.notification import create_notification_logic
+from src.api.notifications_schemas import NotificationCreate
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from src.db.models import IoTCommand
@@ -214,17 +216,6 @@ class RoutineHandler:
         
         return parts
     
-    def _extract_tts_messages_from_actions(self, routine_actions: List[str]) -> List[str]:
-        """Extrae los mensajes de TTS de las acciones de rutina."""
-        tts_messages = []
-        for action in routine_actions:
-            action = action.strip()
-            if action.startswith('tts_speak:'):
-                message = action.replace('tts_speak:', '', 1).strip()
-                if message:
-                    tts_messages.append(message)
-        return tts_messages
-
     async def execute_automatic_routines(self, user_id: int, token: str):
         """Verifica y ejecuta rutinas automáticas de Memory Brain"""
         try:
@@ -242,35 +233,42 @@ class RoutineHandler:
                 if automatic_actions:
                     logger.info(f"Rutinas automáticas detectadas para usuario {user_id}: {len(automatic_actions)}")
                     
-                    tts_messages = self._extract_tts_messages_from_actions(automatic_actions)
-                    
-                    for message in tts_messages:
-                        if self._tts_module and self._tts_module.is_online():
-                            logger.info(f"Enviando mensaje TTS de rutina automática: {message}")
-                            try:
-                                await self._tts_module.generate_audio_stream(message)
-                            except Exception as tts_e:
-                                logger.error(f"Error al enviar mensaje TTS de rutina automática: {tts_e}")
-
+                    executed_actions_summary = []
                     for action in automatic_actions:
                         if action.startswith('mqtt_publish:'):
                             try:
-                                await self._iot_command_processor.process_iot_command(
+                                command_name = await self._iot_command_processor.process_iot_command(
                                     db, action, token, user_id=user_id
                                 )
-                                
-                                # Generar mensaje de confirmación y enviarlo a TTS
-                                # TODO: Considerar si se necesita un mensaje de confirmación específico para MQTT o si el TTS ya cubre esto
-                                # routine = await self._memory_brain.routine_manager.get_routine_by_id(db, action.routine_id)
-                                # if routine and self._tts_module and self._tts_module.is_online():
-                                #     confirmation_message = f"Rutina '{routine.name}' ejecutada."
-                                #     logger.info(f"Enviando a TTS: {confirmation_message}")
-                                #     try:
-                                #         await self._tts_module.generate_audio_stream(confirmation_message)
-                                #     except Exception as tts_e:
-                                #         logger.error(f"Error al enviar mensaje de rutina a TTS: {tts_e}")
+                                if command_name:
+                                    executed_actions_summary.append(f"MQTT: '{command_name}'")
                             except Exception as e:
-                                logger.error(f"Error ejecutando rutina automática: {e}")
+                                logger.error(f"Error ejecutando acción MQTT de rutina automática: {e}")
+                        elif action.startswith('tts_speak:'):
+                            message = action.replace('tts_speak:', '', 1).strip()
+                            if message:
+                                if self._tts_module and self._tts_module.is_online():
+                                    logger.info(f"Enviando mensaje TTS de rutina automática: {message}")
+                                    try:
+                                        await self._tts_module.generate_audio_stream(message)
+                                        executed_actions_summary.append(f"TTS: '{message}'")
+                                    except Exception as tts_e:
+                                        logger.error(f"Error al enviar mensaje TTS de rutina automática: {tts_e}")
+                    
+                    if executed_actions_summary:
+                        notification_message = f"Acciones realizadas: {', '.join(executed_actions_summary)}"
+                        await create_notification_logic(
+                            db,
+                            NotificationCreate(
+                                type="routine_execution",
+                                title="Rutina automática ejecutada",
+                                message=notification_message,
+                                status="new"
+                            )
+                        )
+                            # This 'except' block was duplicated and is now removed.
+                            # except Exception as e:
+                            #     logger.error(f"Error ejecutando rutina automática: {e}")
         except Exception as e:
             logger.warning(f"Error verificando rutinas automáticas: {e}")
     
@@ -299,7 +297,7 @@ class RoutineHandler:
                 # Extraer y ejecutar acciones de la rutina
                 all_actions = matching_routine.actions
                 
-                tts_messages = self._extract_tts_messages_from_actions(all_actions)
+                tts_messages = [action.replace('tts_speak:', '', 1).strip() for action in all_actions if action.startswith('tts_speak:')]
                 mqtt_actions = [action for action in all_actions if action.startswith('mqtt_publish:')]
                 
                 executed_actions_summary = []
@@ -330,6 +328,18 @@ class RoutineHandler:
 
                 if executed_actions_summary:
                     actions_str = ", ".join(executed_actions_summary)
+                    
+                    # Crear notificación
+                    await create_notification_logic(
+                        db,
+                        NotificationCreate(
+                            type="routine_execution",
+                            title=f"Rutina ejecutada: {matching_routine.name}",
+                            message=f"Acciones realizadas: {actions_str}",
+                            status="new"
+                        )
+                    )
+                    
                     return {
                         "response": f"Ejecuté la rutina '{matching_routine.name}' con éxito. Acciones realizadas: {actions_str}",
                         "command": f"rutina_ejecutada:{matching_routine.name}"

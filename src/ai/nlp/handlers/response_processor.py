@@ -2,6 +2,8 @@ import logging
 import re
 from typing import Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from src.db.models import MusicPlayLog, User
 
 logger = logging.getLogger("ResponseProcessor")
 
@@ -31,6 +33,34 @@ class ResponseProcessor:
                 response, music_command = await self._music_handler.process_music_commands(response)
                 if music_command:
                     logger.info(f"Comando de música ejecutado: {music_command}")
+                    try:
+                        parts = music_command.split(":", 2)
+                        action = parts[1] if len(parts) > 1 else None
+                        params = parts[2] if len(parts) > 2 else None
+                        if action == "play":
+                            current = self._music_handler.music_manager.get_current_track()
+                            info = self._music_handler.music_manager.get_info()
+                            backend = None
+                            if isinstance(info.get("backend"), dict):
+                                backend = info["backend"].get("backend")
+                            result = await db.execute(select(User).filter(User.id == user_id))
+                            db_user = result.scalars().first()
+                            entry = MusicPlayLog(
+                                user_id=user_id,
+                                user_name=db_user.nombre if db_user else None,
+                                title=current.get("title") if current else None,
+                                uploader=current.get("uploader") if current else None,
+                                duration=current.get("duration") if current else None,
+                                thumbnail=current.get("thumbnail") if current else None,
+                                backend=backend,
+                                query=params,
+                                track_url=current.get("url") if current else None,
+                            )
+                            db.add(entry)
+                            await db.commit()
+                            logger.info("Reproducción de música registrada en DB desde NLP")
+                    except Exception as e:
+                        logger.error(f"Error registrando reproducción de música en DB: {e}")
             except Exception as e:
                 logger.error(f"Error procesando comandos de música: {e}")
         

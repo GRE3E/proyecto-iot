@@ -39,3 +39,14 @@ class MusicConfigUpdateRequest(BaseModel):
     playback: Optional[str] = Field(None, pattern="^(vlc|mpv)$")
     retries: Optional[int] = Field(None, ge=0, le=10)
     extractor: Optional[str] = None
+
+class MusicNowPlayingResponse(BaseModel):
+    status: str
+    title: Optional[str] = None
+    uploader: Optional[str] = None
+    duration: Optional[int] = None
+    thumbnail: Optional[str] = None
+    backend: Optional[str] = None
+    query: Optional[str] = None
+    started_at: Optional[str] = None
+    started_by: Optional[Dict[str, Any]] = None

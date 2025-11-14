@@ -17,12 +17,12 @@
   ],
   "modules": {
     "nlp": true,
-    "stt": true,
-    "speaker": true,
-    "hotword": true,
-    "mqtt": true,
-    "tts": true,
-    "face_recognition": true,
+    "stt": false,
+    "speaker": false,
+    "hotword": false,
+    "mqtt": false,
+    "tts": false,
+    "face_recognition": false,
     "music_manager": true
   },
   "memory_size": 50,

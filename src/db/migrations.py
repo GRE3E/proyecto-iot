@@ -154,4 +154,56 @@ async def drop_routine_indexes(db: AsyncSession) -> None:
         logger.error(f"Error al eliminar índices de rutinas: {e}")
         await db.rollback()
         raise
+
+
+async def create_music_indexes(db: AsyncSession) -> None:
+    indexes = [
+        """
+        CREATE INDEX IF NOT EXISTS idx_music_play_log_started_at 
+        ON music_play_log(started_at DESC)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_music_play_log_user_id 
+        ON music_play_log(user_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_music_play_log_title 
+        ON music_play_log(title)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_music_play_log_track_url 
+        ON music_play_log(track_url)
+        """,
+    ]
+
+    try:
+        for index_sql in indexes:
+            await db.execute(text(index_sql))
+            logger.info(f"Índice creado: {index_sql.strip()[:50]}...")
+        await db.commit()
+        logger.info("Índices de música creados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al crear índices de música: {e}")
+        await db.rollback()
+        raise
+
+
+async def drop_music_indexes(db: AsyncSession) -> None:
+    indexes = [
+        "idx_music_play_log_started_at",
+        "idx_music_play_log_user_id",
+        "idx_music_play_log_title",
+        "idx_music_play_log_track_url",
+    ]
+
+    try:
+        for index_name in indexes:
+            await db.execute(text(f"DROP INDEX IF EXISTS {index_name}"))
+            logger.info(f"Índice eliminado: {index_name}")
+        await db.commit()
+        logger.info("Todos los índices de música eliminados")
+    except Exception as e:
+        logger.error(f"Error al eliminar índices de música: {e}")
+        await db.rollback()
+        raise
     

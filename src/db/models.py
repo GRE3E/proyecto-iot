@@ -380,4 +380,40 @@ class Notification(Base):
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     status = Column(String(50), nullable=False, default="new")
+
+
+class MusicPlayLog(Base):
+    __tablename__ = "music_play_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_name = Column(String(100), nullable=True)
+    title = Column(String(255), nullable=False)
+    uploader = Column(String(255), nullable=True)
+    duration = Column(Integer, nullable=True)
+    thumbnail = Column(String(255), nullable=True)
+    backend = Column(String(50), nullable=True)
+    query = Column(String(255), nullable=True)
+    track_url = Column(Text, nullable=True)
+    started_at = Column(DateTime, default=func.now())
+
+    user: Mapped["User"] = relationship("User")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "title": self.title,
+            "uploader": self.uploader,
+            "duration": self.duration,
+            "thumbnail": self.thumbnail,
+            "backend": self.backend,
+            "query": self.query,
+            "track_url": self.track_url,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+        }
+
+    def __repr__(self) -> str:
+        return f"<MusicPlayLog(id={self.id}, user_id={self.user_id}, title='{self.title}')>"
     

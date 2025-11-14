@@ -18,6 +18,7 @@ from src.api.schemas import StatusResponse
 from typing import Optional, Dict, Any
 from src.utils.error_handler import ErrorHandler
 from src.ai.nlp.ollama_manager import OllamaManager
+from src.music_manager.manager import MusicManager
 from src.ai.nlp.config_manager import ConfigManager
 import random
 import string
@@ -34,6 +35,7 @@ _tts_module: Optional[TTSModule] = None
 _face_recognition_module: Optional[FaceRecognitionCore] = None 
 _ollama_manager: Optional[OllamaManager] = None
 _config_manager: Optional[ConfigManager] = None
+_music_manager: Optional[MusicManager] = None
 
 def get_module_status() -> StatusResponse:
     """
@@ -51,6 +53,7 @@ def get_module_status() -> StatusResponse:
             mqtt="OFFLINE",
             tts="OFFLINE",
             face_recognition="OFFLINE",
+            music_manager="OFFLINE",
             utils="OFFLINE"
         )
 
@@ -71,6 +74,7 @@ def get_module_status() -> StatusResponse:
         mqtt=get_status(_mqtt_client, "mqtt"),
         tts=get_status(_tts_module, "tts"),
         face_recognition=get_status(_face_recognition_module, "face_recognition") if _face_recognition_module else "OFFLINE",
+        music_manager=get_status(_music_manager, "music_manager"),
         utils="ONLINE" if _nlp_module else "OFFLINE"
     )
 
@@ -146,6 +150,18 @@ async def initialize_all_modules(config_manager: ConfigManager, ollama_host: str
     
     if _config_manager.is_module_enabled("mqtt"):
         await _initialize_mqtt_client()
+
+    if _config_manager.is_module_enabled("music_manager"):
+        await _initialize_music_manager()
+
+async def _initialize_music_manager() -> None:
+    global _music_manager
+    _music_manager = await ErrorHandler.safe_execute_async(
+        lambda: MusicManager(),
+        default_return=None,
+        context="initialize_nlp.music_manager"
+    )
+    logger.info(f"MusicManager inicializado. Online: {_music_manager._initialized if _music_manager else False}")
     
     if _nlp_module:
         await _set_nlp_iot_managers()
@@ -359,7 +375,6 @@ async def shutdown_face_recognition_module() -> None:
             context="shutdown_face_recognition_module"
         )
         _face_recognition_module = None
-
 
 def generate_random_password(length: int = 12) -> str:
     """Generates a random password with a specified length."""

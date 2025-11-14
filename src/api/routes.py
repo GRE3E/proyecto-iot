@@ -9,11 +9,11 @@ from src.api.speaker_routes import speaker_router
 from src.api.iot_routes import iot_router
 from src.api.addons_routes import router as addons_router
 from src.api.permissions_routes import router as permissions_router
+from src.api.music_routes import music_router
 from src.api.face_recognition_routes import face_recognition_router
 from src.api.auth_router import router as auth_router
 from src.api.websocket_routes import websocket_router
 from src.api.notifications_routes import notifications_router
-from src.notification.notification import log_user_action_dependency
 from src.api import utils
 from src.auth.auth_service import get_current_user
 from src.auth.device_auth import get_device_api_key
@@ -34,6 +34,7 @@ router.include_router(permissions_router, prefix="/permissions", tags=["permissi
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
 router.include_router(websocket_router, prefix="", tags=["websocket"])
 router.include_router(notifications_router, tags=["notifications"], dependencies=[Depends(get_current_user)])
+router.include_router(music_router, prefix="/music", tags=["music"], dependencies=[Depends(get_current_user)])
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status():

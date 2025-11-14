@@ -11,11 +11,9 @@
     "max_tokens": 1024
   },
   "capabilities": [
-    "control_luces",
-    "control_temperatura",
-    "control_dispositivos",
-    "consulta_estado",
-    "administrar_comandos_iot"
+    "administrar_comandos_iot",
+    "memoria_y_rutinas",
+    "control_musica"
   ],
   "modules": {
     "nlp": true,
@@ -24,7 +22,8 @@
     "hotword": true,
     "mqtt": true,
     "tts": true,
-    "face_recognition": true
+    "face_recognition": true,
+    "music_manager": true
   },
   "memory_size": 50,
   "timezone": "America/Lima",

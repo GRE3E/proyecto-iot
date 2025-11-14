@@ -17,6 +17,7 @@ from src.iot.mqtt_client import MQTTClient
 from src.ai.nlp.device_context import DeviceContextManager, DEVICE_LOCATION_REGEX
 from src.ai.nlp.memory_brain.routine_scheduler import RoutineScheduler
 from src.ai.nlp.handlers import ResponseHandler, RoutineHandler, ContextHandler, ResponseProcessor
+from src.music_manager.music_command_handler import MusicCommandHandler
 from src.api import utils
 
 logger = logging.getLogger("NLPModule")
@@ -127,9 +128,22 @@ class NLPModule:
         device_context_manager = DeviceContextManager(self._iot_command_processor)
         self._context_handler._device_context_manager = device_context_manager
         
-        # Actualizar response processor
+        # Inicializar MusicManager y handler
+        try:
+            music_manager = utils._music_manager
+            if music_manager:
+                music_handler = MusicCommandHandler(music_manager)
+                logger.info("MusicCommandHandler conectado al MusicManager centralizado")
+            else:
+                music_handler = None
+                logger.warning("MusicManager no disponible desde utils; funciones de música deshabilitadas")
+        except Exception as e:
+            music_handler = None
+            logger.warning(f"No se pudo conectar MusicCommandHandler al MusicManager: {e}")
+
+        # Actualizar response processor con soporte de música
         self._response_processor = ResponseProcessor(
-            self._user_manager, self._iot_command_processor, self._memory_manager, self._routine_handler
+            self._user_manager, self._iot_command_processor, self._memory_manager, self._routine_handler, music_handler
         )
         
         await self._iot_command_processor.initialize(db)

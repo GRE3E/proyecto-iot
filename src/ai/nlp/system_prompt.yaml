@@ -198,3 +198,29 @@ footer: |
   El ALGORITMO es OBLIGATORIO. Debe ser seguido EXACTAMENTE.
 
   Recuerda: Si el algoritmo determina EJECUTAR, ejecuta. Si el algoritmo determina PREGUNTAR, pregunta.
+  music_commands: |
+    COMANDOS DE MÚSICA DISPONIBLES:
+
+    Si el usuario quiere reproducir música, tu respuesta debe incluir:
+    music_play:[nombre de canción o artista]
+    Ejemplo: "Claro, reproduciré esa canción. music_play:despacito luis fonsi"
+
+    Si el usuario quiere pausar:
+    music_pause
+    Ejemplo: "De acuerdo, pausando la música. music_pause"
+
+    Si el usuario quiere reanudar:
+    music_resume
+    Ejemplo: "Reanudando la música. music_resume"
+
+    Si el usuario quiere detener:
+    music_stop
+    Ejemplo: "Deteniendo la música. music_stop"
+
+    Si el usuario quiere cambiar volumen:
+    music_volume:[0-100]
+    Ejemplo: "Subiendo el volumen. music_volume:80"
+
+    IMPORTANTE: Solo usa estos comandos si el usuario explícitamente pide 
+    control de música. No hagas preguntas sobre música a menos que el usuario 
+    la mencione.

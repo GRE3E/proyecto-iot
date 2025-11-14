@@ -15,14 +15,24 @@ ROUTINE_LIST_REGEX = re.compile(r"(?:ver|mostrar|listar)\s+(?:mis\s+)?(?:rutinas
 class ResponseProcessor:
     """Procesa y transforma respuestas del LLM"""
     
-    def __init__(self, user_manager, iot_processor, memory_manager, routine_handler=None):
+    def __init__(self, user_manager, iot_processor, memory_manager, routine_handler=None, music_handler=None):
         self._user_manager = user_manager
         self._iot_processor = iot_processor
         self._memory_manager = memory_manager
         self._routine_handler = routine_handler
+        self._music_handler = music_handler
     
     async def process_response(self, db: AsyncSession, user_id: int, response: str, token: str, has_negation: bool, iot_commands_db: list, original_prompt: str) -> Tuple[str, Optional[str]]:
         """Procesa la respuesta completa del LLM"""
+        
+        # Procesar comandos de música primero si no hay negación
+        if self._music_handler and not has_negation and response:
+            try:
+                response, music_command = await self._music_handler.process_music_commands(response)
+                if music_command:
+                    logger.info(f"Comando de música ejecutado: {music_command}")
+            except Exception as e:
+                logger.error(f"Error procesando comandos de música: {e}")
         
         # Primero detectar si el usuario está pidiendo ejecutar una rutina específica
         routine_result = await self.process_routine_requests(db, user_id, response, token)

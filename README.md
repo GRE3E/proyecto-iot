@@ -14,6 +14,7 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
 - Picovoice Console para obtener una clave de acceso y entrenar una palabra clave personalizada.
 - Configuración de MQTT para la comunicación con dispositivos IoT.
 - CMake para el modulo de reconocimiento facial
+- VLC Media Player para reproducir música (en Windows)
 
 ## Instalación
 
@@ -87,16 +88,30 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   │   ├── models/
     │   │   └── hotword.py
     │   ├── nlp/
+    │   │   ├── handlers/
+    │   │   │   ├── context_handler.py
+    │   │   │   ├── response_handler.py
+    │   │   │   ├── response_processor.py
+    │   │   │   ├── routine_handler.py
+    │   │   ├── memory_brain/
+    │   │   │   ├── context_tracker.py
+    │   │   │   ├── memory_brain.py
+    │   │   │   ├── memory_manager.py
+    │   │   │   ├── pattern_analyzer.py
+    │   │   ├── routine_manager.py
+    │   │   ├── routine_scheduler.py
+    │   │   ├── user_manager.py
     │   │   ├── config_manager.py
+    │   │   ├── device_context.py
     │   │   ├── iot_command_cache.py
     │   │   ├── iot_command_processor.py
-    │   │   ├── memory_manager.py
     │   │   ├── nlp_core.py
     │   │   ├── ollama_manager.py
     │   │   ├── prompt_creator.py
     │   │   ├── prompt_loader.py
+    │   │   ├── prompt_processor.py
     │   │   └── system_prompt.yaml
-    │   │   └── user_manager.py
+    │   │   └── validation_helper.py
     │   ├── speaker/
     │   │   └── speaker.py
     │   ├── stt/
@@ -116,8 +131,12 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   ├── hotword_schemas.py
     │   ├── iot_routes.py
     │   ├── iot_schemas.py
+    │   ├── music_routes.py
+    │   ├── music_schemas.py
     │   ├── nlp_routes.py
     │   ├── nlp_schemas.py
+    │   ├── notifications_routes.py
+    │   ├── notifications_schemas.py
     │   ├── permissions_routes.py
     │   ├── permissions_schemas.py
     │   ├── routes.py
@@ -128,17 +147,23 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   ├── stt_schemas.py
     │   ├── tts_routes.py
     │   ├── tts_schemas.py
+    │   ├── webhooks_routes.py
+    │   ├── webhooks_schemas.py
     │   └── utils.py
     ├── auth/
     │   ├── auth_service.py
+    │   ├── default_owner_init.py
     │   ├── device_auth.py
-    │   └── jwt_manager.py
+    │   ├── face_auth_recovery.py
+    │   ├── jwt_manager.py
+    │   └── voice_auth_recovery.py
     ├── db/
     │   ├── database.py
     │   └── models.py
     ├── iot/
     │   ├── arduino_code/
-    │   │   └── Commands.txt
+    │   │   ├── Commands.txt
+    │   │   ├── Commands_status.txt
     │   │   ├── Master.txt
     │   │   ├── Slave1.txt
     │   │   ├── Slave2.txt
@@ -146,7 +171,16 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   │   └── Wifi.txt
     │   ├── device_manager.py
     │   └── mqtt_client.py
-    ├── main.py
+    ├── music_manager/
+    │   ├── config.yml
+    │   ├── intent_integration.py
+    │   ├── manager.py
+    │   ├── mpv.py
+    │   ├── music_command_handler.py
+    │   ├── vlc.py
+    │   └── yt_dlp_extractor.py
+    ├── notification/
+    │   ├── notification.py
     ├── rc/
     │   ├── capture.py
     │   ├── encode.py
@@ -161,10 +195,13 @@ Este proyecto es un asistente de hogar inteligente avanzado, diseñado para inte
     │   ├── test_iot.py
     │   ├── test_mqtt_wifi.py
     │   └── test_tts.py
-    └── utils/
-        ├── datetime_utils.py
-        ├── error_handler.py
-        └── logger_config.py
+    ├── utils/
+    │   ├── datetime_utils.py
+    │   ├── error_handler.py
+    │   ├── logger_config.py
+    ├── websocket/
+    │   └── connection_manager.py
+    └── main.py
 ```
 
 ## Configuración de .env
@@ -246,14 +283,15 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
 
 - **URL:** `/auth/register-owner`
 - **Método:** `POST`
-- **Descripción:** Registra un nuevo usuario propietario en el sistema. Requiere autenticación con `X-Device-API-Key`.
+- **Descripción:** Registra un nuevo usuario propietario en el sistema. Requiere autenticación con `Authorization: Bearer <access_token>`.
 - **Headers:**
-  - `X-Device-API-Key`: Clave API del dispositivo para autenticación.
+  - `Authorization`: `Bearer <access_token>`
 - **Request Body:**
   ```json
   {
     "username": "nombre_de_propietario",
-    "password": "contraseña_segura"
+    "password": "contraseña_segura",
+    "is_owner": true
   }
   ```
 - **Response:**
@@ -317,6 +355,53 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
     }
   }
   ```
+
+### Listar Usuarios Propietarios (Protegido)
+
+- **URL:** `/auth/owners`
+- **Método:** `GET`
+- **Descripción:** Retorna la lista de nombres de usuario que son propietarios. Requiere autenticación.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  ["owner1", "owner2"]
+  ```
+
+### Recuperación de Contraseña por Voz (Protegido)
+
+- **URL:** `/auth/voice-password-recovery`
+- **Método:** `POST`
+- **Descripción:** Inicia la recuperación de contraseña mediante verificación de voz del usuario.
+- **Request Body (multipart/form-data):**
+  - `audio_file`: archivo de audio con la voz del usuario
+  - `new_password`: nueva contraseña
+- **Response (200):**
+  ```json
+  { "message": "Contraseña actualizada exitosamente." }
+  ```
+- **Errores posibles:**
+  - `401`: Hablante no identificado o error al actualizar la contraseña
+  - `500`: Error interno del servidor
+
+### Recuperación de Contraseña por Reconocimiento Facial (Protegido)
+
+- **URL:** `/auth/face-password-recovery`
+- **Método:** `POST`
+- **Descripción:** Inicia la recuperación de contraseña mediante verificación facial.
+- **Query Params:**
+  - `source`: `camera` (por defecto) o `file`
+- **Request Body (multipart/form-data):**
+  - `new_password`: nueva contraseña (campo `form`)
+  - `image_file`: archivo de imagen (requerido si `source = file`)
+- **Response (200):**
+  ```json
+  { "message": "Contraseña actualizada exitosamente." }
+  ```
+- **Errores posibles:**
+  - `400`: Falta archivo de imagen cuando `source = file`
+  - `401`: Rostro no identificado o error al actualizar la contraseña
+  - `500`: Error interno del servidor
 
 ## Endpoints de Reconocimiento Facial
 
@@ -465,7 +550,7 @@ Los endpoints de la API están definidos en el directorio `src/api/` y se agrupa
   }
   ```
 
-### IoT Endpoints
+## IoT Endpoints
 
 The following endpoints are available for managing IoT devices and commands:
 
@@ -692,10 +777,169 @@ The following endpoints are available for managing IoT devices and commands:
   }
   ```
 
-### NLP Endpoints
+## Endpoints de Música
+
+### Reproducir Música
+
+- **URL:** `/music/play`
+- **Método:** `POST`
+- **Descripción:** Reproduce música a partir de un término de búsqueda o URL de YouTube.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Request Body:**
+  ```json
+  { "query": "Nirvana Smells Like Teen Spirit" }
+  ```
+- **Response:**
+  ```json
+  {
+    "status": "playing",
+    "title": "Smells Like Teen Spirit",
+    "uploader": "Nirvana",
+    "duration": 301,
+    "thumbnail": "https://.../thumb.jpg",
+    "backend": "mpv",
+    "query": "Nirvana Smells Like Teen Spirit"
+  }
+  ```
+
+### Pausar Música
+
+- **URL:** `/music/pause`
+- **Método:** `POST`
+- **Descripción:** Pausa la reproducción actual.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  { "status": "paused", "success": true, "backend": "mpv" }
+  ```
+
+### Reanudar Música
+
+- **URL:** `/music/resume`
+- **Método:** `POST`
+- **Descripción:** Reanuda la reproducción pausada.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  { "status": "playing", "success": true, "backend": "mpv" }
+  ```
+
+### Detener Música
+
+- **URL:** `/music/stop`
+- **Método:** `POST`
+- **Descripción:** Detiene la reproducción actual y limpia el estado.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  { "status": "stopped", "success": true, "backend": "mpv" }
+  ```
+
+### Obtener Volumen
+
+- **URL:** `/music/volume`
+- **Método:** `GET`
+- **Descripción:** Obtiene el volumen actual (0–100).
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  { "volume": 65 }
+  ```
+
+### Establecer Volumen
+
+- **URL:** `/music/volume`
+- **Método:** `PUT`
+- **Descripción:** Establece el volumen (0–100).
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Request Body:**
+  ```json
+  { "volume": 80 }
+  ```
+- **Response:**
+  ```json
+  { "status": "volume_set", "success": true, "backend": "mpv" }
+  ```
+
+### Estado del Módulo de Música
+
+- **URL:** `/music/status`
+- **Método:** `GET`
+- **Descripción:** Obtiene el estado del módulo de música, información del backend y pista actual.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+  ```json
+  {
+    "status": "initialized",
+    "backend": { "state": "playing", "backend": "mpv", "volume": 80 },
+    "current_track": { "title": "...", "uploader": "...", "duration": 300 },
+    "volume": 80
+  }
+  ```
+
+### Configuración del Módulo de Música
+
+- **URL:** `/music/config`
+- **Método:** `GET`
+- **Descripción:** Obtiene la configuración actual del módulo y la pista en reproducción.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Response:**
+
+  ```json
+  {
+    "music": {
+      "default_volume": 65,
+      "playback": "mpv",
+      "retries": 3,
+      "extractor": "yt_dlp"
+    },
+    "now_playing": { "title": "...", "uploader": "..." }
+  }
+  ```
+
+- **URL:** `/music/config`
+- **Método:** `PUT`
+- **Descripción:** Actualiza la configuración del módulo de música.
+- **Headers:**
+  - `Authorization`: `Bearer <access_token>`
+- **Request Body (cualquiera de los campos):**
+  ```json
+  {
+    "default_volume": 75,
+    "playback": "vlc",
+    "retries": 5,
+    "extractor": "yt_dlp"
+  }
+  ```
+- **Response:**
+
+  ```json
+  {
+    "music": {
+      "default_volume": 75,
+      "playback": "vlc",
+      "retries": 5,
+      "extractor": "yt_dlp"
+    },
+    "now_playing": null
+  }
+  ```
+
+- **Errores comunes:**
+  - `503`: Módulo de música fuera de línea o deshabilitado
+  - `500`: Error interno al procesar la solicitud
+
+## NLP Endpoints
 
 The following endpoints are available for Natural Language Processing (NLP) functionalities:
-
 
 #### `GET /memory/status`
 
@@ -880,7 +1124,7 @@ The following endpoints are available for Natural Language Processing (NLP) func
   }
   ```
 
-### Permissions Endpoints
+## Permissions Endpoints
 
 The following endpoints are available for managing user permissions:
 
@@ -970,7 +1214,7 @@ The following endpoints are available for managing user permissions:
   ```
 - **Response**: `204 No Content` (Successful deletion)
 
-### Main Routes
+## Main Routes
 
 - **GET /status**
   - **URL:** `/status`
@@ -984,7 +1228,7 @@ The following endpoints are available for managing user permissions:
     }
     ```
 
-### Speaker Routes
+## Speaker Routes
 
 - **POST /speaker/register**
 
@@ -1088,7 +1332,7 @@ The following endpoints are available for managing user permissions:
     }
     ```
 
-### STT Routes
+## STT Routes
 
 - **POST /stt/transcribe**
 
@@ -1119,7 +1363,7 @@ The following endpoints are available for managing user permissions:
     }
     ```
 
-### TTS Routes
+## TTS Routes
 
 - **POST /tts/generate_audio**
   - **URL:** `/tts/generate_audio`
@@ -1137,3 +1381,24 @@ The following endpoints are available for managing user permissions:
       "audio_file_paths": ["string"]
     }
     ```
+
+## WebSocket Endpoints
+
+### Conexión General
+
+- **URL:** `ws://127.0.0.1:8000/ws/{client_id}`
+- **Protocolo:** WebSocket
+- **Descripción:** Establece una conexión WebSocket para intercambio de mensajes en tiempo real. El servidor registra los mensajes y responde con un eco.
+- **Path Parameters:**
+  - `client_id`: Identificador del cliente que inicia la conexión.
+- **Comportamiento:**
+  - Al conectar, el servidor añade el socket al `ConnectionManager`.
+  - Por cada mensaje de texto recibido, responde con `"Tú escribiste: {data}"`.
+  - Al desconectar, el servidor elimina el socket del `ConnectionManager`.
+- **Ejemplo de uso (JavaScript):**
+  ```js
+  const ws = new WebSocket("ws://127.0.0.1:8000/ws/cliente-123");
+  ws.onopen = () => ws.send("Hola servidor");
+  ws.onmessage = (evt) => console.log(evt.data); // "Tú escribiste: Hola servidor"
+  ws.onclose = () => console.log("Desconectado");
+  ```

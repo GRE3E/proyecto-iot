@@ -27,6 +27,10 @@ class ConfigManager:
             if "modules" not in self._config:
                 self._config["modules"] = self._get_default_modules_config()
                 self.save_config()
+            else:
+                defaults = self._get_default_modules_config()
+                self._config["modules"] = {**defaults, **self._config["modules"]}
+                self.save_config()
                 
         except FileNotFoundError:
             logger.warning(f"Archivo de configuración no encontrado en {self._config_path}. Creando configuración por defecto.")
@@ -74,7 +78,8 @@ class ConfigManager:
             "hotword": True,
             "mqtt": True,
             "tts": True,
-            "face_recognition": True
+            "face_recognition": True,
+            "music_manager": True
         }
 
     def _set_default_config(self) -> None:

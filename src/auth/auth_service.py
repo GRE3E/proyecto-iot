@@ -228,6 +228,79 @@ class AuthService:
             for u in owners
         ]
 
+    async def get_non_owner_users(self) -> list[dict]:
+        """
+        Obtiene la lista de usuarios que NO son propietarios.
+
+        Returns:
+            list[dict]: Lista con dicts {id, username, is_owner=False} de miembros.
+        """
+        logger.info("Obteniendo lista de usuarios no propietarios")
+        result = await self.db.execute(select(User).filter(User.is_owner == False))
+        users = result.scalars().all()
+        logger.debug(f"Se encontraron {len(users)} usuarios no propietarios")
+        return [
+            {"id": u.id, "username": u.nombre, "is_owner": u.is_owner}
+            for u in users
+        ]
+
+    async def verify_current_password(self, user_id: int, current_password: str) -> bool:
+        """
+        Verifica que la contraseña actual proporcionada coincida con la almacenada.
+        """
+        result = await self.db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user or not user.hashed_password:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        return pwd_context.verify(current_password, user.hashed_password)
+
+    async def update_username(self, user_id: int, new_username: str, current_password: str) -> dict:
+        """
+        Actualiza el nombre de usuario tras verificar la contraseña actual.
+        """
+        # Verificar contraseña actual
+        if not await self.verify_current_password(user_id, current_password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña actual incorrecta")
+
+        # Validar que no exista otro usuario con el nuevo nombre
+        existing = await self.db.execute(select(User).filter(User.nombre == new_username))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya está en uso")
+
+        # Actualizar nombre
+        result = await self.db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        user.nombre = new_username
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return {"id": user.id, "username": user.nombre}
+
+    async def update_password(self, user_id: int, new_password: str, current_password: str) -> dict:
+        """
+        Actualiza la contraseña tras verificar la contraseña actual.
+        """
+        if not await self.verify_current_password(user_id, current_password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña actual incorrecta")
+
+        truncated_password_bytes = new_password.encode('utf-8')[:72]
+        hashed_password = pwd_context.hash(truncated_password_bytes)
+
+        result = await self.db.execute(select(User).filter(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        user.hashed_password = hashed_password
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return {"id": user.id, "username": user.nombre}
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
     logger.debug("Intentando obtener usuario actual desde el token.")

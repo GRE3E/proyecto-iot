@@ -31,4 +31,21 @@ class OwnerListResponse(BaseModel):
     """Respuesta para la lista de propietarios."""
     owner_count: int
     owners: list[OwnerSummary]
+
+class MemberSummary(BaseModel):
+    """Resumen de usuario no propietario (miembro)."""
+    id: int
+    username: str
+    is_owner: bool = False
+
+class UpdateUsernameRequest(BaseModel):
+    new_username: str
+    current_password: str
+
+class UpdatePasswordRequest(BaseModel):
+    new_password: str
+    current_password: str
+
+class VerifyPasswordRequest(BaseModel):
+    current_password: str
     

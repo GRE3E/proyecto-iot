@@ -5,7 +5,11 @@ from src.db.database import get_db
 from src.auth.jwt_manager import get_current_user
 from src.auth.auth_service import AuthService
 from src.auth.device_auth import get_device_api_key
-from .auth_schemas import UserRegister, TokenRefresh, OwnerRegister
+from .auth_schemas import (
+    UserRegister, TokenRefresh, OwnerRegister,
+    UpdateUsernameRequest, UpdatePasswordRequest, VerifyPasswordRequest,
+    MemberSummary,
+)
 from src.auth.voice_auth_recovery import voice_password_recovery
 from src.auth.face_auth_recovery import face_password_recovery
 
@@ -104,6 +108,72 @@ async def list_owners():
     except Exception as e:
         logger.error(f"Error al listar propietarios: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al listar propietarios")
+
+@router.get("/members", response_model=list[MemberSummary], dependencies=[Depends(get_current_user)])
+async def list_members():
+    """Retorna usuarios no propietarios (miembros)."""
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            members = await auth_service.get_non_owner_users()
+            return members
+    except Exception as e:
+        logger.error(f"Error al listar miembros: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al listar miembros")
+
+@router.post("/verify-password", dependencies=[Depends(get_current_user)])
+async def verify_password(payload: VerifyPasswordRequest, current_user: dict = Depends(get_current_user)):
+    """Verifica la contraseña actual del usuario autenticado."""
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            ok = await auth_service.verify_current_password(current_user["user_id"], payload.current_password)
+            if not ok:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña actual incorrecta")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al verificar contraseña: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al verificar contraseña")
+
+@router.post("/update-username", dependencies=[Depends(get_current_user)])
+async def update_username(payload: UpdateUsernameRequest, current_user: dict = Depends(get_current_user)):
+    """Actualiza el nombre de usuario, requiriendo la contraseña actual."""
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            result = await auth_service.update_username(
+                user_id=current_user["user_id"],
+                new_username=payload.new_username,
+                current_password=payload.current_password,
+            )
+        logger.info(f"Usuario {current_user['user_id']} actualizó su nombre a {result['username']}")
+        return {"message": "Nombre de usuario actualizado", "user": result}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error al actualizar nombre de usuario: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al actualizar nombre de usuario")
+
+@router.post("/update-password", dependencies=[Depends(get_current_user)])
+async def update_password(payload: UpdatePasswordRequest, current_user: dict = Depends(get_current_user)):
+    """Actualiza la contraseña del usuario, requiriendo la contraseña actual."""
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            result = await auth_service.update_password(
+                user_id=current_user["user_id"],
+                new_password=payload.new_password,
+                current_password=payload.current_password,
+            )
+        logger.info(f"Usuario {current_user['user_id']} actualizó su contraseña")
+        return {"message": "Contraseña actualizada", "user": result}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error al actualizar contraseña: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al actualizar contraseña")
 
 @router.post("/voice-password-recovery", status_code=status.HTTP_200_OK)
 async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), new_password: str = Form(...)):

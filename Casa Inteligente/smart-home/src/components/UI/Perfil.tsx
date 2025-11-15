@@ -1,6 +1,6 @@
 "use client"
 import { User, Trash2, Edit, Eye, Power, UserPlus } from "lucide-react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Modal from "../UI/Modal"
 
 export interface FamilyMember {
@@ -36,6 +36,15 @@ export default function Perfil({
   owners = [],
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
+
+  // Separar administradores y familiares
+  const admins = useMemo(() => {
+    return members.filter(m => m.role === "Administrador")
+  }, [members])
+
+  const familiares = useMemo(() => {
+    return members.filter(m => m.role === "Familiar")
+  }, [members])
 
   const deleteMember = (id: string) => {
     if (confirm("¿Seguro que deseas eliminar este miembro?")) {
@@ -102,61 +111,119 @@ export default function Perfil({
         </div>
       </div>
 
-      {/* Lista de propietarios */}
-      <div className="space-y-2">
-        <div className="font-semibold">Propietarios</div>
-        {owners && owners.length > 0 ? (
-          <div className="flex gap-2 flex-wrap">
-            {owners.map((name) => (
-              <span
-                key={name}
-                className="bg-slate-800/70 border border-slate-700 px-3 py-1 rounded-lg text-sm"
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="text-slate-400 text-sm">No hay propietarios adicionales</div>
-        )}
-      </div>
-
-      {/* Lista de familiares */}
-      <div className="space-y-3">
-        {members.length === 0 ? (
+      {/* Lista de usuarios - Vista Vertical (Administradores arriba, Familiares abajo) */}
+      <div className="space-y-6">
+       
+        {admins.length === 0 && familiares.length === 0 ? (
           <p className="text-slate-400 text-sm">
-            No hay familiares registrados.
+            No hay usuarios registrados.
           </p>
         ) : (
-          members.map((m) => (
-            <div
-              key={m.id}
-              className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-slate-800/60 px-3 py-2 rounded-lg hover:bg-slate-800 transition"
-            >
-              <div>
-                <div className="font-medium">{m.name}</div>
-                <div className="text-xs text-slate-400">{m.role}</div>
-              </div>
+          <>
+            {/* ADMINISTRADORES - ARRIBA */}
+            <div className="space-y-3">
+              <h4 className="text-red-400 font-semibold text-sm flex items-center gap-2">
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                Administradores ({(owners?.length || 0) + admins.length})
+              </h4>
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setEditingMember(m)}
-                  className="text-blue-400 hover:text-blue-500 transition"
-                  title="Editar miembro"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
+              {/* Propietarios - Tags dentro de Administradores */}
+              {owners && owners.length > 0 && (
+                <div className="space-y-3">
+                  {owners.map((name) => (
+                    <div
+                      key={name}
+                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition"
+                    >
+                      <div>
+                        <div className="font-medium">{name}</div>
+                        <div className="text-xs text-slate-400">
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {admins.length === 0 ? (
+                <p className="text-slate-400 text-sm"></p>
+              ) : (
+                admins.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition"
+                  >
+                    <div>
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs text-slate-400">
+                      </div>
+                    </div>
 
-                <button
-                  onClick={() => deleteMember(m.id)}
-                  className="text-red-400 hover:text-red-600 transition"
-                  title="Eliminar miembro"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingMember(m)}
+                        className="text-blue-400 hover:text-blue-500 transition"
+                        title="Editar miembro"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => deleteMember(m.id)}
+                        className="text-red-400 hover:text-red-600 transition"
+                        title="Eliminar miembro"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          ))
+
+            {/* FAMILIARES - ABAJO */}
+            <div className="space-y-3">
+              <h4 className="text-blue-400 font-semibold text-sm flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                Familiares ({familiares.length})
+              </h4>
+              
+              {familiares.length === 0 ? (
+                <p className="text-slate-400 text-sm">No hay familiares</p>
+              ) : (
+                familiares.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition"
+                  >
+                    <div>
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs text-slate-400">
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingMember(m)}
+                        className="text-blue-400 hover:text-blue-500 transition"
+                        title="Editar miembro"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => deleteMember(m.id)}
+                        className="text-red-400 hover:text-red-600 transition"
+                        title="Eliminar miembro"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -199,8 +266,8 @@ export default function Perfil({
                     onClick={handleRoleChange}
                     className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
                       editingMember.role === "Administrador"
-                        ? "bg-blue-600"
-                        : "bg-slate-600"
+                        ? "bg-red-600"
+                        : "bg-blue-600"
                     }`}
                   >
                     <span

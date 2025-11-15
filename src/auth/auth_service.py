@@ -263,17 +263,23 @@ class AuthService:
         if not await self.verify_current_password(user_id, current_password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña actual incorrecta")
 
-        # Validar que no exista otro usuario con el nuevo nombre
-        existing = await self.db.execute(select(User).filter(User.nombre == new_username))
-        if existing.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya está en uso")
-
-        # Actualizar nombre
+        # Obtener usuario actual
         result = await self.db.execute(select(User).filter(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
+        # Si el nuevo nombre es igual al actual, no hacer nada y retornar
+        if (new_username or "").strip() == (user.nombre or "").strip():
+            return {"id": user.id, "username": user.nombre}
+
+        # Validar que no exista otro usuario (distinto al actual) con el nuevo nombre
+        existing = await self.db.execute(select(User).filter(User.nombre == new_username))
+        existing_user = existing.scalar_one_or_none()
+        if existing_user and existing_user.id != user.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya está en uso")
+
+        # Actualizar nombre
         user.nombre = new_username
         self.db.add(user)
         await self.db.commit()

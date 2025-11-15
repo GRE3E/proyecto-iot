@@ -1,12 +1,12 @@
 "use client"
 
-import { Home } from "lucide-react"
+import { Home, X, Zap, Thermometer, Droplets, Power } from "lucide-react"
 import PageHeader from "../components/UI/PageHeader"
 import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget"
-import SimpleCard from "../components/UI/Card"
-import { generateSparklinePoints, donutParams } from "../utils/chatUtils"
+import SimpleButton from "../components/UI/Button"
 import MiniChat from "../components/widgets/MiniChat"
 import { useZonaHoraria } from "../hooks/useZonaHoraria"
+import { useState, useMemo } from "react"
 
 interface Device {
   name: string
@@ -31,217 +31,430 @@ export default function Inicio({
   devices?: Device[]
 } = {}) {
   const { selectedTimezone } = useZonaHoraria()
+  const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [deviceFilter, setDeviceFilter] = useState<'all' | 'luz' | 'puerta' | 'ventilador'>('all')
 
-  const sparkPoints = generateSparklinePoints([110, 130, 125, 140, 155, 150, energyUsage])
-  const tempSparkPoints = generateSparklinePoints([18, 20, 22, 24, temperature])
-  const humiditySparkPoints = generateSparklinePoints([40, 42, 43, 44, humidity])
-  const humidityDonut = donutParams(Math.round(humidity))
-  const tempDonut = donutParams(Math.round((temperature / 35) * 100))
+  // Datos históricos simulados
+  const energyHistory = useMemo(() => {
+    return Array.from({ length: 24 }, (_, i) => {
+      const baseValue = 300 + Math.sin(i * 0.3) * 100
+      const variation = Math.random() * 80 - 40
+      return Math.max(100, baseValue + variation)
+    })
+  }, [])
 
-  const ENERGY_THRESHOLD = 400
-  const TEMP_THRESHOLD = 28
-  const HUMIDITY_LOW = 30
-  const HUMIDITY_HIGH = 70
+  const temperatureHistory = useMemo(() => {
+    return Array.from({ length: 24 }, (_, i) => {
+      const baseValue = 22 + Math.sin(i * 0.4) * 3
+      const variation = Math.random() * 2 - 1
+      return Math.round((baseValue + variation) * 10) / 10
+    })
+  }, [])
 
-  const energyHigh = energyUsage > ENERGY_THRESHOLD
-  const tempHigh = temperature > TEMP_THRESHOLD
-  const humidityLow = humidity < HUMIDITY_LOW
-  const humidityHigh = humidity > HUMIDITY_HIGH
-  const humidityOutOfRange = humidityLow || humidityHigh
+  const humidityHistory = useMemo(() => {
+    return Array.from({ length: 24 }, (_, i) => {
+      const baseValue = 45 + Math.cos(i * 0.3) * 15
+      const variation = Math.random() * 10 - 5
+      return Math.max(20, Math.min(80, baseValue + variation))
+    })
+  }, [])
+
+  const activeDevices = devices.filter((d) => d.on).length
+
+  const avgEnergy = Math.round(energyHistory.reduce((a, b) => a + b) / energyHistory.length)
+  const avgTemp = Math.round((temperatureHistory.reduce((a, b) => a + b) / temperatureHistory.length) * 10) / 10
+  const avgHumidity = Math.round(humidityHistory.reduce((a, b) => a + b) / humidityHistory.length)
+  const maxEnergy = Math.max(...energyHistory)
+  const minEnergy = Math.min(...energyHistory)
+  const maxTemp = Math.max(...temperatureHistory)
+  const minTemp = Math.min(...temperatureHistory)
+
+  // Filtro de dispositivos
+  const getDevicesByFilter = () => {
+    const deviceMap: { [key: string]: string[] } = {
+      luz: ["Luz", "Bombilla", "Lámpara"],
+      puerta: ["Puerta", "Cerradura"],
+      ventilador: ["Aire", "Ventilador", "Climatización"],
+    }
+
+    if (deviceFilter === "all") return devices
+
+    return devices.filter((d) =>
+      deviceMap[deviceFilter]?.some((keyword) => d.name.toLowerCase().includes(keyword.toLowerCase()))
+    )
+  }
+
+  const filteredDevices = getDevicesByFilter()
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-4 md:space-y-6 lg:space-y-8 font-inter">
-      {/* Header */}
+    <div className="p-4 md:p-6 pt-8 md:pt-4 space-y-6 font-inter">
+
       <PageHeader
         title="Bienvenido"
         icon={<Home className="w-8 md:w-10 h-8 md:h-10 text-white" />}
       />
 
+      {/* Reloj */}
+      <AnimatedClockWidget temperature={temperature} />
 
+      {/* RESUMEN DEL SISTEMA */}
+      <div>
+        <h2 className="text-sm md:text-base font-bold text-slate-300 mb-4 tracking-widest uppercase">
+          Resumen del Sistema
+        </h2>
 
-      {/* Reloj Inteligente */}
-      <div className="mb-6 md:mb-10">
-        <AnimatedClockWidget temperature={temperature} />
-      </div>
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-      {/* Panel de métricas */}
-      <div className="mb-6 md:mb-8">
-        <h3 className="text-xl md:text-2xl font-semibold text-slate-200 mb-4 font-inter tracking-tight">
-          Panel de métricas
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Energía */}
-          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-green-900/40 to-emerald-900/40 border-green-400/30">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Energía (24h)</p>
-                <div className="flex items-center gap-2">
-                  <p
-                    className={`text-3xl md:text-4xl font-extrabold ${energyHigh ? "text-rose-400" : "text-white"} font-inter`}
-                  >
-                    {energyUsage} kWh
-                  </p>
-                  {energyHigh && (
-                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">
-                      Alto
-                    </span>
-                  )}
+          {/* PANEL PRINCIPAL */}
+          <div className="flex-1 h-full">
+            {!expandedCard && (
+              <div className="h-120 flex items-center justify-center border-2 border-dashed border-slate-700/50 rounded-lg">
+                <p className="text-slate-500 text-sm">Selecciona una métrica para ver detalles</p>
+              </div>
+            )}
+
+            {/* MÉTRICA ENERGÍA */}
+            {expandedCard === "energy" && (
+              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-emerald-950/70 via-emerald-900/50 to-teal-900/60 border border-emerald-500/40 rounded-lg">
+                
+                {/* ENCABEZADO */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                    <div>
+                      <h3 className="text-md font-bold text-emerald-100">Energía</h3>
+                      <p className="text-[10px] text-emerald-300/60 mt-0.5">Últimas 24 horas</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-emerald-500/20 rounded-lg">
+                    <X className="w-4 h-4 text-emerald-300" />
+                  </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2 font-bold">Consumo total reciente</p>
-              </div>
-              <div className="ml-auto self-center">
-                <svg viewBox="0 0 100 100" className="w-36 md:w-44 h-8 md:h-10">
-                  <polyline
-                    fill="none"
-                    stroke="#06b6d4"
-                    strokeWidth={2}
-                    points={sparkPoints}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-            </div>
-          </SimpleCard>
 
-          {/* Temperatura */}
-          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-orange-900/40 to-red-900/40 border-orange-400/30">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Temperatura</p>
-                <div className="flex items-center gap-2">
-                  <p
-                    className={`text-3xl md:text-4xl font-extrabold ${tempHigh ? "text-rose-400" : "text-white"} font-inter`}
-                  >
-                    {temperature}°C
-                  </p>
-                  {tempHigh && (
-                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">
-                      Caliente
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 mt-2 font-bold">Promedio interior</p>
-              </div>
-              <div className="ml-auto self-center">
-                <svg viewBox="0 0 48 48" className="w-16 md:w-18 h-16 md:h-18">
-                  <circle cx="24" cy="24" r={tempDonut.radius} fill="transparent" stroke="#0f172a" strokeWidth={6} />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r={tempDonut.radius}
-                    fill="transparent"
-                    stroke="#a78bfa"
-                    strokeWidth={6}
-                    strokeDasharray={`${tempDonut.dash} ${tempDonut.circumference - tempDonut.dash}`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 24 24)"
-                  />
-                  <text x="24" y="28" textAnchor="middle" fontSize="10" fill="#e6edf3">
-                    {Math.round((temperature / 35) * 100)}%
-                  </text>
-                </svg>
-              </div>
-            </div>
-            <div className="mt-4">
-              <svg viewBox="0 0 100 30" className="w-28 md:w-36 h-6">
-                <polyline
-                  fill="none"
-                  stroke="#fb7185"
-                  strokeWidth={2}
-                  points={tempSparkPoints}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          </SimpleCard>
+                {/* GRÁFICO */}
+                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-emerald-900/20 rounded-lg border border-emerald-700/30 p-2">
+                  <svg viewBox="0 0 1000 300" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="energyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
 
-          {/* Humedad */}
-          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border-blue-400/30">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Humedad</p>
-                <div className="flex items-center gap-2">
-                  <p
-                    className={`text-3xl md:text-4xl font-extrabold ${humidityOutOfRange ? "text-rose-400" : "text-white"} font-inter`}
-                  >
-                    {humidity}%
-                  </p>
-                  {humidityLow && (
-                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-amber-600/20 text-amber-300">
-                      Baja
-                    </span>
-                  )}
-                  {humidityHigh && (
-                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-rose-600/20 text-rose-300">
-                      Alta
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 mt-2 font-bold">Hogar</p>
-              </div>
-              <div className="ml-auto self-center">
-                <svg viewBox="0 0 48 48" className="w-16 md:w-18 h-16 md:h-18">
-                  <circle cx="24" cy="24" r={humidityDonut.radius} fill="transparent" stroke="#0f172a" strokeWidth={6} />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r={humidityDonut.radius}
-                    fill="transparent"
-                    stroke="#a78bfa"
-                    strokeWidth={6}
-                    strokeDasharray={`${humidityDonut.dash} ${humidityDonut.circumference - humidityDonut.dash}`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 24 24)"
-                  />
-                  <text x="24" y="28" textAnchor="middle" fontSize="10" fill="#e6edf3">
-                    {Math.round(humidity)}%
-                  </text>
-                </svg>
-              </div>
-            </div>
-            <div className="mt-4">
-              <svg viewBox="0 0 100 100" className="w-28 md:w-36 h-8 md:h-10">
-                <polyline
-                  fill="none"
-                  stroke="#06b6d4"
-                  strokeWidth={2}
-                  points={humiditySparkPoints}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-          </SimpleCard>
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <line
+                        key={i}
+                        x1="50"
+                        y1={50 + i * 50}
+                        x2="950"
+                        y2={50 + i * 50}
+                        stroke="#10b981"
+                        strokeWidth="1"
+                        opacity="0.1"
+                      />
+                    ))}
 
-          {/* Dispositivos */}
-          <SimpleCard className="p-4 md:p-6 lg:p-8 min-h-[160px] bg-gradient-to-br from-purple-900/40 to-violet-900/40 border-purple-400/30">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wider font-medium">Dispositivos</p>
-                <p className="text-2xl md:text-3xl font-extrabold text-white font-inter">
-                  {devices.filter((d) => d.on).length}/{devices.length}
-                </p>
-                <p className="text-xs text-slate-500 mt-2 font-bold">Estado activos</p>
-              </div>
-              <div className="ml-auto self-center">
-                <div className="flex items-end gap-1 h-8 md:h-10">
-                  {devices.map((d, i) => (
-                    <div
-                      key={i}
-                      style={{ height: `${d.on ? 100 : 20}%` }}
-                      className="w-1 md:w-1.5 bg-gradient-to-b from-pink-400 to-rose-400 rounded"
+                    {energyHistory.map((value, i) => {
+                      const x = 50 + (i / (energyHistory.length - 1)) * 900
+                      const y = 250 - (value / 500) * 200
+                      return (
+                        <g key={i}>
+                          <circle cx={x} cy={y} r="2.5" fill="#10b981" opacity="0.8" />
+                          <line
+                            x1={i > 0 ? 50 + ((i - 1) / (energyHistory.length - 1)) * 900 : x}
+                            y1={i > 0 ? 250 - (energyHistory[i - 1] / 500) * 200 : y}
+                            x2={x}
+                            y2={y}
+                            stroke="#10b981"
+                            strokeWidth="1.5"
+                          />
+                        </g>
+                      )
+                    })}
+
+                    <path
+                      d={`M 50,${250 - (energyHistory[0] / 500) * 200} ${energyHistory
+                        .map(
+                          (v, i) =>
+                            `L ${50 + (i / (energyHistory.length - 1)) * 900} ${
+                              250 - (v / 500) * 200
+                            }`
+                        )
+                        .join(" ")} L 950,250 L 50,250 Z`}
+                      fill="url(#energyGradient)"
                     />
+                  </svg>
+                </div>
+
+                {/* ESTADÍSTICAS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { label: "Actual", value: energyUsage },
+                    { label: "Promedio", value: avgEnergy },
+                    { label: "Máximo", value: Math.round(maxEnergy) },
+                    { label: "Mínimo", value: Math.round(minEnergy) },
+                  ].map((item) => (
+                    <div key={item.label} className="p-2 md:p-3 bg-emerald-900/40 rounded-lg border border-emerald-700/40">
+                      <p className="text-[10px] text-emerald-300/60">{item.label}</p>
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <p className="text-xl md:text-2xl font-bold text-emerald-100">{item.value}</p>
+                        <span className="text-[9px] md:text-xs text-emerald-400/50 bg-emerald-900/60 px-1.5 py-0.5 rounded">kWh</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* TEMPERATURA */}
+            {expandedCard === "temp" && (
+              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-orange-950/70 via-orange-900/50 to-red-900/60 border border-orange-500/40 rounded-lg">
+
+                {/* ENCABEZADO */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Thermometer className="w-5 h-5 text-orange-400" />
+                    <div>
+                      <h3 className="text-md font-bold text-orange-100">Temperatura</h3>
+                      <p className="text-[10px] text-orange-300/60 mt-0.5">Últimas 24 horas</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-orange-500/20 rounded-lg">
+                    <X className="w-4 h-4 text-orange-300" />
+                  </button>
+                </div>
+
+                {/* GRÁFICO */}
+                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-orange-900/20 rounded-lg border border-orange-700/30 p-2">
+                  <svg viewBox="0 0 1000 300" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="tempGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+
+                    {[0,1,2,3,4].map(i => (
+                      <line key={i} x1="50" y1={50 + i*50} x2="950" y2={50 + i*50} stroke="#f97316" strokeWidth="1" opacity="0.1" />
+                    ))}
+
+                    {temperatureHistory.map((v,i)=> {
+                      const x = 50 + (i/(temperatureHistory.length-1))*900;
+                      const y = 250 - (v/35)*200;
+                      return (
+                        <g key={i}>
+                          <circle cx={x} cy={y} r="2.5" fill="#fed7aa" opacity="0.8" />
+                          {i>0 && (
+                            <line
+                              x1={50 + ((i-1)/(temperatureHistory.length-1))*900}
+                              y1={250-(temperatureHistory[i-1]/35)*200}
+                              x2={x}
+                              y2={y}
+                              stroke="#f97316"
+                              strokeWidth="1.5"
+                            />
+                          )}
+                        </g>
+                      )
+                    })}
+
+                    <path
+                      d={`M50,${250-(temperatureHistory[0]/35)*200} ${temperatureHistory.map((v,i)=>`L ${50+(i/(temperatureHistory.length-1))*900} ${250-(v/35)*200}`).join(" ")} L950,250 L50,250 Z`}
+                      fill="url(#tempGradient)"
+                    />
+                  </svg>
+                </div>
+
+                {/* ESTADÍSTICAS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { label:"Actual", value: temperature, unit:"°C" },
+                    { label:"Promedio", value: avgTemp, unit:"°C" },
+                    { label:"Máximo", value: maxTemp, unit:"°C" },
+                    { label:"Mínimo", value: minTemp, unit:"°C" },
+                  ].map(item=>(
+                    <div key={item.label} className="p-2 md:p-3 bg-orange-900/40 rounded-lg border border-orange-700/40">
+                      <p className="text-[10px] text-orange-300/60">{item.label}</p>
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <p className="text-xl md:text-2xl font-bold text-orange-100">{item.value}</p>
+                        <span className="text-[9px] md:text-xs text-orange-400/50 bg-orange-900/60 px-1.5 py-0.5 rounded">{item.unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* HUMEDAD */}
+            {expandedCard === "humidity" && (
+              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-cyan-950/70 via-blue-900/50 to-cyan-900/60 border border-cyan-500/40 rounded-lg">
+
+                {/* ENCABEZADO */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Droplets className="w-5 h-5 text-cyan-400" />
+                    <div>
+                      <h3 className="text-md font-bold text-cyan-100">Humedad</h3>
+                      <p className="text-[10px] text-cyan-300/60 mt-0.5">Últimas 24 horas</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-cyan-500/20 rounded-lg">
+                    <X className="w-4 h-4 text-cyan-300" />
+                  </button>
+                </div>
+
+                {/* GRÁFICO */}
+                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-cyan-900/20 rounded-lg border border-cyan-700/30 p-2">
+                  <svg viewBox="0 0 1000 300" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="humidityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4"/>
+                        <stop offset="100%" stopColor="#06b6d4" stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+
+                    {[0,1,2,3,4].map(i => (
+                      <line key={i} x1="50" y1={50 + i*50} x2="950" y2={50 + i*50} stroke="#06b6d4" strokeWidth="1" opacity="0.1"/>
+                    ))}
+
+                    {humidityHistory.map((v,i)=>{
+                      const x = 50 + (i/(humidityHistory.length-1))*900;
+                      const height = (v/100)*200;
+                      const y = 250 - height;
+                      return (
+                        <g key={i}>
+                          <rect x={x} y={y} width={10} height={height} fill="url(#humidityGradient)" rx="4"/>
+                          <rect x={x} y={y} width={10} height={height} fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.5" rx="4"/>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+
+                {/* ESTADÍSTICAS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { label:"Actual", value: humidity, unit:"%" },
+                    { label:"Promedio", value: avgHumidity, unit:"%" },
+                    { label:"Máximo", value: 80, unit:"%" },
+                    { label:"Mínimo", value: 20, unit:"%" },
+                  ].map(item=>(
+                    <div key={item.label} className="p-2 md:p-3 bg-cyan-900/40 rounded-lg border border-cyan-700/40">
+                      <p className="text-[10px] text-cyan-300/60">{item.label}</p>
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <p className="text-xl md:text-2xl font-bold text-cyan-100">{item.value}</p>
+                        <span className="text-[9px] md:text-xs text-cyan-400/50 bg-cyan-900/60 px-1.5 py-0.5 rounded">{item.unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* DISPOSITIVOS */}
+            {expandedCard === "devices" && (
+              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-violet-950/70 via-purple-900/50 to-violet-900/60 border border-violet-500/40 rounded-lg">
+
+                {/* ENCABEZADO */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Power className="w-5 h-5 text-violet-400" />
+                    <div>
+                      <h3 className="text-md font-bold text-violet-100">Dispositivos</h3>
+                      <p className="text-[10px] text-violet-300/60 mt-0.5">{activeDevices} de {devices.length} activos</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-violet-500/20 rounded-lg">
+                    <X className="w-4 h-4 text-violet-300" />
+                  </button>
+                </div>
+
+                {/* FILTROS */}
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {(["all","luz","puerta","ventilador"] as const).map(filter=>(
+                    <SimpleButton key={filter} onClick={()=>setDeviceFilter(filter)} active={deviceFilter===filter} className="px-3 py-1 text-sm">
+                      {filter==="all"?"Todos":filter.charAt(0).toUpperCase()+filter.slice(1)}
+                    </SimpleButton>
+                  ))}
+                </div>
+
+                {/* LISTA FILTRADA */}
+                <div className="space-y-2 mb-2">
+                  {filteredDevices.length>0 ? filteredDevices.map((d,i)=>(
+                    <div key={i} className="flex items-center justify-between p-3 bg-violet-900/30 rounded-lg border border-violet-700/30">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-violet-200">{d.name}</p>
+                        {d.location && <p className="text-xs text-violet-300/60 mt-1">{d.location}</p>}
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs text-violet-300/60">Consumo</p>
+                        <p className="text-sm font-semibold text-violet-200">{d.power}</p>
+                      </div>
+
+                      <div className="w-3 h-3 ml-4 rounded-full shadow-lg transition-all" style={{background:d.on?"#10ffb3":"#555", boxShadow:d.on?"0 0 8px #10ffb3":"none"}} />
+                    </div>
+                  )) : <p className="text-sm text-violet-300/60">No hay dispositivos en esta categoría.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* TARJETAS LATERALES */}
+          <div className="w-full lg:w-80 space-y-4">
+
+            {/* Energía */}
+            <div
+              className="p-4 bg-emerald-950/40 border border-emerald-800/40 rounded-lg cursor-pointer hover:bg-emerald-900/40 transition-colors"
+              onClick={() => setExpandedCard("energy")}
+            >
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-emerald-400" />
+                <h4 className="text-emerald-100 font-semibold text-sm">Energía</h4>
+              </div>
+              <p className="text-emerald-300/60 text-xs mt-1">{energyUsage} kWh usados</p>
             </div>
-          </SimpleCard>
+
+            {/* Temperatura */}
+            <div
+              className="p-4 bg-orange-950/40 border border-orange-800/40 rounded-lg cursor-pointer hover:bg-orange-900/40 transition-colors"
+              onClick={() => setExpandedCard("temp")}
+            >
+              <div className="flex items-center gap-3">
+                <Thermometer className="w-5 h-5 text-orange-400" />
+                <h4 className="text-orange-100 font-semibold text-sm">Temperatura</h4>
+              </div>
+              <p className="text-orange-300/60 text-xs mt-1">{temperature} °C actuales</p>
+            </div>
+
+            {/* Humedad */}
+            <div
+              className="p-4 bg-cyan-950/40 border border-cyan-800/40 rounded-lg cursor-pointer hover:bg-cyan-900/40 transition-colors"
+              onClick={() => setExpandedCard("humidity")}
+            >
+              <div className="flex items-center gap-3">
+                <Droplets className="w-5 h-5 text-cyan-400" />
+                <h4 className="text-cyan-100 font-semibold text-sm">Humedad</h4>
+              </div>
+              <p className="text-cyan-300/60 text-xs mt-1">{humidity}% actual</p>
+            </div>
+
+            {/* Dispositivos */}
+            <div
+              className="p-4 bg-violet-950/40 border border-violet-800/40 rounded-lg cursor-pointer hover:bg-violet-900/40 transition-colors"
+              onClick={() => setExpandedCard("devices")}
+            >
+              <div className="flex items-center gap-3">
+                <Power className="w-5 h-5 text-violet-400" />
+                <h4 className="text-violet-100 font-semibold text-sm">Dispositivos</h4>
+              </div>
+              <p className="text-violet-300/60 text-xs mt-1">{activeDevices} activos</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* MiniChat flotante */}
+      {/* CHAT FLOTANTE */}
       <MiniChat />
     </div>
   )

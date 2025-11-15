@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { axiosInstance } from "../services/authService";
 
 interface UseVoiceRecognitionProps {
   lang?: string;
@@ -80,10 +81,10 @@ export function useVoiceRecognition({
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // En navegador, setTimeout devuelve number; usar ReturnType para compatibilidad
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const accessToken = localStorage.getItem('access_token');
 
   useEffect(() => {
     listeningStateRef.current = listening;
@@ -212,23 +213,21 @@ export function useVoiceRecognition({
         formData.append('audio_file', wavBlob, 'audio.wav');
 
         try {
-          const response = await fetch(`${API_BASE_URL}/hotword/hotword/process_audio/auth`, {
-            method: 'POST',
-            headers: {
-              'accept': 'application/json',
-              'Authorization': `Bearer ${accessToken}`,
-            },
-            body: formData,
-          });
+          const response = await axiosInstance.post(
+            `/hotword/hotword/process_audio/auth`,
+            formData,
+            {
+              headers: {
+                accept: "application/json",
+                // No establecer 'Content-Type' manualmente; axios lo gestiona con FormData
+              },
+            }
+          );
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
+          const data = response.data;
           console.log("Audio Processed API Response:", data);
           if (onAudioProcessed) {
-            onAudioProcessed(data); // Pasar la respuesta de la API
+            onAudioProcessed(data);
           }
         } catch (error) {
           console.error("Error sending audio to AI:", error);

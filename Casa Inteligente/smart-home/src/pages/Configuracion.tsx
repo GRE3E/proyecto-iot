@@ -94,10 +94,10 @@ export default function Configuracion() {
           <Perfil
             name={ownerName}
             setName={setOwnerName}
-            role="Propietario"
+            role={isCurrentUserOwner ? "Propietario" : "Familiar"}
             members={members}
             setMembers={setMembers}
-            isOwnerFixed={true}
+            isOwnerFixed={false}
             onEditProfile={handleEditProfile}
             onAddMember={isCurrentUserOwner ? () => setIsAddMemberModalOpen(true) : undefined}
             owners={ownerUsernames}

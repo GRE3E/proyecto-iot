@@ -12,6 +12,8 @@ interface ModalProps {
   children: ReactNode;
   className?: string;
   closeLabel?: string;
+  panelClassName?: string;
+  backdropClassName?: string;
 }
 
 export default function Modal({
@@ -21,6 +23,8 @@ export default function Modal({
   children,
   className = "",
   closeLabel = "Cerrar",
+  panelClassName = "max-w-md",
+  backdropClassName = "bg-black/60",
 }: ModalProps) {
   if (typeof window === "undefined") return null; // seguridad SSR
 
@@ -36,7 +40,7 @@ export default function Modal({
         >
           {/* Backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/60"
+            className={`absolute inset-0 ${backdropClassName}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -46,7 +50,7 @@ export default function Modal({
           {/* Panel */}
           <motion.div
             key="modal-panel"
-            className={`relative w-[90%] max-w-md rounded-2xl p-6 bg-slate-900 shadow-lg text-white ${className}`}
+            className={`relative w-[94%] ${panelClassName} rounded-2xl p-6 bg-slate-900 shadow-lg text-white ${className}`}
             initial={{ y: 20, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 12, scale: 0.98, opacity: 0 }}

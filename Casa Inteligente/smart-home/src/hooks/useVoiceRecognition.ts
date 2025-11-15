@@ -10,7 +10,7 @@ interface UseVoiceRecognitionProps {
 }
 
 // Función auxiliar para codificar audio a WAV
-const encodeWAV = (samples: Float32Array, sampleRate: number) => {
+export const encodeWAV = (samples: Float32Array, sampleRate: number) => {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
 

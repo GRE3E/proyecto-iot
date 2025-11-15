@@ -2,13 +2,12 @@
 export interface Notification {
   id: number
   message: string
+  type?: string
+  title?: string
+  timestamp?: string
 }
 
-export const initialNotifications: Notification[] = [
-  { id: 1, message: "Nueva actualización de seguridad" },
-  { id: 2, message: "Sensor de movimiento activado" },
-  { id: 3, message: "Consumo de energía elevado detectado" },
-]
+export const initialNotifications: Notification[] = []
 
 export function removeNotification(list: Notification[], id: number) {
   return list.filter((n) => n.id !== id)
@@ -16,4 +15,64 @@ export function removeNotification(list: Notification[], id: number) {
 
 export function clearNotifications() {
   return [] as Notification[]
+}
+
+export async function fetchNotifications(
+  apiBase?: string,
+  token?: string,
+  params?: { limit?: number; offset?: number }
+): Promise<Notification[]> {
+  const resolvedBase = apiBase
+    || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_URL : undefined)
+    || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_BACKEND_URL : undefined)
+    || (typeof window !== "undefined" ? (window.localStorage.getItem("API_URL") || undefined) : undefined)
+    || "https://bytes-attract-moved-marsh.trycloudflare.com"
+  const url = new URL("/notifications/", resolvedBase)
+  if (params?.limit) url.searchParams.set("limit", String(params.limit))
+  if (params?.offset) url.searchParams.set("offset", String(params.offset))
+
+  const headers: Record<string, string> = { accept: "application/json" }
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
+  const res = await fetch(url.toString(), { headers, mode: "cors", credentials: "omit" })
+  if (!res.ok) return []
+  const data = await res.json().catch(() => [])
+  const list = Array.isArray(data) ? data : (data?.notifications ?? data?.items ?? data?.results ?? data?.data ?? [])
+  const mapped = list.map((n: any) => {
+    let parsed: any = null
+    if (typeof n?.message === "string") {
+      try { parsed = JSON.parse(n.message) } catch {}
+    }
+    const type = n?.type ?? parsed?.type
+    const title = n?.title ?? parsed?.title
+    const msg = (parsed?.message ?? n?.message ?? n?.text ?? n?.content ?? "")
+    const status = n?.status ?? parsed?.status
+    const timestamp = n?.timestamp ?? n?.created_at ?? n?.time
+    return {
+      id: n?.id ?? n?.notification_id ?? n?.uuid ?? Math.floor(Math.random() * 1e9),
+      message: msg,
+      type,
+      title,
+      status,
+      timestamp,
+    }
+  })
+  return mapped.filter((x) => !(x.type === "user_action" && typeof x.title === "string" && x.title.startsWith("DELETE /notifications/")))
+}
+
+export async function deleteNotification(
+  id: number,
+  apiBase?: string,
+  token?: string
+): Promise<boolean> {
+  const resolvedBase = apiBase
+    || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_URL : undefined)
+    || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_BACKEND_URL : undefined)
+    || (typeof window !== "undefined" ? (window.localStorage.getItem("API_URL") || undefined) : undefined)
+    || "https://bytes-attract-moved-marsh.trycloudflare.com"
+  const url = new URL(`/notifications/${id}`, resolvedBase)
+  const headers: Record<string, string> = { accept: "application/json" }
+  if (token) headers["Authorization"] = `Bearer ${token}`
+  const res = await fetch(url.toString(), { method: "DELETE", headers, mode: "cors", credentials: "omit" })
+  return res.ok
 }

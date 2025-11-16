@@ -108,7 +108,7 @@ export default function Inicio({
           {/* PANEL PRINCIPAL */}
           <div className="flex-1 h-full">
             {!expandedCard && (
-              <div className="h-120 flex items-center justify-center border-2 border-dashed border-slate-700/50 rounded-lg">
+              <div className="h-8 flex items-center justify-center border-2 border-dashed border-slate-700/50 rounded-lg">
                 <p className="text-slate-500 text-sm">Selecciona una métrica para ver detalles</p>
               </div>
             )}

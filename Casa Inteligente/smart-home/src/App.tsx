@@ -3,7 +3,7 @@ import { useState } from "react";
 import Login from "./pages/login";
 import RecuperarContraseña from "./pages/RecuperarContraseña";
 import { useThemeByTime } from "./hooks/useThemeByTime";
-import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo } from "lucide-react";
+import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo, Music } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 
 // Secciones
@@ -14,6 +14,7 @@ import MonitoreoSeguridad from "./pages/MonitoreoSeguridad";
 import Configuracion from "./pages/Configuracion";
 import Chat from "./pages/Chat";
 import Rutinas from "./pages/Rutinas";
+import Musica from "./pages/Musica";
 
 // Layout
 import HamburgerMenu from "./components/Layout/Sidebar";
@@ -29,6 +30,7 @@ export default function App() {
     { name: "Casa 3D", icon: Monitor },
     { name: "Gestión de Dispositivos", icon: Cpu },
     { name: "Monitoreo y Seguridad", icon: Shield },
+    { name: "Música", icon: Music },
     { name: "Chat", icon: MessageCircle },
     { name: "Rutinas", icon: ListTodo },
     { name: "Configuración", icon: Settings },
@@ -82,9 +84,10 @@ export default function App() {
             {selectedMenu === "Casa 3D" && <Casa3d />}
             {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
             {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
-            {selectedMenu === "Configuración" && <Configuracion />}
+            {selectedMenu === "Música" && <Musica />}
             {selectedMenu === "Chat" && <Chat />}
             {selectedMenu === "Rutinas" && <Rutinas />}
+            {selectedMenu === "Configuración" && <Configuracion />}
           </main>
         </div>
       )}

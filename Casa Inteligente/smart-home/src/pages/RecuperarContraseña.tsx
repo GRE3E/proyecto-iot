@@ -29,6 +29,9 @@ export default function RecuperarContraseña() {
     biometricLoading,
     biometricStatus,
     videoRef,
+    availableCameras,
+    selectedCameraId,
+    updateSelectedCamera,
 
     // Funciones
     handleValidateUsername,
@@ -124,25 +127,16 @@ export default function RecuperarContraseña() {
               ) : (
                 <>
                   {/* Video Feed for Facial Recognition */}
-                  {recoveryMethod === "face" && (
-                    <div className="space-y-4">
-                      <video
-                        ref={videoRef}
-                        className="w-full rounded-lg bg-black"
-                        style={{ maxHeight: "300px" }}
-                      />
+                  {recoveryMethod === "voice" && (
+                    <div className="flex items-center gap-2 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      {biometricLoading ? (
+                        <Loader size={18} className="text-blue-400 animate-spin flex-shrink-0" />
+                      ) : (
+                        <CheckCircle size={18} className="text-blue-400 flex-shrink-0" />
+                      )}
+                      <p className="text-blue-400 text-sm">{biometricStatus}</p>
                     </div>
                   )}
-
-                  {/* Status Message */}
-                  <div className="flex items-center gap-2 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                    {biometricLoading ? (
-                      <Loader size={18} className="text-blue-400 animate-spin flex-shrink-0" />
-                    ) : (
-                      <CheckCircle size={18} className="text-blue-400 flex-shrink-0" />
-                    )}
-                    <p className="text-blue-400 text-sm">{biometricStatus}</p>
-                  </div>
 
                   {error && (
                     <div className="flex gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
@@ -248,6 +242,14 @@ export default function RecuperarContraseña() {
                       </button>
                     </div>
                   )}
+                  {recoveryMethod === "face" && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                        <Camera className="w-5 h-5 text-blue-400" />
+                        <p className="text-blue-400 text-sm">La cámara se activará cuando presiones "Cambiar Contraseña".</p>
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     onClick={changeBiometricMethod}
@@ -261,96 +263,141 @@ export default function RecuperarContraseña() {
             </div>
           )}
 
-          {/* STEP 3: Nueva Contraseña */}
           {step === 2 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-white">Paso 3: Nueva contraseña</h2>
+              <h2 className="text-xl font-bold text-white">Paso 2: Nueva contraseña</h2>
 
-              {/* Nueva Contraseña */}
-              <div>
-                <label className="block text-sm font-semibold text-blue-400 mb-2">
-                  Nueva contraseña
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value);
-                      setError("");
-                    }}
-                    placeholder="Mínimo 8 caracteres"
-                    disabled={loading}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-blue-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400"
-                  >
-                    {showPassword ? "👁️" : "👁️‍🗨️"}
+              {recoveryMethod === "face" ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-slate-300 mb-2">Selecciona una cámara</label>
+                      <select
+                        value={selectedCameraId ?? ""}
+                        onChange={(e) => updateSelectedCamera(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                      >
+                        {availableCameras.length === 0 ? (
+                          <option value="">Sin cámaras disponibles</option>
+                        ) : (
+                          availableCameras.map((c) => (
+                            <option key={c.deviceId} value={c.deviceId}>{c.label || `Cámara ${c.deviceId.substring(0,6)}`}</option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <video ref={videoRef} className="w-full rounded-lg bg-black" style={{ maxHeight: "320px" }} />
+                    <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      {biometricLoading ? (
+                        <Loader size={16} className="text-blue-400 animate-spin" />
+                      ) : (
+                        <CheckCircle size={16} className="text-blue-400" />
+                      )}
+                      <p className="text-blue-400 text-xs">{biometricStatus || "Cámara lista"}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-blue-400 mb-2">Nueva contraseña</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => {
+                            setNewPassword(e.target.value);
+                            setError("");
+                          }}
+                          placeholder="Mínimo 8 caracteres"
+                          disabled={loading}
+                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-blue-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10"
+                        />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400">
+                          {showPassword ? "👁️" : "👁️‍🗨️"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-indigo-400 mb-2">Confirmar contraseña</label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            setError("");
+                          }}
+                          placeholder="Confirma tu contraseña"
+                          disabled={loading}
+                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-indigo-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10"
+                        />
+                        <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400">
+                          {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="flex gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                        <AlertCircle size={18} className="text-red-400" />
+                        <p className="text-red-400 text-sm">{error}</p>
+                      </div>
+                    )}
+
+                    {success && (
+                      <div className="flex gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                        <CheckCircle size={18} className="text-green-400" />
+                        <p className="text-green-400 text-sm">{success}</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={loading}
+                      className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-green-600/50 disabled:to-emerald-600/50 rounded-lg text-white font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader size={18} className="animate-spin" />
+                          Cambiando contraseña...
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={18} />
+                          Cambiar Contraseña
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-blue-400 mb-2">Nueva contraseña</label>
+                    <div className="relative">
+                      <input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => { setNewPassword(e.target.value); setError(""); }} placeholder="Mínimo 8 caracteres" disabled={loading} className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-blue-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400">{showPassword ? "👁️" : "👁️‍🗨️"}</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-indigo-400 mb-2">Confirmar contraseña</label>
+                    <div className="relative">
+                      <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }} placeholder="Confirma tu contraseña" disabled={loading} className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-indigo-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10" />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400">{showConfirmPassword ? "👁️" : "👁️‍🗨️"}</button>
+                    </div>
+                  </div>
+                  {error && (
+                    <div className="flex gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg"><AlertCircle size={18} className="text-red-400" /><p className="text-red-400 text-sm">{error}</p></div>
+                  )}
+                  {success && (
+                    <div className="flex gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg"><CheckCircle size={18} className="text-green-400" /><p className="text-green-400 text-sm">{success}</p></div>
+                  )}
+                  <button onClick={handleChangePassword} disabled={loading} className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-green-600/50 disabled:to-emerald-600/50 rounded-lg text-white font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {loading ? (<><Loader size={18} className="animate-spin" />Cambiando contraseña...</>) : (<><Lock size={18} />Cambiar Contraseña</>)}
                   </button>
-                </div>
-              </div>
-
-              {/* Confirmar Contraseña */}
-              <div>
-                <label className="block text-sm font-semibold text-indigo-400 mb-2">
-                  Confirmar contraseña
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value);
-                      setError("");
-                    }}
-                    placeholder="Confirma tu contraseña"
-                    disabled={loading}
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-lg text-white placeholder-slate-500 focus:border-indigo-500/50 focus:bg-slate-900/70 outline-none transition-all disabled:opacity-50 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400"
-                  >
-                    {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                  <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
+                </>
               )}
-
-              {success && (
-                <div className="flex gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                  <CheckCircle size={18} className="text-green-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-green-400 text-sm">{success}</p>
-                </div>
-              )}
-
-              <button
-                onClick={handleChangePassword}
-                disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-green-600/50 disabled:to-emerald-600/50 rounded-lg text-white font-bold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader size={18} className="animate-spin" />
-                    Cambiando contraseña...
-                  </>
-                ) : (
-                  <>
-                    <Lock size={18} />
-                    Cambiar Contraseña
-                  </>
-                )}
-              </button>
             </div>
           )}
 
@@ -364,6 +411,8 @@ export default function RecuperarContraseña() {
             </button>
           )}
         </div>
+
+        
 
         {/* Footer */}
         <p className="text-center text-slate-500 text-xs mt-6">

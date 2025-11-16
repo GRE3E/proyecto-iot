@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { axiosInstance } from "../services/authService";
 import { encodeWAV } from "./useVoiceRecognition";
 
@@ -38,6 +38,26 @@ export function useRecuperarContra() {
   const voiceWavBlobRef = useRef<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
+  const [faceModalOpen, setFaceModalOpen] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const faceImageBlobRef = useRef<Blob | null>(null);
+  const [faceReady, setFaceReady] = useState(false);
+  const [pendingFaceSubmit, setPendingFaceSubmit] = useState(false);
+
+  const captureFrameBlob = async (): Promise<Blob | null> => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return null;
+    const canvas = canvasRef.current || document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return null;
+    ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.95);
+    });
+  };
 
   const resampleTo16k = (input: Float32Array, sourceRate: number) => {
     const targetRate = 16000;
@@ -98,61 +118,13 @@ export function useRecuperarContra() {
     }
   }, [username]);
 
-  // Iniciar reconocimiento facial
   const startFacialRecognition = useCallback(async () => {
-    setBiometricLoading(true);
-    setBiometricStatus("Iniciando cámara...");
     setError("");
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      });
-      mediaStreamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setBiometricStatus("Cámara iniciada. Por favor, mira a la cámara...");
-
-        setTimeout(() => {
-          captureAndAnalyzeFace();
-        }, 3000);
-      }
-    } catch (err) {
-      setError("No se pudo acceder a la cámara. Verifica los permisos.");
-      setBiometricLoading(false);
-    }
+    setBiometricStatus("");
+    setStep(2);
   }, []);
 
-  const captureAndAnalyzeFace = useCallback(async () => {
-    setBiometricStatus("Analizando rostro...");
-
-    try {
-      // TODO: Conectar con API de reconocimiento facial
-      // const response = await fetch('/api/facial-recognition', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ username, videoFrame: canvasRef.current?.toDataURL() })
-      // });
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      if (Math.random() > 0.2) {
-        setBiometricStatus("¡Rostro reconocido! ✓");
-        stopCamera();
-        setTimeout(() => {
-          setStep(2);
-          setBiometricLoading(false);
-        }, 1500);
-      } else {
-        setBiometricStatus("No se pudo reconocer el rostro. Intenta de nuevo.");
-        setBiometricLoading(false);
-      }
-    } catch (err) {
-      setError("Error al procesar el reconocimiento facial");
-      setBiometricLoading(false);
-    }
-  }, []);
+  
 
   const startVoiceRecognition = useCallback(() => {
     setError("");
@@ -160,6 +132,62 @@ export function useRecuperarContra() {
     setBiometricLoading(false);
     voiceWavBlobRef.current = null;
   }, []);
+
+  const enumerateCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      setAvailableCameras(cams);
+      if (!selectedCameraId && cams.length > 0) setSelectedCameraId(cams[0].deviceId);
+    } catch {}
+  }, [selectedCameraId]);
+
+  const startFacePreview = useCallback(async (deviceId?: string | null) => {
+    try {
+      setBiometricLoading(true);
+      setBiometricStatus("Iniciando cámara...");
+      const constraints: MediaStreamConstraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } as any } : { facingMode: "user" },
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setBiometricLoading(false);
+      setBiometricStatus("Cámara lista");
+    } catch (err) {
+      setError("No se pudo acceder a la cámara");
+      setBiometricLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      if (step === 2 && recoveryMethod === "face") {
+        await enumerateCameras();
+        await startFacePreview(selectedCameraId);
+      }
+    };
+    run();
+  }, [step, recoveryMethod, enumerateCameras, startFacePreview, selectedCameraId]);
+
+  const openFaceModal = useCallback(async () => {
+    try {
+      setFaceReady(false);
+      setFaceModalOpen(true);
+      await startFacePreview(selectedCameraId);
+      await enumerateCameras();
+    } catch {}
+  }, [selectedCameraId, startFacePreview, enumerateCameras]);
+
+  const updateSelectedCamera = useCallback(async (id: string) => {
+    setSelectedCameraId(id);
+    await startFacePreview(id);
+  }, [startFacePreview]);
+
+  
 
   const beginVoiceRecording = useCallback(async () => {
     setBiometricLoading(true);
@@ -278,6 +306,58 @@ export function useRecuperarContra() {
     }
   }, []);
 
+  const closeFaceModal = useCallback(() => {
+    setFaceModalOpen(false);
+    stopCamera();
+    setBiometricStatus("");
+    setBiometricLoading(false);
+    setPendingFaceSubmit(false);
+  }, [stopCamera]);
+
+  const confirmFaceCapture = useCallback(async () => {
+    try {
+      const imageBlob = await captureFrameBlob();
+      if (!imageBlob) {
+        setError("No se pudo capturar la imagen");
+        return;
+      }
+      faceImageBlobRef.current = imageBlob;
+      setFaceReady(true);
+      setFaceModalOpen(false);
+      stopCamera();
+      if (pendingFaceSubmit) {
+        const formData = new FormData();
+        formData.append("new_password", newPassword);
+        const imgFile = new File([imageBlob], "face.jpg", { type: "image/jpeg" });
+        formData.append("image_file", imgFile);
+        try {
+          setLoading(true);
+          await axiosInstance.post("/auth/auth/face-password-recovery", formData, {
+            params: { source: "file" },
+            headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
+          });
+          setSuccess("¡Contraseña cambiada exitosamente! ✓");
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        } catch (err: any) {
+          let message = "Error al cambiar la contraseña";
+          const d = err?.response?.data;
+          if (d?.detail) {
+            if (typeof d.detail === "string") message = d.detail;
+            else if (Array.isArray(d.detail)) message = d.detail.map((e: any) => e?.msg || e?.type || "Error").join("; ");
+          } else if (typeof err?.message === "string") {
+            message = err.message;
+          }
+          setError(message);
+        } finally {
+          setLoading(false);
+          setPendingFaceSubmit(false);
+        }
+      }
+    } catch {}
+  }, [newPassword, pendingFaceSubmit, stopCamera]);
+
   // Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
     if (!newPassword.trim()) {
@@ -300,16 +380,33 @@ export function useRecuperarContra() {
       return;
     }
 
-    setLoading(true);
     setError("");
 
     try {
       if (recoveryMethod === "voice") {
+        setLoading(true);
         const formData = new FormData();
         const file = new File([voiceWavBlobRef.current as Blob], "audio.wav", { type: "audio/wav" });
         formData.append("audio_file", file);
         formData.append("new_password", newPassword);
         await axiosInstance.post("/auth/auth/voice-password-recovery", formData, {
+          headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
+        });
+      } else if (recoveryMethod === "face") {
+        const blob = await captureFrameBlob();
+        if (!blob) {
+          setError("Activa la cámara para capturar tu rostro");
+          await enumerateCameras();
+          await startFacePreview(selectedCameraId);
+          return;
+        }
+        const formData = new FormData();
+        formData.append("new_password", newPassword);
+        const imgFile = new File([blob], "face.jpg", { type: "image/jpeg" });
+        formData.append("image_file", imgFile);
+        setLoading(true);
+        await axiosInstance.post("/auth/auth/face-password-recovery", formData, {
+          params: { source: "file" },
           headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
         });
       }
@@ -331,7 +428,7 @@ export function useRecuperarContra() {
     } finally {
       setLoading(false);
     }
-  }, [newPassword, confirmPassword, recoveryMethod]);
+  }, [newPassword, confirmPassword, recoveryMethod, enumerateCameras, startFacePreview, selectedCameraId]);
 
   // Resetear el proceso completo
   const resetProcess = useCallback(() => {
@@ -348,6 +445,11 @@ export function useRecuperarContra() {
     voiceWavBlobRef.current = null;
     setIsRecording(false);
     setVoiceReady(false);
+    faceImageBlobRef.current = null;
+    setFaceReady(false);
+    setFaceModalOpen(false);
+    setAvailableCameras([]);
+    setSelectedCameraId(null);
   }, [stopCamera]);
 
   // Cambiar método biométrico
@@ -401,5 +503,13 @@ export function useRecuperarContra() {
     beginVoiceRecording,
     stopVoiceRecording,
     voiceReady,
+    faceModalOpen,
+    availableCameras,
+    selectedCameraId,
+    updateSelectedCamera,
+    openFaceModal,
+    closeFaceModal,
+    confirmFaceCapture,
+    faceReady,
   };
 }

@@ -133,15 +133,45 @@ export default function MusicaPage() {
                     {estado.cancionActual.titulo}
                   </h2>
                   
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/60" />
-                    <div>
-                      <p className={`text-xl font-semibold ${colors.text}`}>
-                        {estado.cancionActual.artista}
-                      </p>
-                      <p className={`text-sm ${colors.text} text-opacity-50`}>
-                        Agregado por {estado.cancionActual.agregadoPor}
-                      </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/60" />
+                      <div>
+                        <p className={`text-xl font-semibold ${colors.text}`}>
+                          {estado.cancionActual.artista}
+                        </p>
+                        <p className={`text-sm ${colors.text} text-opacity-50`}>
+                          Agregado por {estado.cancionActual.agregadoPor}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="md:hidden flex flex-col items-center gap-1">
+                      <div className="relative h-20 w-2 flex items-center justify-center rounded-full overflow-hidden bg-gradient-to-b from-gray-700 to-gray-800 border border-purple-500/20 shadow-inner">
+                        <div 
+                          className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-pink-500 via-purple-500 to-purple-400 rounded-full shadow-lg shadow-purple-500/50 transition-all"
+                          style={{
+                            height: `${estado.volumen}%`,
+                          }}
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={estado.volumen}
+                        onChange={(e) => cambiarVolumen(Number(e.target.value))}
+                        className="w-2 h-20 rounded-full cursor-pointer appearance-none accent-purple-500 transition-all opacity-0 absolute"
+                        style={{
+                          writingMode: 'bt-lr' as any,
+                          WebkitAppearance: 'slider-vertical',
+                        }}
+                      />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Volume2 className="text-purple-400" size={16} />
+                        <span className="text-xs font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent w-6 text-center">
+                          {estado.volumen}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -170,12 +200,9 @@ export default function MusicaPage() {
                   </div>
                 </div>
 
-                {/* Controles de reproducción con volumen a la derecha */}
-                <div className="flex justify-between items-center">
-                  {/* Izquierda - Controles */}
+                <div className="flex justify-between items-center gap-4 md:gap-0">
                   <div className="flex-1" />
-                  
-                  <div className="flex items-center gap-10">
+                  <div className="flex items-center gap-6 md:gap-10">
                     <button
                       onClick={cancionAnterior}
                       disabled={estado.cola.length === 0}
@@ -183,7 +210,6 @@ export default function MusicaPage() {
                     >
                       <SkipBack size={32} />
                     </button>
-
                     <button
                       onClick={estado.estaReproduciendo ? pausar : reproducir}
                       className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 shadow-2xl shadow-purple-500/60 border border-purple-300/40 flex items-center justify-center text-white transition-all active:scale-90 hover:scale-110 transform hover:shadow-purple-500/80"
@@ -194,7 +220,6 @@ export default function MusicaPage() {
                         <Play size={36} className="ml-1" />
                       )}
                     </button>
-
                     <button
                       onClick={siguienteCancion}
                       disabled={estado.cola.length === 0}
@@ -203,9 +228,7 @@ export default function MusicaPage() {
                       <SkipForward size={32} />
                     </button>
                   </div>
-
-                  {/* Derecha - Volumen */}
-                  <div className="flex-1 flex justify-end">
+                  <div className="hidden md:flex flex-1 justify-end">
                     <div className="flex items-center gap-3 pr-2">
                       <Volume2 className="text-purple-400 flex-shrink-0" size={24} />
                       <div className="relative group flex items-center gap-2">

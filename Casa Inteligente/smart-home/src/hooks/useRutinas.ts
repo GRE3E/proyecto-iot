@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { v4 as uuidv4 } from "uuid"
 
 export type TriggerType = "NLP" | "Tiempo" | "Evento"
@@ -10,9 +10,9 @@ export interface TriggerNLP {
 
 export interface TriggerTime {
   type: "Tiempo"
-  hour: string // HH:mm
-  days: string[] // ["Lunes", "Martes", ...]
-  date?: string // YYYY-MM-DD opcional
+  hour: string
+  days: string[]
+  date?: string
 }
 
 export interface TriggerDeviceCondition {
@@ -44,57 +44,94 @@ export interface Routine {
   trigger: Trigger
   actions: RoutineAction[]
   executionsCount: number
-  lastExecutedAt: string | null // ISO string
+  lastExecutedAt: string | null
 }
 
 export interface RoutineSuggestion {
   id: string
   name: string
   trigger: Trigger
-  confidence: number // 0-100
+  confidence: number
   actions: RoutineAction[]
 }
 
-function describeTrigger(trigger: Trigger): string {
+export interface FormState {
+  name: string
+  description: string
+  enabled: boolean
+  triggerType: TriggerType
+  nlpPhrase: string
+  timeHour: string
+  timeDays: string[]
+  timeDate: string
+  deviceId: string
+  deviceEvent: string
+  condOperator: ">" | "<" | "=" | ""
+  condValue: number | ""
+  actionIds: string[]
+}
+
+export const INITIAL_FORM: FormState = {
+  name: "",
+  description: "",
+  enabled: true,
+  triggerType: "NLP",
+  nlpPhrase: "",
+  timeHour: "08:00",
+  timeDays: [],
+  timeDate: "",
+  deviceId: "sensor-sala",
+  deviceEvent: "movimiento",
+  condOperator: "",
+  condValue: "",
+  actionIds: [],
+}
+
+export const DEVICE_OPTIONS = [
+  { id: "sensor-sala", name: "Sensor de sala", events: ["movimiento", "temperatura", "humedad"] },
+  { id: "sensor-puerta", name: "Sensor de puerta", events: ["apertura", "cierre"] },
+  { id: "interruptor-salon", name: "Interruptor salón", events: ["encendido", "apagado"] },
+]
+
+export const DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+export function describeTrigger(trigger: Trigger): string {
   switch (trigger.type) {
     case "NLP":
       return `Cuando diga "${trigger.phrase}"`
     case "Tiempo":
-      return `A las ${trigger.hour} ${trigger.days && trigger.days.length ? `(${trigger.days.join(", ")})` : "todos los días"}`
+      return `A las ${trigger.hour} ${trigger.days?.length ? `(${trigger.days.join(", ")})` : "todos los días"}`
     case "Evento":
-      return `Cuando ${trigger.deviceName} reporte "${trigger.event}"${trigger.condition ? ` con condición ${trigger.condition.operator} ${trigger.condition.value}` : ""}`
+      return `Cuando ${trigger.deviceName} reporte "${trigger.event}"${trigger.condition ? ` ${trigger.condition.operator} ${trigger.condition.value}` : ""}`
   }
 }
 
 export function useRutinas() {
   const [rutinas, setRutinas] = useState<Routine[]>([])
-  const [isLoadingList, setIsLoadingList] = useState<boolean>(false)
+  const [suggestions, setSuggestions] = useState<RoutineSuggestion[]>([])
+  const [isLoadingList, setIsLoadingList] = useState(false)
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [suggestions, setSuggestions] = useState<RoutineSuggestion[]>([])
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false)
-
-  const availableActions: RoutineAction[] = useMemo(
-    () => [
-      { id: "act-1", name: "Encender luz salón" },
-      { id: "act-2", name: "Apagar ventilador" },
-      { id: "act-3", name: "Subir cortinas" },
-      { id: "act-4", name: "Bajar cortinas" },
-      { id: "act-5", name: "Activar modo noche" },
-    ],
-    []
-  )
+  const availableActions: RoutineAction[] = useMemo(() => [
+    { id: "act-1", name: "Encender luz salón" },
+    { id: "act-2", name: "Apagar ventilador" },
+    { id: "act-3", name: "Subir cortinas" },
+    { id: "act-4", name: "Bajar cortinas" },
+    { id: "act-5", name: "Activar modo noche" },
+  ], [])
 
   useEffect(() => {
     loadRutinas()
   }, [])
 
-  function loadRutinas() {
+  const loadRutinas = useCallback(async () => {
     try {
       setIsLoadingList(true)
       setError(null)
-      // Mock inicial, podría leer de localStorage
-      const initial: Routine[] = [
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      setRutinas([
         {
           id: uuidv4(),
           name: "Buenas noches",
@@ -123,144 +160,225 @@ export function useRutinas() {
           description: "Enciende luz al detectar movimiento",
           enabled: true,
           confirmed: true,
-          trigger: {
-            type: "Evento",
-            deviceId: "sensor-sala",
-            deviceName: "Sensor de sala",
-            event: "movimiento",
-          },
+          trigger: { type: "Evento", deviceId: "sensor-sala", deviceName: "Sensor de sala", event: "movimiento" },
           actions: [availableActions[0]],
           executionsCount: 58,
           lastExecutedAt: new Date(Date.now() - 3600 * 1000).toISOString(),
         },
-      ]
-      setRutinas(initial)
-    } catch (e: any) {
-      setError(e?.message ?? "Error cargando rutinas")
+      ])
+    } catch (err) {
+      setError("Error al cargar las rutinas")
     } finally {
       setIsLoadingList(false)
     }
-  }
+  }, [availableActions])
 
-  function createRutina(input: Omit<Routine, "id" | "executionsCount" | "lastExecutedAt">) {
+  const buildTrigger = useCallback((form: FormState): Trigger => {
+    if (form.triggerType === "NLP") return { type: "NLP", phrase: form.nlpPhrase }
+    if (form.triggerType === "Tiempo") return { type: "Tiempo", hour: form.timeHour, days: form.timeDays, date: form.timeDate || undefined }
+    const dev = DEVICE_OPTIONS.find(d => d.id === form.deviceId)!
+    const cond = form.condOperator && form.condValue !== "" ? { operator: form.condOperator as any, value: Number(form.condValue) } : undefined
+    return { type: "Evento", deviceId: form.deviceId, deviceName: dev.name, event: form.deviceEvent, condition: cond }
+  }, [])
+
+  const mapActions = useCallback((ids: string[]): RoutineAction[] =>
+    ids.map(id => availableActions.find(a => a.id === id)).filter(Boolean) as RoutineAction[], [availableActions])
+
+  const validateForm = useCallback((form: FormState): { valid: boolean; message?: string } => {
+    if (!form.name.trim()) return { valid: false, message: "El nombre es obligatorio" }
+    if (form.triggerType === "NLP" && !form.nlpPhrase.trim()) return { valid: false, message: "La frase activadora es obligatoria" }
+    if (form.triggerType === "Tiempo" && form.timeDays.length === 0 && !form.timeDate) return { valid: false, message: "Selecciona al menos un día o una fecha" }
+    if (form.actionIds.length === 0) return { valid: false, message: "Selecciona al menos una acción" }
+    return { valid: true }
+  }, [])
+
+  const createRutina = useCallback((form: FormState) => {
+    const validation = validateForm(form)
+    if (!validation.valid) return { success: false, message: validation.message || "Error de validación" }
+
     const newRoutine: Routine = {
       id: uuidv4(),
+      name: form.name.trim(),
+      description: form.description.trim(),
+      enabled: form.enabled,
+      confirmed: false,
+      trigger: buildTrigger(form),
+      actions: mapActions(form.actionIds),
       executionsCount: 0,
       lastExecutedAt: null,
-      ...input,
     }
-    setRutinas((prev) => [newRoutine, ...prev])
-    return newRoutine
-  }
+    setRutinas(prev => [newRoutine, ...prev])
+    return { success: true, message: "Rutina creada correctamente", routine: newRoutine }
+  }, [validateForm, buildTrigger, mapActions])
 
-  function updateRutina(id: string, changes: Partial<Routine>) {
-    setRutinas((prev) => prev.map((r) => (r.id === id ? { ...r, ...changes } : r)))
-  }
+  const updateRutina = useCallback((id: string, form: FormState) => {
+    const validation = validateForm(form)
+    if (!validation.valid) return { success: false, message: validation.message || "Error de validación" }
 
-  function deleteRutina(id: string) {
-    setRutinas((prev) => prev.filter((r) => r.id !== id))
-  }
+    let updated = false
+    setRutinas(prev => prev.map(r => {
+      if (r.id === id) {
+        updated = true
+        return {
+          ...r,
+          name: form.name.trim(),
+          description: form.description.trim(),
+          enabled: form.enabled,
+          trigger: buildTrigger(form),
+          actions: mapActions(form.actionIds),
+        }
+      }
+      return r
+    }))
+    return { success: updated, message: updated ? "Rutina actualizada correctamente" : "Rutina no encontrada" }
+  }, [validateForm, buildTrigger, mapActions])
 
-  function toggleEnabled(id: string, enabled: boolean) {
-    updateRutina(id, { enabled })
-  }
+  const deleteRutina = useCallback((id: string) => {
+    let deleted = false
+    setRutinas(prev => {
+      const newRutinas = prev.filter(r => r.id !== id)
+      deleted = newRutinas.length < prev.length
+      return newRutinas
+    })
+    return { success: deleted, message: deleted ? "Rutina eliminada correctamente" : "Rutina no encontrada" }
+  }, [])
 
-  function confirmRutina(id: string) {
-    updateRutina(id, { confirmed: true })
-  }
+  const toggleEnabled = useCallback((id: string, enabled: boolean) => {
+    let updated = false
+    setRutinas(prev => prev.map(r => {
+      if (r.id === id) {
+        updated = true
+        return { ...r, enabled }
+      }
+      return r
+    }))
+    return { success: updated }
+  }, [])
 
-  function rejectRutina(id: string) {
-    updateRutina(id, { confirmed: false })
-  }
+  const confirmRutina = useCallback((id: string) => {
+    let updated = false
+    setRutinas(prev => prev.map(r => {
+      if (r.id === id) {
+        updated = true
+        return { ...r, confirmed: true }
+      }
+      return r
+    }))
+    return { success: updated }
+  }, [])
 
-  function runRutinaNow(id: string) {
-    const now = new Date().toISOString()
-    setRutinas((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, executionsCount: r.executionsCount + 1, lastExecutedAt: now } : r))
-    )
-  }
+  const rejectRutina = useCallback((id: string) => {
+    let updated = false
+    setRutinas(prev => prev.map(r => {
+      if (r.id === id) {
+        updated = true
+        return { ...r, confirmed: false }
+      }
+      return r
+    }))
+    return { success: updated }
+  }, [])
 
-  function getRoutineById(id: string): Routine | undefined {
-    return rutinas.find((r) => r.id === id)
-  }
+  const runRutineNow = useCallback((id: string) => {
+    let executed = false
+    setRutinas(prev => prev.map(r => {
+      if (r.id === id && r.enabled) {
+        executed = true
+        return { ...r, executionsCount: r.executionsCount + 1, lastExecutedAt: new Date().toISOString() }
+      }
+      return r
+    }))
+    return { success: executed, message: executed ? "Rutina ejecutada correctamente" : "No se pudo ejecutar la rutina" }
+  }, [])
 
-  function generateSuggestions() {
-    setIsLoadingSuggestions(true)
-    // Mock de sugerencias
-    const sugg: RoutineSuggestion[] = [
-      {
-        id: uuidv4(),
-        name: "Modo tarde",
-        trigger: { type: "Tiempo", hour: "18:00", days: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"] },
-        confidence: 78,
-        actions: [availableActions[2], availableActions[4]],
-      },
-      {
-        id: uuidv4(),
-        name: "Bienvenida",
-        trigger: { type: "NLP", phrase: "hola casa" },
-        confidence: 62,
-        actions: [availableActions[0]],
-      },
-      {
-        id: uuidv4(),
-        name: "Seguridad noche",
-        trigger: {
-          type: "Evento",
-          deviceId: "sensor-puerta",
-          deviceName: "Sensor de puerta",
-          event: "apertura",
-          condition: { operator: "=", value: 1 },
-        },
-        confidence: 85,
-        actions: [availableActions[4]],
-      },
-    ]
-    setTimeout(() => {
-      setSuggestions(sugg)
+  const generateSuggestions = useCallback(async () => {
+    try {
+      setIsLoadingSuggestions(true)
+      setError(null)
+      await new Promise(resolve => setTimeout(resolve, 400))
+
+      setSuggestions([
+        { id: uuidv4(), name: "Modo tarde", trigger: { type: "Tiempo", hour: "18:00", days: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"] }, confidence: 78, actions: [availableActions[2], availableActions[4]] },
+        { id: uuidv4(), name: "Bienvenida", trigger: { type: "NLP", phrase: "hola casa" }, confidence: 62, actions: [availableActions[0]] },
+        { id: uuidv4(), name: "Seguridad noche", trigger: { type: "Evento", deviceId: "sensor-puerta", deviceName: "Sensor de puerta", event: "apertura", condition: { operator: "=", value: 1 } }, confidence: 85, actions: [availableActions[4]] },
+      ])
+    } catch (err) {
+      setError("Error al generar sugerencias")
+    } finally {
       setIsLoadingSuggestions(false)
-    }, 400)
-  }
+    }
+  }, [availableActions])
 
-  function acceptSuggestion(sugg: RoutineSuggestion) {
-    createRutina({
+  const acceptSuggestion = useCallback((sugg: RoutineSuggestion) => {
+    const newRoutine: Routine = {
+      id: uuidv4(),
       name: sugg.name,
       description: describeTrigger(sugg.trigger),
       enabled: true,
       confirmed: true,
       trigger: sugg.trigger,
       actions: sugg.actions,
-    })
-    setSuggestions((prev) => prev.filter((s) => s.id !== sugg.id))
-  }
+      executionsCount: 0,
+      lastExecutedAt: null,
+    }
+    setRutinas(prev => [newRoutine, ...prev])
+    setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
+    return { success: true, message: "Sugerencia aceptada y convertida en rutina", routine: newRoutine }
+  }, [])
 
-  function rejectSuggestion(id: string) {
-    setSuggestions((prev) => prev.filter((s) => s.id !== id))
-  }
+  const rejectSuggestion = useCallback((id: string) => {
+    let rejected = false
+    setSuggestions(prev => {
+      const newSuggestions = prev.filter(s => s.id !== id)
+      rejected = newSuggestions.length < prev.length
+      return newSuggestions
+    })
+    return { success: rejected }
+  }, [])
+
+  const getRoutineById = useCallback((id: string) => rutinas.find(r => r.id === id), [rutinas])
+
+  const getStatistics = useCallback(() => ({
+    total: rutinas.length,
+    enabled: rutinas.filter(r => r.enabled).length,
+    confirmed: rutinas.filter(r => r.confirmed).length,
+    totalExecutions: rutinas.reduce((sum, r) => sum + r.executionsCount, 0),
+  }), [rutinas])
 
   return {
-    // datos
+    // Estado
     rutinas,
     suggestions,
     availableActions,
-    // estados
     isLoadingList,
     isLoadingSuggestions,
     error,
-    // helpers
+    
+    // Helpers
     describeTrigger,
     getRoutineById,
-    // acciones
-    loadRutinas,
+    getStatistics,
+    
+    // CRUD
     createRutina,
     updateRutina,
     deleteRutina,
+    loadRutinas,
+    
+    // Acciones
     toggleEnabled,
     confirmRutina,
     rejectRutina,
-    runRutinaNow,
+    runRutineNow,
+    
+    // Sugerencias
     generateSuggestions,
     acceptSuggestion,
     rejectSuggestion,
+    
+    // Constantes
+    INITIAL_FORM,
+    DEVICE_OPTIONS,
+    DAY_LABELS,
   }
 }

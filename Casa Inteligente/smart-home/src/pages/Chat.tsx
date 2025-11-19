@@ -83,7 +83,7 @@ export default function Chat() {
               animate={{ opacity: 1 }}
               className="text-gray-500 italic text-xs px-2"
             >
-              CasaIA está escribiendo...
+              MURPHY está escribiendo...
             </motion.div>
           )}
 

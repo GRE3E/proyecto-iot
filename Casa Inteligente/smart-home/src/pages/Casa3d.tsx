@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useRef, useState, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -43,26 +43,27 @@ function SwitchToggle({
   icon?: any;
   tooltip?: string;
 }) {
+  const { colors } = useThemeByTime();
   return (
     <div className="flex flex-col gap-2 group relative">
       <div className="flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-cyan-400" />}
-        <label className="text-sm font-semibold text-white cursor-help">
+        {Icon && <Icon className={`w-4 h-4 ${colors.icon}`} />}
+        <label className={`text-sm font-semibold ${colors.text} cursor-help`}>
           {label}
         </label>
         {tooltip && (
-          <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 bg-slate-900 border border-cyan-500/50 rounded-lg p-2 text-xs text-slate-300 whitespace-nowrap z-50">
+          <div className={`hidden group-hover:block absolute bottom-full left-0 mb-2 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}>
             {tooltip}
           </div>
         )}
       </div>
-      <div className="flex gap-2 bg-slate-700/30 backdrop-blur-sm p-1 rounded-lg border border-slate-600/50 hover:border-cyan-500/50 transition-all">
+      <div className={`flex gap-2 backdrop-blur-sm p-1 rounded-lg border transition-all ${colors.cardBg} ${colors.border} ${colors.cardHover}`}>
         <button
           onClick={() => onChange(true)}
           className={`flex-1 px-3 py-2 rounded-md font-semibold transition-all duration-300 text-sm ${
             isOn
-              ? "bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-lg shadow-cyan-500/50"
-              : "bg-slate-600/30 text-slate-300 hover:bg-slate-600/50"
+              ? `bg-gradient-to-r ${colors.primary} text-white shadow-lg ${colors.glow}`
+              : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
           }`}
         >
           ON
@@ -71,8 +72,8 @@ function SwitchToggle({
           onClick={() => onChange(false)}
           className={`flex-1 px-3 py-2 rounded-md font-semibold transition-all duration-300 text-sm ${
             !isOn
-              ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/50"
-              : "bg-slate-600/30 text-slate-300 hover:bg-slate-600/50"
+              ? `${colors.dangerChip} shadow-lg`
+              : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
           }`}
         >
           OFF
@@ -103,21 +104,22 @@ function SliderControl({
   format?: (v: number) => string;
   tooltip?: string;
 }) {
+  const { colors } = useThemeByTime();
   return (
     <div className="space-y-2 group relative">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {Icon && <Icon className="w-4 h-4 text-purple-400" />}
-          <label className="text-xs font-semibold text-slate-300 cursor-help">
+          {Icon && <Icon className={`w-4 h-4 ${colors.icon}`} />}
+          <label className={`text-xs font-semibold ${colors.mutedText} cursor-help`}>
             {label}
           </label>
           {tooltip && (
-            <div className="hidden group-hover:block absolute top-full left-0 mt-1 bg-slate-900 border border-cyan-500/50 rounded-lg p-2 text-xs text-slate-300 whitespace-nowrap z-50">
+            <div className={`hidden group-hover:block absolute top-full left-0 mt-1 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}>
               {tooltip}
             </div>
           )}
         </div>
-        <span className="text-xs font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent px-2 py-1 bg-slate-700/50 rounded-md">
+        <span className={`text-xs font-bold bg-gradient-to-r ${colors.accent} bg-clip-text text-transparent px-2 py-1 rounded-md`}>
           {format(value)}
         </span>
       </div>
@@ -156,6 +158,13 @@ export default function Casa3d({
 
   const resetView = () => zoomToFit(groupRef, controlsRef);
 
+  useEffect(() => {
+    const id = setTimeout(() => {
+      zoomToFit(groupRef, controlsRef);
+    }, 300);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
@@ -177,7 +186,7 @@ export default function Casa3d({
               <Suspense fallback={<Html center>Cargando modelo...</Html>}>
                 {envEnabled && <Environment preset="city" background={false} />}
                 <group ref={groupRef}>
-                  <Model src={modelPath} wireframe={wireframe} />
+                  <Model src={modelPath} wireframe={wireframe} onReady={() => zoomToFit(groupRef, controlsRef)} />
                 </group>
 
                 <SceneHelpers
@@ -186,6 +195,7 @@ export default function Casa3d({
                   securityOn={securityOn}
                   lightIntensity={lightIntensity}
                   isMobile={false}
+                  autoPosition={false}
                 />
 
                 <OrbitControls
@@ -223,7 +233,7 @@ export default function Casa3d({
               <Suspense fallback={<Html center>Cargando modelo...</Html>}>
                 {envEnabled && <Environment preset="city" background={false} />}
                 <group ref={groupRef}>
-                  <Model src={modelPath} wireframe={wireframe} />
+                  <Model src={modelPath} wireframe={wireframe} onReady={() => zoomToFit(groupRef, controlsRef)} />
                 </group>
 
                 <SceneHelpers
@@ -231,6 +241,7 @@ export default function Casa3d({
                   lightOn={lightOn}
                   securityOn={securityOn}
                   lightIntensity={lightIntensity}
+                  autoPosition={false}
                 />
 
                 <OrbitControls
@@ -265,34 +276,34 @@ export default function Casa3d({
                 <Zap className="w-3 h-3" />
                 Vistas Guardadas
               </p>
-              <div className="grid grid-cols-3 gap-2.5">
-                <SimpleButton
-                  onClick={() => presets.top(controlsRef)}
-                  active
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-cyan-600/80 to-cyan-500/80 hover:from-cyan-600 hover:to-cyan-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/40 border border-cyan-400/30 hover:scale-105 w-full"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                  <span>Top</span>
-                </SimpleButton>
+        <div className="grid grid-cols-3 gap-2.5">
+          <SimpleButton
+            onClick={() => presets.top(controlsRef)}
+            active
+            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full"
+          >
+            <ArrowUp className="w-4 h-4" />
+            <span>Top</span>
+          </SimpleButton>
 
-                <SimpleButton
-                  onClick={() => presets.front(controlsRef)}
-                  active
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-purple-600/80 to-purple-500/80 hover:from-purple-600 hover:to-purple-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/40 border border-purple-400/30 hover:scale-105 w-full"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>Front</span>
-                </SimpleButton>
+          <SimpleButton
+            onClick={() => presets.front(controlsRef)}
+            active
+            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Front</span>
+          </SimpleButton>
 
-                <SimpleButton
-                  onClick={() => presets.iso(controlsRef)}
-                  active
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-gradient-to-br from-pink-600/80 to-pink-500/80 hover:from-pink-600 hover:to-pink-500 text-white rounded-lg font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-pink-500/40 border border-pink-400/30 hover:scale-105 w-full"
-                >
-                  <Box className="w-4 h-4" />
-                  <span>Iso</span>
-                </SimpleButton>
-              </div>
+          <SimpleButton
+            onClick={() => presets.iso(controlsRef)}
+            active
+            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full"
+          >
+            <Box className="w-4 h-4" />
+            <span>Iso</span>
+          </SimpleButton>
+        </div>
             </SimpleCard>
 
             <SimpleCard className="p-4">
@@ -356,24 +367,24 @@ export default function Casa3d({
             </SimpleCard>
 
             <SimpleCard className="p-3">
-              <div className="flex gap-2.5">
-                <SimpleButton
-                  onClick={handleSnapshot}
-                  active
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-500/80 to-cyan-500/80 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-sm rounded-lg transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-400/30 flex items-center justify-center gap-2"
-                >
-                  <Camera className="w-4 h-4" />
-                  Capturar
-                </SimpleButton>
-                <SimpleButton
-                  onClick={resetView}
-                  active
-                  className="flex-1 py-3 bg-gradient-to-r from-cyan-500/80 to-purple-500/80 hover:from-cyan-500 hover:to-purple-500 text-white font-bold text-sm rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 border border-cyan-400/30 flex items-center justify-center gap-2"
-                >
-                  <RotateCw className="w-4 h-4" />
-                  Centrar
-                </SimpleButton>
-              </div>
+          <div className="flex gap-2.5">
+            <SimpleButton
+              onClick={handleSnapshot}
+              active
+              className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              Capturar
+            </SimpleButton>
+            <SimpleButton
+              onClick={resetView}
+              active
+              className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <RotateCw className="w-4 h-4" />
+              Centrar
+            </SimpleButton>
+          </div>
             </SimpleCard>
 
             <SimpleCard className="p-4">

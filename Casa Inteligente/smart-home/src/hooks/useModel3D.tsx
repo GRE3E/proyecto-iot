@@ -5,7 +5,7 @@ import { useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 
 // === Modelo GLB ===
-export function Model({ src, wireframe }: { src: string; wireframe: boolean }) {
+export function Model({ src, wireframe, onReady }: { src: string; wireframe: boolean; onReady?: () => void }) {
   const gltf = useGLTF(src, true) as any;
   const ref = useRef<THREE.Group | null>(null);
 
@@ -24,6 +24,10 @@ export function Model({ src, wireframe }: { src: string; wireframe: boolean }) {
     });
   }, [wireframe]);
 
+  useEffect(() => {
+    if (ref.current && onReady) onReady();
+  }, [gltf, onReady]);
+
   return <primitive ref={ref} object={gltf.scene} dispose={null} />;
 }
 
@@ -34,12 +38,14 @@ export function SceneHelpers({
   securityOn,
   lightIntensity,
   isMobile = false,
+  autoPosition = true,
 }: {
   modelRef: React.RefObject<THREE.Group | null>;
   lightOn: boolean;
   securityOn: boolean;
   lightIntensity: number;
   isMobile?: boolean;
+  autoPosition?: boolean;
 }) {
   const { camera, gl } = useThree();
 
@@ -49,21 +55,14 @@ export function SceneHelpers({
   }, [gl]);
 
   useEffect(() => {
-    if (!modelRef.current) return;
+    if (!autoPosition || !modelRef.current) return;
     const box = new THREE.Box3().setFromObject(modelRef.current);
     const size = box.getSize(new THREE.Vector3()).length();
     const center = box.getCenter(new THREE.Vector3());
-    
-    // Ajustar distancia según dispositivo
-    const distance = isMobile ? size * 0.4 : size * 1.4;
-    
-    camera.position.set(
-      center.x + distance, 
-      center.y + distance / 2, 
-      center.z + distance
-    );
+    const distance = size * 1.2;
+    camera.position.set(center.x + distance, center.y + distance / 2, center.z + distance);
     camera.lookAt(center);
-  }, [camera, modelRef, isMobile]);
+  }, [camera, modelRef, isMobile, autoPosition]);
 
   return (
     <>

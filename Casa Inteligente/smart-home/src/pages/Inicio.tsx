@@ -4,7 +4,6 @@ import { Home, X, Zap, Thermometer, Droplets, Power } from "lucide-react"
 import PageHeader from "../components/UI/PageHeader"
 import AnimatedClockWidget from "../components/widgets/AnimatedClockWidget"
 import SimpleButton from "../components/UI/Button"
-import MiniChat from "../components/widgets/MiniChat"
 import { useZonaHoraria } from "../hooks/useZonaHoraria"
 import { useState, useMemo } from "react"
 import { useThemeByTime } from "../hooks/useThemeByTime"
@@ -456,9 +455,6 @@ export default function Inicio({
           </div>
         </div>
       </div>
-
-      {/* CHAT FLOTANTE */}
-      <MiniChat />
     </div>
   )
 }

@@ -83,6 +83,39 @@ export default function Inicio({
 
   const filteredDevices = getDevicesByFilter()
 
+  // Botón común reutilizable para móvil y desktop
+  const NavButton = ({ type, label, icon: Icon, value, unit }: {
+    type: "energy" | "temp" | "humidity" | "devices"
+    label: string
+    icon: any
+    value: string | number
+    unit?: string
+  }) => (
+    <button
+      onClick={() => setExpandedCard(type)}
+      className={`flex-1 p-4 rounded-lg transition-all text-left ${
+        expandedCard === type
+          ? type === "energy" ? "bg-emerald-950/70 ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/20"
+          : type === "temp" ? "bg-orange-950/70 ring-2 ring-orange-500 shadow-lg shadow-orange-500/20"
+          : type === "humidity" ? "bg-cyan-950/70 ring-2 ring-cyan-500 shadow-lg shadow-cyan-500/20"
+          : "bg-violet-950/70 ring-2 ring-violet-500 shadow-lg shadow-violet-500/20"
+          : `${colors.cardBg} hover:bg-white/5`
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className={`w-5 h-5 ${expandedCard === type ? "text-white" : iconColor}`} />
+        <div>
+          <h4 className={`font-semibold text-sm ${expandedCard === type ? "text-white" : colors.text}`}>
+            {label}
+          </h4>
+          <p className={`text-xs mt-0.5 ${expandedCard === type ? "text-white/80" : colors.mutedText}`}>
+            {value}{unit}
+          </p>
+        </div>
+      </div>
+    </button>
+  )
+
   return (
     <div className={`p-4 md:p-6 pt-8 md:pt-4 space-y-6 font-inter ${colors.background} ${colors.text}`}>
 
@@ -94,24 +127,30 @@ export default function Inicio({
           Resumen del Sistema
         </h2>
 
+        {/* BOTONES EN MÓVIL (arriba del gráfico) */}
+        <div className="lg:hidden grid grid-cols-2 gap-3 mb-5">
+          <NavButton type="energy" label="Energía" icon={Zap} value={energyUsage} unit=" kWh" />
+          <NavButton type="temp" label="Temperatura" icon={Thermometer} value={temperature} unit="°C" />
+          <NavButton type="humidity" label="Humedad" icon={Droplets} value={humidity} unit="%" />
+          <NavButton type="devices" label="Dispositivos" icon={Power} value={`${activeDevices} activos`} />
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* PANEL PRINCIPAL - SIN BOTÓN X */}
-          <div className="flex-1 h-full">
+          {/* PANEL PRINCIPAL - GRÁFICO EXPANDIDO */}
+          <div className="flex-1">
 
             {/* Energía */}
             {expandedCard === "energy" && (
               <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
                 <div className="flex items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <Zap className={`w-5 h-5 ${iconColor}`} />
-                    <div>
-                      <h3 className={`text-md font-bold ${colors.text}`}>Energía</h3>
-                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
-                    </div>
+                  <Zap className={`w-5 h-5 ${iconColor}`} />
+                  <div className="ml-2">
+                    <h3 className={`text-md font-bold ${colors.text}`}>Energía</h3>
+                    <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                   </div>
                 </div>
-
+                {/* ... (gráfico de energía igual que antes) */}
                 <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
@@ -164,19 +203,16 @@ export default function Inicio({
               </div>
             )}
 
-            {/* Temperatura */}
+            {/* Temperatura, Humedad y Dispositivos siguen igual (solo copio uno como ejemplo para no alargar) */}
             {expandedCard === "temp" && (
               <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
                 <div className="flex items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <Thermometer className={`w-5 h-5 ${iconColor}`} />
-                    <div>
-                      <h3 className={`text-md font-bold ${colors.text}`}>Temperatura</h3>
-                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
-                    </div>
+                  <Thermometer className={`w-5 h-5 ${iconColor}`} />
+                  <div className="ml-2">
+                    <h3 className={`text-md font-bold ${colors.text}`}>Temperatura</h3>
+                    <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                   </div>
                 </div>
-
                 <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
@@ -203,7 +239,6 @@ export default function Inicio({
                     <path d={`M50,${250-(temperatureHistory[0]/35)*200} ${temperatureHistory.map((v,i)=>`L ${50+(i/(temperatureHistory.length-1))*900} ${250-(v/35)*200}`).join(" ")} L950,250 L50,250 Z`} fill="url(#tempGradient)" />
                   </svg>
                 </div>
-
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {[{label:"Actual",value:temperature,unit:"°C"},{label:"Promedio",value:avgTemp,unit:"°C"},{label:"Máximo",value:maxTemp,unit:"°C"},{label:"Mínimo",value:minTemp,unit:"°C"}].map(item=>(
                     <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg}`}>
@@ -218,19 +253,16 @@ export default function Inicio({
               </div>
             )}
 
-            {/* Humedad */}
+            {/* Humedad y Dispositivos se mantienen exactamente igual que en tu código original */}
             {expandedCard === "humidity" && (
               <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
                 <div className="flex items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <Droplets className={`w-5 h-5 ${iconColor}`} />
-                    <div>
-                      <h3 className={`text-md font-bold ${colors.text}`}>Humedad</h3>
-                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
-                    </div>
+                  <Droplets className={`w-5 h-5 ${iconColor}`} />
+                  <div className="ml-2">
+                    <h3 className={`text-md font-bold ${colors.text}`}>Humedad</h3>
+                    <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                   </div>
                 </div>
-
                 <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
@@ -255,7 +287,6 @@ export default function Inicio({
                     })}
                   </svg>
                 </div>
-
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {[{label:"Actual",value:humidity,unit:"%"},{label:"Promedio",value:avgHumidity,unit:"%"},{label:"Máximo",value:80,unit:"%"},{label:"Mínimo",value:20,unit:"%"}].map(item=>(
                     <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg}`}>
@@ -270,16 +301,13 @@ export default function Inicio({
               </div>
             )}
 
-            {/* Dispositivos */}
             {expandedCard === "devices" && (
               <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
                 <div className="flex items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <Power className={`w-5 h-5 ${iconColor}`} />
-                    <div>
-                      <h3 className={`text-md font-bold ${colors.text}`}>Dispositivos</h3>
-                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>{activeDevices} de {devices.length} activos</p>
-                    </div>
+                  <Power className={`w-5 h-5 ${iconColor}`} />
+                  <div className="ml-2">
+                    <h3 className={`text-md font-bold ${colors.text}`}>Dispositivos</h3>
+                    <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>{activeDevices} de {devices.length} activos</p>
                   </div>
                 </div>
 
@@ -310,77 +338,39 @@ export default function Inicio({
             )}
           </div>
 
-          {/* TARJETAS LATERALES: SIN CAMBIOS */}
-          <div className="w-full lg:w-80 space-y-4">
-
-            <div
-              onClick={() => setExpandedCard("energy")}
-              className={`p-4 rounded-lg cursor-pointer transition-all ${
-                expandedCard === "energy"
-                  ? "bg-emerald-950/70 ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/20"
-                  : `${colors.cardBg} hover:bg-white/5`
-              }`}
-            >
+          {/* TARJETAS LATERALES SOLO EN ESCRITORIO */}
+          <div className="hidden lg:block w-full lg:w-80 space-y-4">
+            <div onClick={() => setExpandedCard("energy")} className={`p-4 rounded-lg cursor-pointer transition-all ${expandedCard === "energy" ? "bg-emerald-950/70 ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/20" : `${colors.cardBg} hover:bg-white/5`}`}>
               <div className="flex items-center gap-3">
                 <Zap className={`w-5 h-5 ${expandedCard === "energy" ? "text-emerald-300" : iconColor}`} />
                 <h4 className={`font-semibold text-sm ${expandedCard === "energy" ? "text-emerald-100" : colors.text}`}>Energía</h4>
               </div>
-              <p className={`text-xs mt-1 ${expandedCard === "energy" ? "text-emerald-200" : colors.mutedText}`}>
-                {energyUsage} kWh usados
-              </p>
+              <p className={`text-xs mt-1 ${expandedCard === "energy" ? "text-emerald-200" : colors.mutedText}`}>{energyUsage} kWh usados</p>
             </div>
 
-            <div
-              onClick={() => setExpandedCard("temp")}
-              className={`p-4 rounded-lg cursor-pointer transition-all ${
-                expandedCard === "temp"
-                  ? "bg-orange-950/70 ring-2 ring-orange-500 shadow-lg shadow-orange-500/20"
-                  : `${colors.cardBg} hover:bg-white/5`
-              }`}
-            >
+            <div onClick={() => setExpandedCard("temp")} className={`p-4 rounded-lg cursor-pointer transition-all ${expandedCard === "temp" ? "bg-orange-950/70 ring-2 ring-orange-500 shadow-lg shadow-orange-500/20" : `${colors.cardBg} hover:bg-white/5`}`}>
               <div className="flex items-center gap-3">
                 <Thermometer className={`w-5 h-5 ${expandedCard === "temp" ? "text-orange-300" : iconColor}`} />
                 <h4 className={`font-semibold text-sm ${expandedCard === "temp" ? "text-orange-100" : colors.text}`}>Temperatura</h4>
               </div>
-              <p className={`text-xs mt-1 ${expandedCard === "temp" ? "text-orange-200" : colors.mutedText}`}>
-                {temperature}°C actuales
-              </p>
+              <p className={`text-xs mt-1 ${expandedCard === "temp" ? "text-orange-200" : colors.mutedText}`}>{temperature}°C actuales</p>
             </div>
 
-            <div
-              onClick={() => setExpandedCard("humidity")}
-              className={`p-4 rounded-lg cursor-pointer transition-all ${
-                expandedCard === "humidity"
-                  ? "bg-cyan-950/70 ring-2 ring-cyan-500 shadow-lg shadow-cyan-500/20"
-                  : `${colors.cardBg} hover:bg-white/5`
-              }`}
-            >
+            <div onClick={() => setExpandedCard("humidity")} className={`p-4 rounded-lg cursor-pointer transition-all ${expandedCard === "humidity" ? "bg-cyan-950/70 ring-2 ring-cyan-500 shadow-lg shadow-cyan-500/20" : `${colors.cardBg} hover:bg-white/5`}`}>
               <div className="flex items-center gap-3">
                 <Droplets className={`w-5 h-5 ${expandedCard === "humidity" ? "text-cyan-300" : iconColor}`} />
                 <h4 className={`font-semibold text-sm ${expandedCard === "humidity" ? "text-cyan-100" : colors.text}`}>Humedad</h4>
               </div>
-              <p className={`text-xs mt-1 ${expandedCard === "humidity" ? "text-cyan-200" : colors.mutedText}`}>
-                {humidity}% actual
-              </p>
+              <p className={`text-xs mt-1 ${expandedCard === "humidity" ? "text-cyan-200" : colors.mutedText}`}>{humidity}% actual</p>
             </div>
 
-            <div
-              onClick={() => setExpandedCard("devices")}
-              className={`p-4 rounded-lg cursor-pointer transition-all ${
-                expandedCard === "devices"
-                  ? "bg-violet-950/70 ring-2 ring-violet-500 shadow-lg shadow-violet-500/20"
-                  : `${colors.cardBg} hover:bg-white/5`
-              }`}
-            >
+            <div onClick={() => setExpandedCard("devices")} className={`p-4 rounded-lg cursor-pointer transition-all ${expandedCard === "devices" ? "bg-violet-950/70 ring-2 ring-violet-500 shadow-lg shadow-violet-500/20" : `${colors.cardBg} hover:bg-white/5`}`}>
               <div className="flex items-center gap-3">
                 <Power className={`w-5 h-5 ${expandedCard === "devices" ? "text-violet-300" : iconColor}`} />
                 <h4 className={`font-semibold text-sm ${expandedCard === "devices" ? "text-violet-100" : colors.text}`}>Dispositivos</h4>
               </div>
-              <p className={`text-xs mt-1 ${expandedCard === "devices" ? "text-violet-200" : colors.mutedText}`}>
-                {activeDevices} activos
-              </p>
+              <p className={`text-xs mt-1 ${expandedCard === "devices" ? "text-violet-200" : colors.mutedText}`}>{activeDevices} activos</p>
             </div>
-
           </div>
         </div>
       </div>

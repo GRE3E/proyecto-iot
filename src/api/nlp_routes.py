@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from src.db.database import get_db
 from src.api.nlp_schemas import (
-    NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, 
+    NLPQuery, NLPResponse, AssistantNameUpdate, CapabilitiesUpdate, TimezoneUpdate,
     ConversationHistoryResponse, ConversationLogEntry, MessageResponse,
     RoutineCreateRequest, RoutineUpdateRequest, RoutineResponse
 )
@@ -79,6 +79,22 @@ async def update_assistant_name(update: AssistantNameUpdate):
     except Exception as e:
         logger.error(f"Error al actualizar nombre del asistente: {e}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar el nombre del asistente: {str(e)}")
+
+
+@nlp_router.put("/config/timezone", response_model=StatusResponse)
+async def update_timezone(update: TimezoneUpdate):
+    try:
+        await utils._nlp_module.update_timezone(update.timezone)
+        logger.info(f"Zona horaria actualizada exitosamente a '{update.timezone}'")
+
+        response_data = utils.get_module_status()
+        async with get_db() as db:
+            await utils._save_api_log("/config/timezone", update.dict(), response_data.dict(), db)
+        return response_data
+
+    except Exception as e:
+        logger.error(f"Error al actualizar la zona horaria: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar la zona horaria: {str(e)}")
 
 @nlp_router.put("/config/capabilities", response_model=StatusResponse)
 async def update_capabilities(update: CapabilitiesUpdate):

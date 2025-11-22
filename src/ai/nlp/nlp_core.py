@@ -388,6 +388,12 @@ class NLPModule:
         await self.reload()
         logger.info(f"Nombre del asistente actualizado a '{new_name}'.")
 
+    async def update_timezone(self, new_timezone: str):
+        """Actualiza la zona horaria del asistente."""
+        self._config_manager.update_config({"timezone": new_timezone})
+        await self.reload()
+        logger.info(f"Zona horaria actualizada a '{new_timezone}'.")
+
     async def update_capabilities(self, new_capabilities: list[str]):
         """Actualiza las capacidades del asistente."""
         self._config_manager.update_config({"capabilities": new_capabilities})

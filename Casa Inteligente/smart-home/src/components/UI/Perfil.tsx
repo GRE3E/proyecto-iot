@@ -37,6 +37,7 @@ export default function Perfil({
   owners = [],
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
+  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null)
   const { colors } = useThemeByTime()
 
   // Separar administradores y familiares
@@ -49,9 +50,14 @@ export default function Perfil({
   }, [members])
 
   const deleteMember = (id: string) => {
-    if (confirm("¿Seguro que deseas eliminar este miembro?")) {
-      setMembers(members.filter((m) => m.id !== id))
-    }
+    const target = members.find((m) => m.id === id) || null
+    setMemberToDelete(target)
+  }
+
+  const confirmDelete = () => {
+    if (!memberToDelete) return
+    setMembers(members.filter((m) => m.id !== memberToDelete.id))
+    setMemberToDelete(null)
   }
 
   const handleSaveEdit = () => {
@@ -343,6 +349,35 @@ export default function Perfil({
             >
               Guardar
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {memberToDelete && (
+        <Modal
+          isOpen={!!memberToDelete}
+          onClose={() => setMemberToDelete(null)}
+          title="Eliminar miembro"
+          panelClassName="max-w-sm"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium">{memberToDelete.name}</div>
+                <div className={`text-sm ${colors.mutedText}`}>Esta acción no se puede deshacer.</div>
+              </div>
+            </div>
+            <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3">
+              <button onClick={() => setMemberToDelete(null)} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto">
+                Cancelar
+              </button>
+              <button onClick={confirmDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm w-full md:w-auto">
+                Eliminar
+              </button>
+            </div>
           </div>
         </Modal>
       )}

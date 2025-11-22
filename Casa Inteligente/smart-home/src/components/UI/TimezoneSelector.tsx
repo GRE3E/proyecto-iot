@@ -19,20 +19,22 @@ export default function TimezoneSelector({
 }: TimezoneSelectorProps) {
   const { colors } = useThemeByTime()
   return (
-    <SimpleCard className="p-4 flex items-center justify-between">
-      <div>
-        <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
-          <Globe className="w-4 h-4" /> Zona horaria
+    <SimpleCard className="p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-3 md:gap-6">
+        <div className="min-w-0">
+          <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
+            <Globe className={`w-4 h-4 ${colors.icon}`} /> Zona horaria
+          </div>
+          <div className={`text-xs ${colors.mutedText} truncate`}>
+            {selectedTimezone?.region || "Selecciona una zona"}
+          </div>
         </div>
-        <div className={`text-xs ${colors.mutedText}`}>
-          {selectedTimezone?.region || "Selecciona una zona"}
-        </div>
-      </div>
-      <select
-        value={selectedTimezone?.timezone || ""}
-        onChange={(e) => onTimezoneChange(e.target.value)}
-        className={`${colors.inputBg} ${colors.text} rounded px-2 py-1 text-sm border ${colors.inputBorder} hover:border-blue-500 transition-colors`}
-      >
+        <select
+          value={selectedTimezone?.timezone || ""}
+          onChange={(e) => onTimezoneChange(e.target.value)}
+          className={`${colors.inputBg} ${colors.text} rounded-lg px-2.5 py-2 text-sm border ${colors.inputBorder} hover:border-blue-500 transition-colors w-full sm:w-[240px] md:w-[280px] lg:w-[320px] justify-self-start md:justify-self-end`}
+          aria-label="Seleccionar zona horaria"
+        >
         <option value="">Selecciona una zona horaria</option>
         <optgroup label="América">
           <option value="America/Anchorage">(UTC-09:00) Alaska</option>
@@ -89,7 +91,8 @@ export default function TimezoneSelector({
           <option value="Africa/Lagos">(UTC+01:00) Lagos</option>
           <option value="Africa/Nairobi">(UTC+03:00) Nairobi</option>
         </optgroup>
-      </select>
+        </select>
+      </div>
     </SimpleCard>
   )
 }

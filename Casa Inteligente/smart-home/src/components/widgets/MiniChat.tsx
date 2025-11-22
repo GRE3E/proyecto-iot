@@ -14,10 +14,11 @@ export default function MiniChat() {
     sendMessage,
     voiceActive,
     toggleVoiceActive,
-  } = useVoiceChat();
+  } = useVoiceChat({ prefetchHistory: false });
 
   const handleExpand = () => {
-    window.location.href = "/pages/Chat"; // Ajusta la ruta si es necesario
+    window.history.pushState(null, "", "/chat");
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   return (

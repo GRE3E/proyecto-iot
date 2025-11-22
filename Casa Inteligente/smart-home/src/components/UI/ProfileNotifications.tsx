@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react"
 import { useAuth } from "../../hooks/useAuth"
 import { useNotifications } from "../../hooks/useNotification"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 import { initialNotifications } from "../../utils/notificationsUtils"
 
 interface ProfileNotificationsProps {
@@ -9,6 +10,7 @@ interface ProfileNotificationsProps {
 
 export default function ProfileNotifications({ userName }: ProfileNotificationsProps) {
   const { user } = useAuth()
+  const { colors } = useThemeByTime()
   const displayUserName = user?.user?.username || userName || "Usuario"
   const apiBase = (import.meta as any)?.env?.VITE_API_URL
     || (import.meta as any)?.env?.VITE_BACKEND_URL
@@ -36,26 +38,26 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
         <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
           {displayUserName.charAt(0).toUpperCase()}
         </div>
-        <span className="text-white font-medium hidden md:block">
+        <span className={`${colors.text} font-medium hidden md:block`}>
           {displayUserName}
         </span>
       </div>
 
       <div className="relative">
         <button type="button" onClick={toggle} className="relative">
-          <Bell className="w-6 h-6 text-white cursor-pointer hover:text-cyan-400 transition-colors duration-200" />
+          <Bell className={`w-6 h-6 ${colors.icon} cursor-pointer hover:text-cyan-400 transition-colors duration-200`} />
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             {notifications.length}
           </span>
         </button>
         {open && (
-          <div className="absolute right-0 mt-2 w-80 rounded-xl border border-white/10 bg-slate-900/95 text-white shadow-xl z-50 backdrop-blur p-3">
+          <div className={`absolute right-0 mt-2 w-80 rounded-xl border ${colors.border} ${colors.cardBg} ${colors.text} shadow-xl z-50 backdrop-blur p-3`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Notificaciones</span>
               <button type="button" onClick={clearAll} className="text-xs text-cyan-300 hover:text-cyan-200">Limpiar</button>
             </div>
             {notifications.length === 0 ? (
-              <div className="text-sm text-white/70">Sin notificaciones</div>
+              <div className={`text-sm ${colors.mutedText}`}>Sin notificaciones</div>
             ) : (
               <ul className="max-h-64 overflow-auto divide-y divide-white/10">
                 {notifications.map((n) => (
@@ -65,7 +67,7 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
                         {n.type && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBg(n.type)} text-white`}>{n.type}</span>}
                       </div>
                       {n.title && <div className="mt-1 text-sm font-semibold">{n.title}</div>}
-                      {n.message && <div className="mt-0.5 text-sm text-white/80">{n.message}</div>}
+                      {n.message && <div className={`mt-0.5 text-sm ${colors.mutedText}`}>{n.message}</div>}
                     </div>
                     <button type="button" onClick={() => remove(n.id)} className="text-xs text-red-400 hover:text-red-300">Eliminar</button>
                   </li>

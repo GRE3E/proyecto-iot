@@ -1,6 +1,7 @@
 "use client"
 import { User, Trash2, Edit, Eye, Power, UserPlus } from "lucide-react"
 import { useState, useMemo } from "react"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 import Modal from "../UI/Modal"
 
 export interface FamilyMember {
@@ -36,6 +37,7 @@ export default function Perfil({
   owners = [],
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
+  const { colors } = useThemeByTime()
 
   // Separar administradores y familiares
   const admins = useMemo(() => {
@@ -78,14 +80,14 @@ export default function Perfil({
   }
 
   return (
-    <div className="space-y-5 text-white">
+    <div className={`space-y-5 ${colors.text}`}>
       {/* Sección del propietario */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div className="flex items-center gap-3">
           <User className="w-6 h-6 text-blue-400" />
           <div>
             <div className="font-semibold">{name}</div>
-            <div className="text-xs text-slate-400">
+            <div className={`text-xs ${colors.mutedText}`}>
               {isOwnerFixed ? "Propietario" : role}
             </div>
           </div>
@@ -137,7 +139,7 @@ export default function Perfil({
                     >
                       <div>
                         <div className="font-medium">{name}</div>
-                        <div className="text-xs text-slate-400">
+                        <div className={`text-xs ${colors.mutedText}`}>
                         </div>
                       </div>
                     </div>
@@ -155,7 +157,7 @@ export default function Perfil({
                   >
                     <div>
                       <div className="font-medium">{m.name}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className={`text-xs ${colors.mutedText}`}>
                       </div>
                     </div>
 
@@ -189,7 +191,7 @@ export default function Perfil({
               </h4>
               
               {familiares.length === 0 ? (
-                <p className="text-slate-400 text-sm">No hay familiares</p>
+                <p className={`text-sm ${colors.mutedText}`}>No hay familiares</p>
               ) : (
                 familiares.map((m) => (
                   <div
@@ -198,7 +200,7 @@ export default function Perfil({
                   >
                     <div>
                       <div className="font-medium">{m.name}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className={`text-xs ${colors.mutedText}`}>
                       </div>
                     </div>
 
@@ -237,7 +239,7 @@ export default function Perfil({
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nombre</label>
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>Nombre</label>
               <input
                 type="text"
                 value={editingMember.name}
@@ -247,17 +249,17 @@ export default function Perfil({
                     name: e.target.value,
                   })
                 }
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full ${colors.inputBg} border ${colors.inputBorder} rounded-lg px-3 py-2 text-sm ${colors.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-2">
+              <label className={`block text-sm ${colors.mutedText} mb-2`}>
                 Privilegios
               </label>
               <div className="space-y-3">
                 {/* Administrador */}
-                <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
+                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
                   <div className="flex items-center gap-2">
                     <Power className="w-4 h-4 text-blue-400" />
                     <span className="text-sm">Administrador</span>
@@ -281,7 +283,7 @@ export default function Perfil({
                 </div>
 
                 {/* Controlar dispositivos */}
-                <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
+                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
                   <div className="flex items-center gap-2">
                     <Power className="w-4 h-4 text-blue-400" />
                     <span className="text-sm">Controlar dispositivos</span>
@@ -314,7 +316,7 @@ export default function Perfil({
                 </div>
 
                 {/* Ver cámaras */}
-                <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
+                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
                   <div className="flex items-center gap-2">
                     <Eye className="w-4 h-4 text-blue-400" />
                     <span className="text-sm">Ver cámaras</span>

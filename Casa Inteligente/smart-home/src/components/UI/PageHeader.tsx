@@ -1,7 +1,8 @@
 // PageHeader.tsx
 "use client"
 import type { ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 import ProfileNotifications from "./ProfileNotifications"
 
 interface PageHeaderProps {
@@ -13,6 +14,7 @@ export default function PageHeader({
   title,
   icon,
 }: PageHeaderProps) {
+  const { colors } = useThemeByTime()
   // Header fijo en mobile: sin desplazamiento
   useEffect(() => {
     // Asegura que el body tenga suficiente padding-top si fuese necesario
@@ -21,13 +23,14 @@ export default function PageHeader({
   }, [])
 
   return (
-    <>
+    <>    
     <div
-      className="fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out bg-black/20 backdrop-blur-sm border-b border-white/10 md:bg-transparent md:border-0 md:backdrop-blur-0"
+      className={`fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out backdrop-blur-sm border-b md:bg-transparent md:border-0 md:backdrop-blur-0`}
       style={{
         transform: "translateY(0px)",
       }}
     >
+      <div className={`${colors.headerBg} md:bg-transparent md:border-0`}></div>
       {/* MOBILE LAYOUT */}
       <div className="md:hidden flex items-center justify-between gap-3 h-17 px-5 pt-1 pb-2 md:pt-0 relative">
         {/* IZQUIERDA: Espacio para hamburguesa (vacío, se controla desde Sidebar) */}
@@ -35,10 +38,10 @@ export default function PageHeader({
 
         {/* CENTRO: ICONO + TITULO */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20 flex-shrink-0">
+          <div className={`p-2 rounded-xl backdrop-blur-sm border ${colors.cardBg} flex-shrink-0`}>
             {icon}
           </div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight truncate">
+          <h2 className={`text-2xl font-bold tracking-tight truncate ${colors.title}`}>
             {title}
           </h2>
         </div>
@@ -52,10 +55,10 @@ export default function PageHeader({
       {/* DESKTOP LAYOUT */}
       <div className="hidden md:flex flex-row items-start md:items-center justify-between gap-4 -mt-2 relative">
         <div className="flex items-center gap-4 -mt-7">
-          <div className="p-2 md:p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/20">
+          <div className={`p-2 md:p-3 rounded-xl backdrop-blur-sm border ${colors.cardBg}`}>
             {icon}
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent tracking-tight md:translate-y-[-4px]">
+          <h2 className={`text-3xl md:text-4xl font-bold tracking-tight md:translate-y-[-4px] ${colors.title}`}>
             {title}
           </h2>
         </div>

@@ -1,44 +1,55 @@
-"use client"
+"use client";
 
-import { Suspense, useRef, useState } from "react"
-import { Canvas } from "@react-three/fiber"
+import { Suspense, useRef, useState } from "react";
+import { Canvas } from "@react-three/fiber";
 import {
   OrbitControls,
   Html,
   Loader,
   Environment,
   ContactShadows,
-} from "@react-three/drei"
-import SimpleCard from "../components/UI/Card"
-import SimpleButton from "../components/UI/Button"
-import PageHeader from "../components/UI/PageHeader"
-import { Model, SceneHelpers } from "../hooks/useModel3D"
+} from "@react-three/drei";
+import SimpleCard from "../components/UI/Card";
+import { useThemeByTime } from "../hooks/useThemeByTime";
+import SimpleButton from "../components/UI/Button";
+import PageHeader from "../components/UI/PageHeader";
+import { Model, SceneHelpers } from "../hooks/useModel3D";
+import { zoomToFit, presets, handleSnapshot } from "../utils/casa3dUtils";
+import * as THREE from "three";
 import {
-  zoomToFit,
-  presets,
-  handleSnapshot,
-} from "../utils/casa3dUtils"
-import * as THREE from "three"
-import { Home, RotateCw, Grid3x3, Lightbulb, Globe, Camera, Zap, Settings2, ArrowUp, Eye, Box } from "lucide-react"
+  Home,
+  RotateCw,
+  Grid3x3,
+  Lightbulb,
+  Globe,
+  Camera,
+  Zap,
+  Settings2,
+  ArrowUp,
+  Eye,
+  Box,
+} from "lucide-react";
 
-function SwitchToggle({ 
-  isOn, 
-  onChange, 
+function SwitchToggle({
+  isOn,
+  onChange,
   label,
   icon: Icon,
-  tooltip = ""
-}: { 
-  isOn: boolean
-  onChange: (value: boolean) => void
-  label: string
-  icon?: any
-  tooltip?: string
+  tooltip = "",
+}: {
+  isOn: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  icon?: any;
+  tooltip?: string;
 }) {
   return (
     <div className="flex flex-col gap-2 group relative">
       <div className="flex items-center gap-2">
         {Icon && <Icon className="w-4 h-4 text-cyan-400" />}
-        <label className="text-sm font-semibold text-white cursor-help">{label}</label>
+        <label className="text-sm font-semibold text-white cursor-help">
+          {label}
+        </label>
         {tooltip && (
           <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 bg-slate-900 border border-cyan-500/50 rounded-lg p-2 text-xs text-slate-300 whitespace-nowrap z-50">
             {tooltip}
@@ -68,29 +79,29 @@ function SwitchToggle({
         </button>
       </div>
     </div>
-  )
+  );
 }
 
-function SliderControl({ 
-  label, 
-  value, 
-  onChange, 
-  min, 
-  max, 
+function SliderControl({
+  label,
+  value,
+  onChange,
+  min,
+  max,
   step,
   icon: Icon,
   format = (v: number) => v.toFixed(2),
-  tooltip = ""
+  tooltip = "",
 }: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  min: number
-  max: number
-  step: number
-  icon?: any
-  format?: (v: number) => string
-  tooltip?: string
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  icon?: any;
+  format?: (v: number) => string;
+  tooltip?: string;
 }) {
   return (
     <div className="space-y-2 group relative">
@@ -120,32 +131,33 @@ function SliderControl({
         className="w-full h-2.5 bg-gradient-to-r from-slate-700 to-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all"
       />
     </div>
-  )
+  );
 }
 
 export default function Casa3d({
   lightOn = true,
   securityOn = true,
 }: {
-  lightOn?: boolean
-  securityOn?: boolean
+  lightOn?: boolean;
+  securityOn?: boolean;
 } = {}) {
-  const modelPath = "/models/Coso.glb"
-  const groupRef = useRef<THREE.Group | null>(null)
-  const controlsRef = useRef<any>(null)
+  const { colors } = useThemeByTime();
+  const modelPath = "/models/Coso.glb";
+  const groupRef = useRef<THREE.Group | null>(null);
+  const controlsRef = useRef<any>(null);
 
-  const [autoRotate, setAutoRotate] = useState(true)
-  const [wireframe, setWireframe] = useState(false)
-  const [shadowsEnabled, setShadowsEnabled] = useState(true)
-  const [envEnabled, setEnvEnabled] = useState(true)
-  const [lightIntensity] = useState(1)
-  const [autoSpeed, setAutoSpeed] = useState(1.2)
-  const [dayTime] = useState(0.5)
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [wireframe, setWireframe] = useState(false);
+  const [shadowsEnabled, setShadowsEnabled] = useState(true);
+  const [envEnabled, setEnvEnabled] = useState(true);
+  const [lightIntensity] = useState(1);
+  const [autoSpeed, setAutoSpeed] = useState(1.2);
+  const [dayTime] = useState(0.5);
 
-  const resetView = () => zoomToFit(groupRef, controlsRef)
+  const resetView = () => zoomToFit(groupRef, controlsRef);
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
       <PageHeader
         title="Casa 3D"
@@ -249,7 +261,7 @@ export default function Casa3d({
           {/* Panel Lateral */}
           <aside className="w-full md:w-96 flex flex-col gap-2 max-h-[680px] overflow-hidden">
             <SimpleCard className="p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
+              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}>
                 <Zap className="w-3 h-3" />
                 Vistas Guardadas
               </p>
@@ -284,7 +296,7 @@ export default function Casa3d({
             </SimpleCard>
 
             <SimpleCard className="p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-3">
+              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}>
                 <Lightbulb className="w-3 h-3" />
                 Modo de Visualización
               </p>
@@ -324,7 +336,7 @@ export default function Casa3d({
             </SimpleCard>
 
             <SimpleCard className="p-4">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2 mb-4">
+              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-4 ${colors.mutedText}`}>
                 <Settings2 className="w-3 h-3" />
                 Configuración de Rotación
               </p>
@@ -371,15 +383,21 @@ export default function Casa3d({
               </p>
               <div className="grid grid-cols-3 gap-2.5">
                 <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-500/10 rounded-lg border border-cyan-500/30 text-center hover:border-cyan-500/60 transition-all">
-                  <p className="text-xs text-cyan-300 font-bold">{autoSpeed.toFixed(1)}x</p>
+                  <p className="text-xs text-cyan-300 font-bold">
+                    {autoSpeed.toFixed(1)}x
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">Rotación</p>
                 </div>
                 <div className="p-3 bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-lg border border-purple-500/30 text-center hover:border-purple-500/60 transition-all">
-                  <p className="text-xs text-purple-300 font-bold">{(lightIntensity * 100).toFixed(0)}%</p>
+                  <p className="text-xs text-purple-300 font-bold">
+                    {(lightIntensity * 100).toFixed(0)}%
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">Intensidad</p>
                 </div>
                 <div className="p-3 bg-gradient-to-br from-pink-500/20 to-pink-500/10 rounded-lg border border-pink-500/30 text-center hover:border-pink-500/60 transition-all">
-                  <p className="text-xs text-pink-300 font-bold">{Math.round(dayTime * 24)}</p>
+                  <p className="text-xs text-pink-300 font-bold">
+                    {Math.round(dayTime * 24)}
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">Hora</p>
                 </div>
               </div>
@@ -388,5 +406,5 @@ export default function Casa3d({
         </div>
       </SimpleCard>
     </div>
-  )
+  );
 }

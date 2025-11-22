@@ -6,6 +6,7 @@
 import { Globe } from "lucide-react"
 import SimpleCard from "./Card"
 import type { TimezoneConfig } from "../../hooks/useZonaHoraria"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 
 interface TimezoneSelectorProps {
   selectedTimezone: TimezoneConfig | null
@@ -16,20 +17,21 @@ export default function TimezoneSelector({
   selectedTimezone,
   onTimezoneChange,
 }: TimezoneSelectorProps) {
+  const { colors } = useThemeByTime()
   return (
     <SimpleCard className="p-4 flex items-center justify-between">
       <div>
-        <div className="text-white flex items-center gap-2 font-medium text-sm">
+        <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
           <Globe className="w-4 h-4" /> Zona horaria
         </div>
-        <div className="text-xs text-slate-400">
+        <div className={`text-xs ${colors.mutedText}`}>
           {selectedTimezone?.region || "Selecciona una zona"}
         </div>
       </div>
       <select
         value={selectedTimezone?.timezone || ""}
         onChange={(e) => onTimezoneChange(e.target.value)}
-        className="bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-700 hover:border-blue-500 transition-colors"
+        className={`${colors.inputBg} ${colors.text} rounded px-2 py-1 text-sm border ${colors.inputBorder} hover:border-blue-500 transition-colors`}
       >
         <option value="">Selecciona una zona horaria</option>
         <optgroup label="UTC">

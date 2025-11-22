@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useThemeByTime } from "../../hooks/useThemeByTime";
 
 interface ModalProps {
   title?: string;
@@ -27,6 +28,7 @@ export default function Modal({
   backdropClassName = "bg-black/60",
 }: ModalProps) {
   if (typeof window === "undefined") return null; // seguridad SSR
+  const { colors } = useThemeByTime();
 
   return createPortal(
     <AnimatePresence>
@@ -50,7 +52,7 @@ export default function Modal({
           {/* Panel */}
           <motion.div
             key="modal-panel"
-            className={`relative w-[94%] ${panelClassName} rounded-2xl p-6 bg-slate-900 shadow-lg text-white ${className}`}
+            className={`relative w-[94%] ${panelClassName} rounded-2xl p-6 ${colors.cardBg} shadow-lg ${colors.text} ${className}`}
             initial={{ y: 20, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 12, scale: 0.98, opacity: 0 }}

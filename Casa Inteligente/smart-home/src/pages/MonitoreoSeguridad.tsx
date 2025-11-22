@@ -7,6 +7,7 @@ import PageHeader from "../components/UI/PageHeader"
 import SimpleSecurityCamera from "../components/widgets/SecurityCamera"
 import { useMonitoreoSeguridad } from "../hooks/useMonitoreo"
 import { panelVariants, panelTransition } from "../utils/monitoreoUtils"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 
 const GaugeWithControl = ({
   value,
@@ -91,9 +92,10 @@ export default function MonitoreoSeguridad() {
     cameraOn,
     setCameraOn,
   } = useMonitoreoSeguridad()
+  const { colors } = useThemeByTime()
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
       <PageHeader
         title="Monitoreo y Seguridad"
@@ -101,7 +103,7 @@ export default function MonitoreoSeguridad() {
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-700/50 mt-4" role="tablist">
+      <div className={`flex gap-1 border-b mt-4 ${colors.border}`} role="tablist">
         <button
           onClick={() => setActiveTab("seguridad")}
           role="tab"

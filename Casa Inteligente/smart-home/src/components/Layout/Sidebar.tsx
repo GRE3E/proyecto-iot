@@ -62,7 +62,7 @@ export default function HamburgerMenu({
       {transitionItem && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md z-[100] animate-fadeInFast">
           <div className="flex flex-col items-center justify-center animate-popInFast">
-            <transitionItem.icon className="w-14 h-14 text-cyan-400 mb-2 animate-bounceGlowFast" />
+            <transitionItem.icon className="w-14 h-14 text-white mb-2 animate-bounceGlowFast" />
             <h2 className="text-xl font-bold text-white">{transitionItem.name}</h2>
           </div>
         </div>
@@ -76,13 +76,11 @@ export default function HamburgerMenu({
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Abrir menú"
-            className="h-11 w-11 flex flex-col justify-center items-center rounded-xl
-              bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-              shadow-lg transition-transform duration-200 active:scale-95"
+            className={`h-11 w-11 flex flex-col justify-center items-center rounded-xl bg-gradient-to-r ${colors.primary} shadow-lg transition-transform duration-200 active:scale-95 ${colors.text}`}
           >
-            <span className="block h-[2px] w-6 bg-white rounded-sm mb-[3px]" />
-            <span className="block h-[2px] w-6 bg-white rounded-sm mb-[3px]" />
-            <span className="block h-[2px] w-6 bg-white rounded-sm" />
+            <span className="block h-[2px] w-6 bg-current rounded-sm mb-[3px]" />
+            <span className="block h-[2px] w-6 bg-current rounded-sm mb-[3px]" />
+            <span className="block h-[2px] w-6 bg-current rounded-sm" />
           </button>
         </div>
       )}
@@ -101,7 +99,7 @@ export default function HamburgerMenu({
         className={`fixed left-0 top-0 h-full
           ${isSidebarOpen ? "w-[86vw] sm:w-72 md:w-80 animate-fadeInFast" : "w-0 md:w-24"}
           ${colors.cardBg}
-          border-r-2 border-cyan-500/20 shadow-[6px_0_20px_rgba(0,0,0,0.5)]
+          border-r-2 ${colors.border} shadow-[6px_0_20px_rgba(0,0,0,0.5)]
           flex flex-col items-center justify-between py-8 px-6
           pt-[1.5rem] pb-6 pl-4 pr-4 
           transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
@@ -116,13 +114,11 @@ export default function HamburgerMenu({
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="w-11/12 h-12 flex flex-col justify-center items-center gap-[3px] rounded-2xl
-                  bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                  transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                className={`w-11/12 h-12 flex flex-col justify-center items-center gap-[3px] rounded-2xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${colors.text}`}
               >
-                <span className="block h-[2px] w-6 bg-white rounded-sm" />
-                <span className="block h-[2px] w-6 bg-white rounded-sm" />
-                <span className="block h-[2px] w-6 bg-white rounded-sm" />
+                <span className="block h-[2px] w-6 bg-current rounded-sm" />
+                <span className="block h-[2px] w-6 bg-current rounded-sm" />
+                <span className="block h-[2px] w-6 bg-current rounded-sm" />
               </button>
             )}
 
@@ -131,11 +127,9 @@ export default function HamburgerMenu({
                 <button
                   onClick={() => setIsSidebarOpen(false)}
                   aria-label="Cerrar menú"
-                  className="h-11 w-11 flex items-center justify-center rounded-xl
-                    bg-gradient-to-br from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500
-                    transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0"
+                  className={`h-11 w-11 flex items-center justify-center rounded-xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0`}
                 >
-                  <Home className="w-5 h-5 text-white transition-transform duration-300 hover:scale-110" />
+                  <Home className={`w-5 h-5 transition-transform duration-300 hover:scale-110 ${colors.icon}`} />
                 </button>
 
                 <h1
@@ -161,12 +155,8 @@ export default function HamburgerMenu({
                 active={isActive}
                 className={`flex items-center ${
                   isSidebarOpen ? "justify-start px-5" : "justify-center"
-                } gap-3 text-sm font-medium py-2 rounded-xl w-11/12
-                transition-all duration-300 overflow-hidden
-                ${
-                  isActive
-                    ? "bg-gradient-to-br from-cyan-500/30 to-purple-600/30 text-white border border-cyan-500/40"
-                    : "hover:bg-white/10"
+                } gap-3 text-sm font-medium py-2 rounded-xl w-11/12 transition-all duration-300 overflow-hidden ${
+                  isActive ? `bg-gradient-to-r ${colors.primary} text-white border border-white/20` : `${colors.cardHover}`
                 }`}
               >
                 <IconComponent className="w-6 h-6 shrink-0" />

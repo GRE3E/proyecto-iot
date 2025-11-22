@@ -7,6 +7,7 @@ import SimpleButton from "../components/UI/Button"
 import MiniChat from "../components/widgets/MiniChat"
 import { useZonaHoraria } from "../hooks/useZonaHoraria"
 import { useState, useMemo } from "react"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 
 interface Device {
   name: string
@@ -33,6 +34,8 @@ export default function Inicio({
   const { selectedTimezone } = useZonaHoraria()
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [deviceFilter, setDeviceFilter] = useState<'all' | 'luz' | 'puerta' | 'ventilador'>('all')
+  const { colors, theme } = useThemeByTime()
+  const iconColor = theme === "light" ? "text-slate-800" : "text-white"
 
   // Datos históricos simulados
   const energyHistory = useMemo(() => {
@@ -87,7 +90,7 @@ export default function Inicio({
   const filteredDevices = getDevicesByFilter()
 
   return (
-    <div className="p-4 md:p-6 pt-8 md:pt-4 space-y-6 font-inter">
+    <div className={`p-4 md:p-6 pt-8 md:pt-4 space-y-6 font-inter ${colors.background} ${colors.text}`}>
 
       <PageHeader
         title="Bienvenido"
@@ -99,7 +102,7 @@ export default function Inicio({
 
       {/* RESUMEN DEL SISTEMA */}
       <div>
-        <h2 className="text-sm md:text-base font-bold text-slate-300 mb-4 tracking-widest uppercase">
+        <h2 className={`text-sm md:text-base font-bold mb-4 tracking-widest uppercase ${colors.mutedText}`}>
           Resumen del Sistema
         </h2>
 
@@ -115,15 +118,15 @@ export default function Inicio({
 
             {/* MÉTRICA ENERGÍA */}
             {expandedCard === "energy" && (
-              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-emerald-950/70 via-emerald-900/50 to-teal-900/60 border border-emerald-500/40 rounded-lg">
+              <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
                 
                 {/* ENCABEZADO */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-emerald-400" />
+                    <Zap className={`w-5 h-5 ${iconColor}`} />
                     <div>
-                      <h3 className="text-md font-bold text-emerald-100">Energía</h3>
-                      <p className="text-[10px] text-emerald-300/60 mt-0.5">Últimas 24 horas</p>
+                      <h3 className={`text-md font-bold ${colors.text}`}>Energía</h3>
+                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                     </div>
                   </div>
                   <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-emerald-500/20 rounded-lg">
@@ -132,7 +135,7 @@ export default function Inicio({
                 </div>
 
                 {/* GRÁFICO */}
-                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-emerald-900/20 rounded-lg border border-emerald-700/30 p-2">
+                <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
                       <linearGradient id="energyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -194,11 +197,11 @@ export default function Inicio({
                     { label: "Máximo", value: Math.round(maxEnergy) },
                     { label: "Mínimo", value: Math.round(minEnergy) },
                   ].map((item) => (
-                    <div key={item.label} className="p-2 md:p-3 bg-emerald-900/40 rounded-lg border border-emerald-700/40">
-                      <p className="text-[10px] text-emerald-300/60">{item.label}</p>
+                    <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg}`}>
+                      <p className={`text-[10px] ${colors.text}`}>{item.label}</p>
                       <div className="flex items-center gap-1 md:gap-2">
-                        <p className="text-xl md:text-2xl font-bold text-emerald-100">{item.value}</p>
-                        <span className="text-[9px] md:text-xs text-emerald-400/50 bg-emerald-900/60 px-1.5 py-0.5 rounded">kWh</span>
+                        <p className={`text-xl md:text-2xl font-bold ${colors.text}`}>{item.value}</p>
+                        <span className={`text-[9px] md:text-xs px-1.5 py-0.5 rounded ${colors.text}`}>kWh</span>
                       </div>
                     </div>
                   ))}
@@ -208,15 +211,15 @@ export default function Inicio({
 
             {/* TEMPERATURA */}
             {expandedCard === "temp" && (
-              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-orange-950/70 via-orange-900/50 to-red-900/60 border border-orange-500/40 rounded-lg">
+              <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
 
                 {/* ENCABEZADO */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Thermometer className="w-5 h-5 text-orange-400" />
+                    <Thermometer className={`w-5 h-5 ${iconColor}`} />
                     <div>
-                      <h3 className="text-md font-bold text-orange-100">Temperatura</h3>
-                      <p className="text-[10px] text-orange-300/60 mt-0.5">Últimas 24 horas</p>
+                      <h3 className={`text-md font-bold ${colors.text}`}>Temperatura</h3>
+                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                     </div>
                   </div>
                   <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-orange-500/20 rounded-lg">
@@ -225,7 +228,7 @@ export default function Inicio({
                 </div>
 
                 {/* GRÁFICO */}
-                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-orange-900/20 rounded-lg border border-orange-700/30 p-2">
+                <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
                       <linearGradient id="tempGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -273,11 +276,11 @@ export default function Inicio({
                     { label:"Máximo", value: maxTemp, unit:"°C" },
                     { label:"Mínimo", value: minTemp, unit:"°C" },
                   ].map(item=>(
-                    <div key={item.label} className="p-2 md:p-3 bg-orange-900/40 rounded-lg border border-orange-700/40">
-                      <p className="text-[10px] text-orange-300/60">{item.label}</p>
+                    <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg}`}>
+                      <p className={`text-[10px] ${colors.text}`}>{item.label}</p>
                       <div className="flex items-center gap-1 md:gap-2">
-                        <p className="text-xl md:text-2xl font-bold text-orange-100">{item.value}</p>
-                        <span className="text-[9px] md:text-xs text-orange-400/50 bg-orange-900/60 px-1.5 py-0.5 rounded">{item.unit}</span>
+                        <p className={`text-xl md:text-2xl font-bold ${colors.text}`}>{item.value}</p>
+                        <span className={`text-[9px] md:text-xs px-1.5 py-0.5 rounded ${colors.text}`}>{item.unit}</span>
                       </div>
                     </div>
                   ))}
@@ -287,15 +290,15 @@ export default function Inicio({
 
             {/* HUMEDAD */}
             {expandedCard === "humidity" && (
-              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-cyan-950/70 via-blue-900/50 to-cyan-900/60 border border-cyan-500/40 rounded-lg">
+              <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
 
                 {/* ENCABEZADO */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Droplets className="w-5 h-5 text-cyan-400" />
+                    <Droplets className={`w-5 h-5 ${iconColor}`} />
                     <div>
-                      <h3 className="text-md font-bold text-cyan-100">Humedad</h3>
-                      <p className="text-[10px] text-cyan-300/60 mt-0.5">Últimas 24 horas</p>
+                      <h3 className={`text-md font-bold ${colors.text}`}>Humedad</h3>
+                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
                     </div>
                   </div>
                   <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-cyan-500/20 rounded-lg">
@@ -304,7 +307,7 @@ export default function Inicio({
                 </div>
 
                 {/* GRÁFICO */}
-                <div className="h-36 md:h-40 flex items-center justify-center mb-3 bg-cyan-900/20 rounded-lg border border-cyan-700/30 p-2">
+                <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg ${colors.cardBg} p-2`}>
                   <svg viewBox="0 0 1000 300" className="w-full h-full">
                     <defs>
                       <linearGradient id="humidityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -339,11 +342,11 @@ export default function Inicio({
                     { label:"Máximo", value: 80, unit:"%" },
                     { label:"Mínimo", value: 20, unit:"%" },
                   ].map(item=>(
-                    <div key={item.label} className="p-2 md:p-3 bg-cyan-900/40 rounded-lg border border-cyan-700/40">
-                      <p className="text-[10px] text-cyan-300/60">{item.label}</p>
+                    <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg}`}>
+                      <p className={`text-[10px] ${colors.text}`}>{item.label}</p>
                       <div className="flex items-center gap-1 md:gap-2">
-                        <p className="text-xl md:text-2xl font-bold text-cyan-100">{item.value}</p>
-                        <span className="text-[9px] md:text-xs text-cyan-400/50 bg-cyan-900/60 px-1.5 py-0.5 rounded">{item.unit}</span>
+                        <p className={`text-xl md:text-2xl font-bold ${colors.text}`}>{item.value}</p>
+                        <span className={`text-[9px] md:text-xs px-1.5 py-0.5 rounded ${colors.text}`}>{item.unit}</span>
                       </div>
                     </div>
                   ))}
@@ -353,15 +356,15 @@ export default function Inicio({
 
             {/* DISPOSITIVOS */}
             {expandedCard === "devices" && (
-              <div className="p-4 pt-4 pb-1 md:p-5 md:pb-2 bg-gradient-to-br from-violet-950/70 via-purple-900/50 to-violet-900/60 border border-violet-500/40 rounded-lg">
+              <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg ${colors.cardBg}`}>
 
                 {/* ENCABEZADO */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Power className="w-5 h-5 text-violet-400" />
+                    <Power className={`w-5 h-5 ${iconColor}`} />
                     <div>
-                      <h3 className="text-md font-bold text-violet-100">Dispositivos</h3>
-                      <p className="text-[10px] text-violet-300/60 mt-0.5">{activeDevices} de {devices.length} activos</p>
+                      <h3 className={`text-md font-bold ${colors.text}`}>Dispositivos</h3>
+                      <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>{activeDevices} de {devices.length} activos</p>
                     </div>
                   </div>
                   <button onClick={() => setExpandedCard(null)} className="p-1 hover:bg-violet-500/20 rounded-lg">
@@ -381,18 +384,18 @@ export default function Inicio({
                 {/* LISTA FILTRADA */}
                 <div className="space-y-2 mb-2">
                   {filteredDevices.length>0 ? filteredDevices.map((d,i)=>(
-                    <div key={i} className="flex items-center justify-between p-3 bg-violet-900/30 rounded-lg border border-violet-700/30">
+                    <div key={i} className={`flex items-center justify-between p-3 rounded-lg ${colors.cardBg}`}>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-violet-200">{d.name}</p>
-                        {d.location && <p className="text-xs text-violet-300/60 mt-1">{d.location}</p>}
+                        <p className={`text-sm font-semibold ${colors.text}`}>{d.name}</p>
+                        {d.location && <p className={`text-xs mt-1 ${colors.mutedText}`}>{d.location}</p>}
                       </div>
 
                       <div className="text-right">
-                        <p className="text-xs text-violet-300/60">Consumo</p>
-                        <p className="text-sm font-semibold text-violet-200">{d.power}</p>
+                        <p className={`text-xs ${colors.mutedText}`}>Consumo</p>
+                        <p className={`text-sm font-semibold ${colors.text}`}>{d.power}</p>
                       </div>
 
-                      <div className="w-3 h-3 ml-4 rounded-full shadow-lg transition-all" style={{background:d.on?"#10ffb3":"#555", boxShadow:d.on?"0 0 8px #10ffb3":"none"}} />
+                      <div className="w-3 h-3 ml-4 rounded-full shadow-lg transition-all" style={{background:d.on?"#10ffb3":"#888", boxShadow:d.on?"0 0 8px #10ffb3":"none"}} />
                     </div>
                   )) : <p className="text-sm text-violet-300/60">No hay dispositivos en esta categoría.</p>}
                 </div>
@@ -405,38 +408,38 @@ export default function Inicio({
 
             {/* Energía */}
             <div
-              className="p-4 bg-emerald-950/40 border border-emerald-800/40 rounded-lg cursor-pointer hover:bg-emerald-900/40 transition-colors"
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${colors.cardBg}`}
               onClick={() => setExpandedCard("energy")}
             >
               <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-emerald-400" />
-                <h4 className="text-emerald-100 font-semibold text-sm">Energía</h4>
+                <Zap className={`w-5 h-5 ${iconColor}`} />
+                <h4 className={`font-semibold text-sm ${colors.text}`}>Energía</h4>
               </div>
-              <p className="text-emerald-300/60 text-xs mt-1">{energyUsage} kWh usados</p>
+              <p className={`text-xs mt-1 ${colors.mutedText}`}>{energyUsage} kWh usados</p>
             </div>
 
             {/* Temperatura */}
             <div
-              className="p-4 bg-orange-950/40 border border-orange-800/40 rounded-lg cursor-pointer hover:bg-orange-900/40 transition-colors"
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${colors.cardBg}`}
               onClick={() => setExpandedCard("temp")}
             >
               <div className="flex items-center gap-3">
-                <Thermometer className="w-5 h-5 text-orange-400" />
-                <h4 className="text-orange-100 font-semibold text-sm">Temperatura</h4>
+                <Thermometer className={`w-5 h-5 ${iconColor}`} />
+                <h4 className={`font-semibold text-sm ${colors.text}`}>Temperatura</h4>
               </div>
-              <p className="text-orange-300/60 text-xs mt-1">{temperature} °C actuales</p>
+              <p className={`text-xs mt-1 ${colors.mutedText}`}>{temperature} °C actuales</p>
             </div>
 
             {/* Humedad */}
             <div
-              className="p-4 bg-cyan-950/40 border border-cyan-800/40 rounded-lg cursor-pointer hover:bg-cyan-900/40 transition-colors"
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${colors.cardBg}`}
               onClick={() => setExpandedCard("humidity")}
             >
               <div className="flex items-center gap-3">
-                <Droplets className="w-5 h-5 text-cyan-400" />
-                <h4 className="text-cyan-100 font-semibold text-sm">Humedad</h4>
+                <Droplets className={`w-5 h-5 ${iconColor}`} />
+                <h4 className={`font-semibold text-sm ${colors.text}`}>Humedad</h4>
               </div>
-              <p className="text-cyan-300/60 text-xs mt-1">{humidity}% actual</p>
+              <p className={`text-xs mt-1 ${colors.mutedText}`}>{humidity}% actual</p>
             </div>
 
             {/* Dispositivos */}

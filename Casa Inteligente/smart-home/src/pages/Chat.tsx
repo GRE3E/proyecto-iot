@@ -4,9 +4,11 @@ import { useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Mic, Send, Bot } from "lucide-react"
 import PageHeader from "../components/UI/PageHeader"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 import { useVoiceChat } from "../hooks/useVoiceChat"
 
 export default function Chat() {
+  const { colors } = useThemeByTime()
   const {
     messages,
     text,
@@ -16,7 +18,7 @@ export default function Chat() {
     toggleVoiceActive,
     sendMessage,
     messagesEndRef,
-  } = useVoiceChat()
+  } = useVoiceChat({ prefetchHistory: true })
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -34,7 +36,7 @@ export default function Chat() {
   const canSend = text.trim() !== ""
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
       <PageHeader
         title="CHAT"
@@ -42,12 +44,12 @@ export default function Chat() {
       />
 
       {/* ÁREA DEL CHAT */}
-      <div className="flex flex-col w-full h-[78vh] bg-slate-900/60 backdrop-blur-md rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+      <div className={`flex flex-col w-full h-[78vh] backdrop-blur-md rounded-3xl border shadow-xl overflow-hidden ${colors.cardBg}`}>
 
         {/* Sub-header dentro del chat */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-800 bg-slate-900/70">
-          <div className="flex items-center gap-2 text-gray-200 font-medium text-lg">
-            <Bot className="w-5 h-5 text-blue-400" />
+        <div className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b ${colors.border}`}>
+          <div className="flex items-center gap-2 font-medium text-lg">
+            <Bot className="w-5 h-5" />
             <span>MURPHY</span>
           </div>
         </div>
@@ -91,14 +93,14 @@ export default function Chat() {
         </div>
 
         {/* INPUT BAR */}
-        <div className="flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t border-slate-800 bg-slate-900/70 backdrop-blur-sm">
+        <div className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t ${colors.border} backdrop-blur-sm`}>
           {/* Mic */}
           <button
             onClick={toggleVoiceActive}
             className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition-all ${
               listening
                 ? "bg-red-600 text-white animate-pulse"
-                : "bg-slate-800 text-gray-400 hover:text-blue-400"
+                : `${colors.cardBg} hover:shadow-md`
             }`}
           >
             <Mic className="w-5 h-5" />
@@ -112,7 +114,7 @@ export default function Chat() {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder={listening ? "Escuchando..." : "Escribe tu mensaje..."}
-            className="flex-1 bg-slate-800/60 text-white placeholder-gray-500 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`flex-1 rounded-xl px-4 py-2 text-sm focus:outline-none ${colors.inputBg} ${colors.inputBorder} ${colors.text}`}
           />
 
           {/* Enviar */}
@@ -121,8 +123,8 @@ export default function Chat() {
             disabled={!canSend}
             className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition ${
               canSend
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : "bg-slate-800 text-gray-500 cursor-not-allowed"
+                ? `bg-gradient-to-r ${colors.primary} text-white`
+                : `${colors.cardBg} cursor-not-allowed`
             }`}
           >
             <Send className="w-5 h-5" />

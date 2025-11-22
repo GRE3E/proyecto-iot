@@ -12,7 +12,7 @@ export interface Message {
   type: "text";
 }
 
-export function useVoiceChat() {
+export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
@@ -23,6 +23,7 @@ export function useVoiceChat() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   
   useEffect(() => {
+    if (!options?.prefetchHistory) return;
     const fetchHistory = async () => {
       try {
         const response = await axiosInstance.get(`/nlp/nlp/history?limit=50`);
@@ -42,9 +43,8 @@ export function useVoiceChat() {
         console.error("Error fetching chat history:", error);
       }
     };
-
     fetchHistory();
-  }, []);
+  }, [options?.prefetchHistory]);
 
   // Reconocimiento de voz
   const { listening, startListening, stopListening } = useVoiceRecognition({

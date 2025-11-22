@@ -1,23 +1,20 @@
 "use client";
-import { useState } from "react";
-import Login from "./pages/login";
-import RecuperarContraseña from "./pages/RecuperarContraseña";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useThemeByTime } from "./hooks/useThemeByTime";
 import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo, Music } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
-
-// Secciones
-import Inicio from "./pages/Inicio";
-import Casa3d from "./pages/Casa3d";
-import GestionDispositivos from "./pages/GestionDispositivos";
-import MonitoreoSeguridad from "./pages/MonitoreoSeguridad";
-import Configuracion from "./pages/Configuracion";
-import Chat from "./pages/Chat";
-import Rutinas from "./pages/Rutinas";
-import Musica from "./pages/Musica";
-
-// Layout
 import HamburgerMenu from "./components/Layout/Sidebar";
+
+const Login = lazy(() => import("./pages/login"));
+const RecuperarContraseña = lazy(() => import("./pages/RecuperarContraseña"));
+const Inicio = lazy(() => import("./pages/Inicio"));
+const Casa3d = lazy(() => import("./pages/Casa3d"));
+const GestionDispositivos = lazy(() => import("./pages/GestionDispositivos"));
+const MonitoreoSeguridad = lazy(() => import("./pages/MonitoreoSeguridad"));
+const Configuracion = lazy(() => import("./pages/Configuracion"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Rutinas = lazy(() => import("./pages/Rutinas"));
+const Musica = lazy(() => import("./pages/Musica"));
 
 export default function App() {
   const { isAuthenticated, isLoading, logout } = useAuth();
@@ -36,25 +33,85 @@ export default function App() {
     { name: "Configuración", icon: Settings },
   ];
 
+  const pathByMenu = useMemo<Record<string, string>>(
+    () => ({
+      "Inicio": "/inicio",
+      "Casa 3D": "/casa3d",
+      "Gestión de Dispositivos": "/dispositivos",
+      "Monitoreo y Seguridad": "/seguridad",
+      "Música": "/musica",
+      "Chat": "/chat",
+      "Rutinas": "/rutinas",
+      "Configuración": "/configuracion",
+      "Recuperar Contraseña": "/recuperar",
+    }),
+    []
+  );
+
+  const menuByPath = useMemo<Record<string, string>>(
+    () => ({
+      "/inicio": "Inicio",
+      "/casa3d": "Casa 3D",
+      "/dispositivos": "Gestión de Dispositivos",
+      "/seguridad": "Monitoreo y Seguridad",
+      "/musica": "Música",
+      "/chat": "Chat",
+      "/rutinas": "Rutinas",
+      "/configuracion": "Configuración",
+      "/recuperar": "Recuperar Contraseña",
+    }),
+    []
+  );
+
+  const lastPushedPathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const current = window.location.pathname;
+    const initial = menuByPath[current] || "Inicio";
+    setSelectedMenu(initial);
+  }, [menuByPath]);
+
+  useEffect(() => {
+    const handler = () => {
+      const m = menuByPath[window.location.pathname];
+      if (m) setSelectedMenu(m);
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [menuByPath]);
+
+  useEffect(() => {
+    const path = pathByMenu[selectedMenu] || "/inicio";
+    if (lastPushedPathRef.current !== path) {
+      window.history.pushState(null, "", path);
+      lastPushedPathRef.current = path;
+    }
+  }, [selectedMenu, pathByMenu]);
+
+  useEffect(() => {
+    if (isAuthenticated && window.location.pathname === "/login") {
+      setSelectedMenu("Inicio");
+    }
+  }, [isAuthenticated]);
+
   if (isLoading) {
     return <div>Cargando...</div>;
   }
 
   return (
     <div
-      className={`relative flex min-h-screen bg-gradient-to-br ${colors.background} ${colors.text} transition-all duration-700 font-inter`}
+      className={`relative flex min-h-screen ${colors.background} ${colors.text} transition-all duration-700 font-inter`}
     >
-      {/* === LOGIN === */}
+      {/* === LOGIN / RECUPERAR === */}
       {!isAuthenticated && (
         <div className="absolute inset-0 z-50">
-          <Login onNavigate={setSelectedMenu} />
-        </div>
-      )}
-
-      {/* === RECUPERAR CONTRASEÑA === */}
-      {!isAuthenticated && selectedMenu === "Recuperar Contraseña" && (
-        <div className="absolute inset-0 z-50">
-          <RecuperarContraseña />
+          <Suspense fallback={<div>Cargando...</div>}>
+            {selectedMenu === "Recuperar Contraseña" ? (
+              <RecuperarContraseña />
+            ) : (
+              <Login onNavigate={setSelectedMenu} />
+            )}
+          </Suspense>
         </div>
       )}
 
@@ -80,14 +137,16 @@ export default function App() {
               ${isSidebarOpen ? "ml-0 md:ml-80" : "ml-0 md:ml-24"}
             `}
           >
-            {selectedMenu === "Inicio" && <Inicio />}
-            {selectedMenu === "Casa 3D" && <Casa3d />}
-            {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
-            {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
-            {selectedMenu === "Música" && <Musica />}
-            {selectedMenu === "Chat" && <Chat />}
-            {selectedMenu === "Rutinas" && <Rutinas />}
-            {selectedMenu === "Configuración" && <Configuracion />}
+            <Suspense fallback={<div>Cargando contenido...</div>}>
+              {selectedMenu === "Inicio" && <Inicio />}
+              {selectedMenu === "Casa 3D" && <Casa3d />}
+              {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
+              {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
+              {selectedMenu === "Música" && <Musica />}
+              {selectedMenu === "Chat" && <Chat />}
+              {selectedMenu === "Rutinas" && <Rutinas />}
+              {selectedMenu === "Configuración" && <Configuracion />}
+            </Suspense>
           </main>
         </div>
       )}

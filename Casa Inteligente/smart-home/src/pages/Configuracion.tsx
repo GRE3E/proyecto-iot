@@ -1,6 +1,6 @@
 "use client"
 
-import { Settings, Bell, Mic } from "lucide-react"
+import { Settings, Bell, Mic, Sun, Moon } from "lucide-react"
 import SimpleCard from "../components/UI/Card"
 import Perfil from "../components/UI/Perfil"
 import Modal from "../components/UI/Modal"
@@ -8,8 +8,10 @@ import PageHeader from "../components/UI/PageHeader"
 import TimezoneSelector from "../components/UI/TimezoneSelector"
 import { useConfiguracion } from "../hooks/useConfiguration"
 import { useZonaHoraria } from "../hooks/useZonaHoraria"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 
 export default function Configuracion() {
+  const { colors, theme, setTheme, toggleTheme } = useThemeByTime()
   const {
     ownerName,
     setOwnerName,
@@ -78,7 +80,7 @@ export default function Configuracion() {
   }
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
       <PageHeader
         title="CONFIGURACIÓN"
@@ -86,6 +88,20 @@ export default function Configuracion() {
       />
 
       <div className="space-y-6">
+        {/* Tema del sistema */}
+        <SimpleCard className="p-4 flex items-center justify-between">
+          <div>
+            <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
+              {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Tema
+            </div>
+            <div className={`text-xs ${colors.mutedText}`}>Elige claro u oscuro</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setTheme("light")} className={`px-3 py-1 rounded-lg text-sm ${theme==="light"?`bg-gradient-to-r ${colors.primary} text-white`:`${colors.cardBg} ${colors.text} border ${colors.cardHover}`}`}>Claro</button>
+            <button onClick={() => setTheme("dark")} className={`px-3 py-1 rounded-lg text-sm ${theme==="dark"?`bg-gradient-to-r ${colors.primary} text-white`:`${colors.cardBg} ${colors.text} border ${colors.cardHover}`}`}>Oscuro</button>
+            <button onClick={toggleTheme} className={`px-3 py-1 rounded-lg text-sm ${colors.cardBg} ${colors.text} border ${colors.cardHover}`}>Alternar</button>
+          </div>
+        </SimpleCard>
         {/* Perfil del propietario con propietarios arriba y familiares debajo */}
         <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
           <Perfil
@@ -106,10 +122,10 @@ export default function Configuracion() {
           {/* Notificaciones */}
           <SimpleCard className="p-4 flex items-center justify-between">
             <div>
-              <div className="text-white flex items-center gap-2 font-medium text-sm">
+              <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
                 <Bell className="w-4 h-4" /> Notificaciones
               </div>
-              <div className="text-xs text-slate-400">Activar o desactivar alertas</div>
+              <div className={`text-xs ${colors.mutedText}`}>Activar o desactivar alertas</div>
             </div>
             <input
               type="checkbox"

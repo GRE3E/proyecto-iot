@@ -8,19 +8,15 @@ import { useAuth } from "../hooks/useAuth";
 import "../styles/animations.css";
 import FloatingIcons from "../components/effects/FloatingIcons";
 
-const DoorTransition: React.FC<{ theme: "day" | "afternoon" | "night" }> = ({ theme }) => {
+const DoorTransition: React.FC<{ theme: "dark" | "light" }> = ({ theme }) => {
   const themeBackground =
-    theme === "day"
-      ? "linear-gradient(180deg, rgba(6,30,60,0.95) 0%, rgba(4,20,40,0.95) 100%)"
-      : theme === "afternoon"
-      ? "linear-gradient(180deg, rgba(45,20,6,0.95) 0%, rgba(30,12,4,0.95) 100%)"
-      : "linear-gradient(180deg, rgba(8,4,20,0.95) 0%, rgba(15,6,40,0.95) 100%)";
+    theme === "light"
+      ? "linear-gradient(180deg, rgba(240,244,250,0.95) 0%, rgba(230,236,245,0.95) 100%)"
+      : "linear-gradient(180deg, rgba(8,12,24,0.95) 0%, rgba(6,10,20,0.95) 100%)";
 
   const lightGradient =
-    theme === "day"
-      ? "linear-gradient(180deg, rgba(110,231,255,0.95), rgba(37,99,235,0.9))"
-      : theme === "afternoon"
-      ? "linear-gradient(180deg, rgba(255,196,77,0.95), rgba(245,158,11,0.9))"
+    theme === "light"
+      ? "linear-gradient(180deg, rgba(180,200,255,0.95), rgba(140,180,255,0.9))"
       : "linear-gradient(180deg, rgba(165,180,252,0.95), rgba(139,92,246,0.9))";
 
   return (

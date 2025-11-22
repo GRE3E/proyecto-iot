@@ -8,11 +8,13 @@ import Modal from "../components/UI/Modal"
 import { useState } from "react"
 import type { FormState } from "../hooks/useRutinas"
 import { useRutinas, INITIAL_FORM, DEVICE_OPTIONS, DAY_LABELS } from "../hooks/useRutinas"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 
 type View = "list" | "edit" | "detail" | "suggestions"
 
 export default function Rutinas() {
   const hook = useRutinas()
+  const { colors } = useThemeByTime()
   const [view, setView] = useState<View>("list")
   const [activeTab, setActiveTab] = useState<"list" | "suggestions">("list")
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false)
@@ -212,11 +214,11 @@ export default function Rutinas() {
   }
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-4 md:space-y-6 lg:space-y-8 font-inter">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-4 md:space-y-6 lg:space-y-8 font-inter ${colors.background} ${colors.text}`}>
       <PageHeader title="Rutinas" icon={<ListTodo className="w-8 md:w-10 h-8 md:h-10 text-white" />} />
 
       {message && (
-        <div className={`rounded-xl px-4 py-3 text-sm ${message.type === "success" ? "bg-green-900/30 text-green-300 border border-green-600/30" : "bg-rose-900/30 text-rose-300 border border-rose-600/30"}`}>
+        <div className={`rounded-xl px-4 py-3 text-sm ${message.type === "success" ? colors.successChip : colors.dangerChip}`}>
           {message.text}
         </div>
       )}

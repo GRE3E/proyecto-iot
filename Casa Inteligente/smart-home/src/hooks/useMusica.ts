@@ -1,4 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { axiosInstance } from "../services/authService";
+import { v4 as uuidv4 } from "uuid";
+import { useWebSocket } from "./useWebSocket";
 
 export interface Cancion {
   id: string;
@@ -8,6 +11,7 @@ export interface Cancion {
   agregadoPor: string;
   duracion: number;
   createdAt?: string;
+  thumbnail?: string;
 }
 
 export interface EstadoMusica {
@@ -20,22 +24,13 @@ export interface EstadoMusica {
   indiceActual: number;
   cargando: boolean;
   error: string | null;
+  estaPausado: boolean;
+  lastAdded: Cancion | null;
 }
 
-// Función para extraer ID de YouTube y generar URL de audio
-const obtenerUrlAudioYoutube = (url: string): string | null => {
-  const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-  const match = url.match(regex);
-  return match ? match[1] : null;
-};
-
-// Función para obtener thumbnail de YouTube
-const obtenerThumbnailYoutube = (videoId: string): string => {
-  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-};
-
 export const useMusica = () => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const clientId = useRef(uuidv4());
+  const { message } = useWebSocket(clientId.current);
   const [estado, setEstado] = useState<EstadoMusica>({
     cancionActual: null,
     volumen: 70,
@@ -46,227 +41,340 @@ export const useMusica = () => {
     indiceActual: 0,
     cargando: true,
     error: null,
+    estaPausado: false,
+    lastAdded: null,
   });
 
-  // Inicializar elemento de audio
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.crossOrigin = 'anonymous';
-      
-      audioRef.current.addEventListener('timeupdate', () => {
-        setEstado((prev) => ({
-          ...prev,
-          tiempoActual: Math.floor(audioRef.current?.currentTime || 0),
-        }));
-      });
+    if (message) {
+      try {
+        const data = message;
+        if (data.type === "music_update") {
+          const {
+            status,
+            current_track,
+            queue,
+            volume,
+            history,
+            position,
+            duration,
+          } = data;
 
-      audioRef.current.addEventListener('ended', () => {
-        siguienteCancion();
-      });
+          setEstado((prev) => {
+            let cancionActual: Cancion | null = prev.cancionActual;
+            if (current_track) {
+              cancionActual = {
+                id: current_track.started_at || current_track.id,
+                titulo: current_track.title,
+                artista: current_track.uploader,
+                urlYoutube: current_track.query,
+                agregadoPor:
+                  current_track.started_by?.username || "Desconocido",
+                duracion: current_track.duration,
+                thumbnail: current_track.thumbnail,
+                createdAt: current_track.started_at,
+              };
+            }
+            if (cancionActual && duration !== undefined) {
+              cancionActual = { ...cancionActual, duracion: duration };
+            }
 
-      audioRef.current.addEventListener('error', (e) => {
-        console.error('Error de audio:', e);
-        setEstado((prev) => ({
-          ...prev,
-          estaReproduciendo: false,
-          error: 'Error al reproducir la canción',
-        }));
-      });
+            const nuevaCola: Cancion[] =
+              queue !== undefined
+                ? (queue || []).map((item: any) => ({
+                    id: item.id || item.started_at,
+                    titulo: item.title,
+                    artista: item.uploader,
+                    urlYoutube: item.query || item.url || "",
+                    agregadoPor: item.started_by?.username || "Desconocido",
+                    duracion: item.duration,
+                    thumbnail: item.thumbnail,
+                    createdAt: item.started_at,
+                  }))
+                : prev.cola;
+
+            const nuevoHistorial: Cancion[] =
+              history !== undefined
+                ? (history || []).map((item: any) => ({
+                    id:
+                      item.id ||
+                      `${item.title}-${item.uploader}-${item.duration}`,
+                    titulo: item.title,
+                    artista: item.uploader,
+                    urlYoutube: item.query || item.url || "",
+                    agregadoPor: item.started_by?.username || "Desconocido",
+                    duracion: item.duration,
+                    thumbnail: item.thumbnail,
+                    createdAt: item.started_at,
+                  }))
+                : prev.historial;
+
+            const estaReproduciendo =
+              status === "playing"
+                ? true
+                : status === "paused"
+                ? false
+                : prev.estaReproduciendo;
+            const estaPausado =
+              status === "paused"
+                ? true
+                : status === "playing"
+                ? false
+                : prev.estaPausado;
+
+            return {
+              ...prev,
+              cancionActual,
+              estaReproduciendo,
+              estaPausado,
+              volumen: volume !== undefined ? volume : prev.volumen,
+              tiempoActual:
+                position !== undefined ? position : prev.tiempoActual,
+              cola: nuevaCola,
+              historial: nuevoHistorial,
+              cargando: false,
+              lastAdded: null,
+            };
+          });
+        }
+      } catch (error) {
+        console.error("Error handling WebSocket message:", error);
+      }
     }
-  }, []);
+  }, [message]);
 
-  // Cargar canciones del backend
   useEffect(() => {
-    const cargarCanciones = async () => {
+    let timer: any = null;
+    if (estado.estaReproduciendo && estado.cancionActual) {
+      timer = setInterval(() => {
+        setEstado((prev) => {
+          const dur = prev.cancionActual?.duracion || 0;
+          const next = Math.min(dur, prev.tiempoActual + 1);
+          return { ...prev, tiempoActual: next };
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [estado.estaReproduciendo, estado.cancionActual?.id]);
+
+  useEffect(() => {
+    const fetchInitialMusicState = async () => {
       try {
         setEstado((prev) => ({ ...prev, cargando: true, error: null }));
-        
-        // const response = await fetch('/api/musica');
-        // const canciones = await response.json();
-        
-        // Datos simulados para testing
-        const canciones: Cancion[] = [
-          {
-            id: '1',
-            titulo: 'Blinding Lights',
-            artista: 'The Weeknd',
-            urlYoutube: 'https://www.youtube.com/watch?v=4NRXx6U8ABQ',
-            agregadoPor: 'Admin',
-            duracion: 200,
-          },
-          {
-            id: '2',
-            titulo: 'Shape of You',
-            artista: 'Ed Sheeran',
-            urlYoutube: 'https://www.youtube.com/watch?v=JGwWNGJdvx8',
-            agregadoPor: 'Juan',
-            duracion: 234,
-          },
-        ];
+        const response = await axiosInstance.get("/music/now-playing");
+        const data = response.data;
 
-        setEstado((prev) => ({
-          ...prev,
-          cola: canciones,
-          cancionActual: canciones[0] || null,
-          cargando: false,
-        }));
+        if (data.status === "playing" || data.status === "paused") {
+          const currentTrack: Cancion = {
+            id: data.started_at,
+            titulo: data.title,
+            artista: data.uploader,
+            urlYoutube: data.query,
+            agregadoPor: data.started_by?.username || "Desconocido",
+            duracion: data.duration,
+            thumbnail: data.thumbnail,
+            createdAt: data.started_at,
+          };
+          setEstado((prev) => ({
+            ...prev,
+            cancionActual: currentTrack,
+            estaReproduciendo: data.status === "playing",
+            tiempoActual: data.position || 0,
+            volumen: data.volume || prev.volumen,
+            cargando: false,
+            cola: (data.queue || []).map((item: any) => ({
+              id: item.id || item.started_at,
+              titulo: item.title,
+              artista: item.uploader,
+              urlYoutube: item.query || item.url || "",
+              agregadoPor: item.started_by?.username || "Desconocido",
+              duracion: item.duration,
+              thumbnail: item.thumbnail,
+              createdAt: item.started_at,
+            })),
+            historial: (data.history || []).map((item: any) => ({
+              id: item.id || `${item.title}-${item.uploader}-${item.duration}`,
+              titulo: item.title,
+              artista: item.uploader,
+              urlYoutube: item.query || item.url || "",
+              agregadoPor: item.started_by?.username || "Desconocido",
+              duracion: item.duration,
+              thumbnail: item.thumbnail,
+              createdAt: item.started_at,
+            })),
+            lastAdded: null,
+          }));
+        } else {
+          setEstado((prev) => ({
+            ...prev,
+            cancionActual: null,
+            estaReproduciendo: false,
+            tiempoActual: 0,
+            cargando: false,
+            cola: (data.queue || []).map((item: any) => ({
+              id: item.id || item.started_at,
+              titulo: item.title,
+              artista: item.uploader,
+              urlYoutube: item.query || item.url || "",
+              agregadoPor: item.started_by?.username || "Desconocido",
+              duracion: item.duration,
+              thumbnail: item.thumbnail,
+              createdAt: item.started_at,
+            })),
+            historial: (data.history || []).map((item: any) => ({
+              id: item.id || `${item.title}-${item.uploader}-${item.duration}`,
+              titulo: item.title,
+              artista: item.uploader,
+              urlYoutube: item.query || item.url || "",
+              agregadoPor: item.started_by?.username || "Desconocido",
+              duracion: item.duration,
+              thumbnail: item.thumbnail,
+              createdAt: item.started_at,
+            })),
+            lastAdded: null,
+          }));
+        }
       } catch (err) {
+        console.error("Error al sincronizar el estado de la música:", err);
         setEstado((prev) => ({
           ...prev,
           cargando: false,
-          error: 'Error al cargar las canciones',
+          error: "Error al cargar el estado de la música",
         }));
       }
     };
-
-    cargarCanciones();
+    fetchInitialMusicState();
   }, []);
 
-  // Sincronizar reproducción con el elemento de audio
-  useEffect(() => {
-    if (!audioRef.current || !estado.cancionActual) return;
-
-    const audio = audioRef.current;
-    audio.volume = estado.volumen / 100;
-
-    if (estado.estaReproduciendo) {
-      // Generar URL de audio desde YouTube usando API gratuita
-      const videoId = obtenerUrlAudioYoutube(estado.cancionActual.urlYoutube);
-      if (videoId) {
-        // Usar servicio para extraer audio de YouTube
-        audio.src = `https://www.youtube.com/watch?v=${videoId}`;
-        
-        // Intentar reproducir
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('Reproducción iniciada');
-            })
-            .catch((error) => {
-              console.error('Error al reproducir:', error);
-              setEstado((prev) => ({
-                ...prev,
-                estaReproduciendo: false,
-                error: 'No se pudo reproducir la canción',
-              }));
-            });
-        }
-      }
-    } else {
-      audio.pause();
-    }
-  }, [estado.estaReproduciendo, estado.cancionActual, estado.volumen]);
-
-  const cambiarVolumen = useCallback((nuevoVolumen: number) => {
+  const cambiarVolumen = useCallback(async (nuevoVolumen: number) => {
     const volumenLimitado = Math.max(0, Math.min(100, nuevoVolumen));
-    setEstado((prev) => ({
-      ...prev,
-      volumen: volumenLimitado,
-    }));
-    if (audioRef.current) {
-      audioRef.current.volume = volumenLimitado / 100;
-    }
-  }, []);
-
-  const reproducir = useCallback(() => {
-    if (estado.cancionActual) {
+    try {
+      await axiosInstance.put("/music/volume", { volume: volumenLimitado });
       setEstado((prev) => ({
         ...prev,
-        estaReproduciendo: true,
-        error: null,
+        volumen: volumenLimitado,
       }));
+    } catch (error) {
+      console.error("Error al cambiar el volumen:", error);
+      setEstado((prev) => ({
+        ...prev,
+        error: "Error al cambiar el volumen",
+      }));
+    }
+  }, []);
+
+  const reproducir = useCallback(async () => {
+    if (estado.cancionActual) {
+      try {
+        await axiosInstance.post("/music/resume");
+        setEstado((prev) => ({
+          ...prev,
+          estaReproduciendo: true,
+          estaPausado: false,
+          error: null,
+        }));
+      } catch (error) {
+        console.error("Error al reanudar la reproducción:", error);
+        setEstado((prev) => ({
+          ...prev,
+          error: "Error al reanudar la reproducción",
+        }));
+      }
     }
   }, [estado.cancionActual]);
 
-  const pausar = useCallback(() => {
-    setEstado((prev) => ({
-      ...prev,
-      estaReproduciendo: false,
-    }));
+  const pausar = useCallback(async () => {
+    try {
+      await axiosInstance.post("/music/pause");
+      setEstado((prev) => ({
+        ...prev,
+        estaReproduciendo: false,
+      }));
+    } catch (error) {
+      console.error("Error al pausar la reproducción:", error);
+      setEstado((prev) => ({
+        ...prev,
+        error: "Error al pausar la reproducción",
+      }));
+    }
   }, []);
 
-  const siguienteCancion = useCallback(() => {
-    setEstado((prev) => {
-      if (prev.cola.length === 0) return prev;
-
-      const nuevoIndice = (prev.indiceActual + 1) % prev.cola.length;
-      const nuevaCancion = prev.cola[nuevoIndice];
-
-      return {
+  const siguienteCancion = useCallback(async () => {
+    try {
+      await axiosInstance.post("/music/next");
+      setEstado((prev) => ({
         ...prev,
-        cancionActual: nuevaCancion,
-        indiceActual: nuevoIndice,
-        historial:
-          prev.cancionActual
-            ? [prev.cancionActual, ...prev.historial].slice(0, 20)
-            : prev.historial,
-        tiempoActual: 0,
         estaReproduciendo: true,
-      };
-    });
+        tiempoActual: 0,
+      }));
+    } catch (error) {
+      console.error("Error al saltar a la siguiente canción:", error);
+      setEstado((prev) => ({
+        ...prev,
+        error: "Error al saltar a la siguiente canción",
+      }));
+    }
   }, []);
 
-  const cancionAnterior = useCallback(() => {
-    setEstado((prev) => {
-      if (prev.cola.length === 0) return prev;
-
-      const nuevoIndice =
-        prev.indiceActual === 0 ? prev.cola.length - 1 : prev.indiceActual - 1;
-      const nuevaCancion = prev.cola[nuevoIndice];
-
-      return {
+  const cancionAnterior = useCallback(async () => {
+    try {
+      await axiosInstance.post("/music/previous");
+      setEstado((prev) => ({
         ...prev,
-        cancionActual: nuevaCancion,
-        indiceActual: nuevoIndice,
-        tiempoActual: 0,
         estaReproduciendo: true,
-      };
-    });
+        tiempoActual: 0,
+      }));
+    } catch (error) {
+      console.error("Error al saltar a la canción anterior:", error);
+      setEstado((prev) => ({
+        ...prev,
+        error: "Error al saltar a la canción anterior",
+      }));
+    }
   }, []);
 
   const agregarCancion = useCallback(
-    async (urlYoutube: string, agregadoPor: string) => {
+    async (query: string, agregadoPor: string) => {
       try {
         setEstado((prev) => ({ ...prev, error: null }));
 
-        const videoId = obtenerUrlAudioYoutube(urlYoutube);
-        if (!videoId) {
-          setEstado((prev) => ({
-            ...prev,
-            error: 'URL de YouTube inválida',
-          }));
-          return false;
-        }
-
-        // const response = await fetch('/api/musica', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ urlYoutube, agregadoPor }),
-        // });
-        // const cancionData = await response.json();
+        const response = await axiosInstance.post("/music/play", {
+          query: query,
+        });
+        const cancionData = response.data;
 
         const nuevaCancion: Cancion = {
-          id: Date.now().toString(),
-          titulo: 'Canción desde YouTube',
-          artista: 'Artista',
-          urlYoutube,
-          agregadoPor,
-          duracion: 0,
-          createdAt: new Date().toISOString(),
+          id: cancionData.id || cancionData.started_at,
+          titulo: cancionData.title,
+          artista: cancionData.uploader,
+          urlYoutube: cancionData.query,
+          agregadoPor: agregadoPor,
+          duracion: cancionData.duration,
+          thumbnail: cancionData.thumbnail,
+          createdAt: cancionData.started_at,
         };
 
         setEstado((prev) => ({
           ...prev,
-          cola: [...prev.cola, nuevaCancion],
+          cola:
+            cancionData.status === "queued"
+              ? [...prev.cola, nuevaCancion]
+              : cancionData.queue || prev.cola,
+          cancionActual:
+            cancionData.status === "playing"
+              ? nuevaCancion
+              : prev.cancionActual,
+          estaReproduciendo: cancionData.status === "playing",
+          lastAdded: null,
         }));
 
         return true;
       } catch (err) {
         setEstado((prev) => ({
           ...prev,
-          error: 'Error al agregar la canción',
+          error: "Error al agregar la canción",
         }));
         return false;
       }
@@ -274,7 +382,7 @@ export const useMusica = () => {
     []
   );
 
-  const eliminarCancion = useCallback((id: string) => {
+  const eliminarCancion = useCallback(async (id: string) => {
     setEstado((prev) => {
       const nuevaCola = prev.cola.filter((c) => c.id !== id);
 
@@ -307,17 +415,17 @@ export const useMusica = () => {
     });
   }, []);
 
-  const actualizarTiempo = useCallback((tiempo: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = tiempo;
-      setEstado((prev) => ({
-        ...prev,
-        tiempoActual: tiempo,
-      }));
+  const buscarPosicion = useCallback(async (position: number) => {
+    try {
+      await axiosInstance.put("/music/seek", { position });
+      setEstado((prev) => ({ ...prev, tiempoActual: position }));
+    } catch (error) {
+      console.error("Error al buscar posición:", error);
+      setEstado((prev) => ({ ...prev, error: "Error al cambiar posición" }));
     }
   }, []);
 
-  const seleccionarCancion = useCallback((id: string) => {
+  const seleccionarCancion = useCallback(async (id: string) => {
     setEstado((prev) => {
       const indice = prev.cola.findIndex((c) => c.id === id);
       if (indice === -1) return prev;
@@ -332,6 +440,29 @@ export const useMusica = () => {
     });
   }, []);
 
+  const detenerCancion = useCallback(async () => {
+    try {
+      await axiosInstance.post("/music/stop");
+      setEstado((prev) => ({
+        ...prev,
+        cancionActual: null,
+        estaReproduciendo: false,
+        tiempoActual: 0,
+        cola: [],
+        historial: [],
+        indiceActual: 0,
+        error: null,
+        lastAdded: null,
+      }));
+    } catch (error) {
+      console.error("Error al detener la reproducción:", error);
+      setEstado((prev) => ({
+        ...prev,
+        error: "Error al detener la reproducción",
+      }));
+    }
+  }, []);
+
   return {
     estado,
     cambiarVolumen,
@@ -341,7 +472,9 @@ export const useMusica = () => {
     cancionAnterior,
     agregarCancion,
     eliminarCancion,
-    actualizarTiempo,
+
     seleccionarCancion,
+    detenerCancion,
+    buscarPosicion,
   };
 };

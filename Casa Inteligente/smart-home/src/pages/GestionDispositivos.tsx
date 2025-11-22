@@ -21,6 +21,7 @@ import {
   Computer,
 } from "lucide-react"
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
+import { useThemeByTime } from "../hooks/useThemeByTime"
 import EnergyGauge from "../components/widgets/EnergyGauge"
 
 interface Device {
@@ -45,6 +46,7 @@ export default function GestionDispositivos() {
     estimatedMonthlyCost,
     estimatedAnnualCost,
   } = useGestionDispositivos()
+  const { colors } = useThemeByTime()
 
   const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
   const [deviceTypeFilter, setDeviceTypeFilter] = React.useState<string | null>(null)
@@ -70,16 +72,16 @@ export default function GestionDispositivos() {
   })
 
   return (
-    <div className="p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full">
+    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
       {/* Header */}
       <PageHeader
         title="Gestión de dispositivos"
-        icon={<Computer className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+        icon={<Computer className="w-8 md:w-10 h-8 md:h-10" />}
       />
 
       {/* Pestañas */}
       <div
-        className="flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b border-slate-700/50"
+        className={`flex flex-col sm:flex-row gap-0 sm:gap-1 w-full border-b ${colors.border}`}
         role="tablist"
         aria-label="Gestion de Dispositivos Tabs"
       >

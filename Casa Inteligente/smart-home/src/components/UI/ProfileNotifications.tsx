@@ -12,10 +12,10 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
   const { user } = useAuth()
   const { colors, theme } = useThemeByTime()
   const displayUserName = user?.user?.username || userName || "Usuario"
-  const apiBase = (import.meta as any)?.env?.VITE_API_URL
+  const apiBase = (import.meta as any)?.env?.VITE_API_BASE_URL
+    || (import.meta as any)?.env?.VITE_API_URL
     || (import.meta as any)?.env?.VITE_BACKEND_URL
     || (typeof window !== "undefined" ? (localStorage.getItem("API_URL") || undefined) : undefined)
-    || "https://bytes-attract-moved-marsh.trycloudflare.com"
   const token = (user as any)?.access_token
     || (user as any)?.token
     || (user as any)?.jwt

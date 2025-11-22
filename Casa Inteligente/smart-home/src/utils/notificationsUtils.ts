@@ -22,12 +22,12 @@ export async function fetchNotifications(
   token?: string,
   params?: { limit?: number; offset?: number }
 ): Promise<Notification[]> {
-  const resolvedBase = apiBase
+  const resolvedEnv = (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_BASE_URL : undefined)
     || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_URL : undefined)
     || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_BACKEND_URL : undefined)
     || (typeof window !== "undefined" ? (window.localStorage.getItem("API_URL") || undefined) : undefined)
-    || "https://bytes-attract-moved-marsh.trycloudflare.com"
-  const url = new URL("/notifications/", resolvedBase)
+  const base = apiBase || resolvedEnv || (typeof window !== "undefined" ? window.location.origin : "")
+  const url = new URL("/notifications/", base)
   if (params?.limit) url.searchParams.set("limit", String(params.limit))
   if (params?.offset) url.searchParams.set("offset", String(params.offset))
 
@@ -57,7 +57,7 @@ export async function fetchNotifications(
       timestamp,
     }
   })
-  return mapped.filter((x) => !(x.type === "user_action" && typeof x.title === "string" && x.title.startsWith("DELETE /notifications/")))
+  return mapped.filter((x: Notification) => (x.type ?? "").toLowerCase() !== "user_action")
 }
 
 export async function deleteNotification(
@@ -65,12 +65,12 @@ export async function deleteNotification(
   apiBase?: string,
   token?: string
 ): Promise<boolean> {
-  const resolvedBase = apiBase
+  const resolvedEnv = (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_BASE_URL : undefined)
     || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_API_URL : undefined)
     || (typeof import.meta !== "undefined" ? (import.meta as any).env?.VITE_BACKEND_URL : undefined)
     || (typeof window !== "undefined" ? (window.localStorage.getItem("API_URL") || undefined) : undefined)
-    || "https://bytes-attract-moved-marsh.trycloudflare.com"
-  const url = new URL(`/notifications/${id}`, resolvedBase)
+  const base = apiBase || resolvedEnv || (typeof window !== "undefined" ? window.location.origin : "")
+  const url = new URL(`/notifications/${id}`, base)
   const headers: Record<string, string> = { accept: "application/json" }
   if (token) headers["Authorization"] = `Bearer ${token}`
   const res = await fetch(url.toString(), { method: "DELETE", headers, mode: "cors", credentials: "omit" })

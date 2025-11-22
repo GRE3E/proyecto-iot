@@ -63,7 +63,7 @@ export function useNotifications(
     const parsed = typeof raw?.message === "string" ? (() => { try { return JSON.parse(raw.message) } catch { return null } })() : null
     const wsType = raw?.type ?? parsed?.type
     const wsTitle = raw?.title ?? parsed?.title
-    if (wsType === "user_action" && typeof wsTitle === "string" && wsTitle.startsWith("DELETE /notifications/")) return
+    if (wsType === "user_action") return
     const id = raw?.id ?? raw?.notification_id ?? raw?.uuid ?? Math.floor(Math.random() * 1e9)
     const type = wsType
     const title = wsTitle

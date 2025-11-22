@@ -57,6 +57,9 @@ export default function Modal({
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 12, scale: 0.98, opacity: 0 }}
             transition={{ type: "spring", stiffness: 280, damping: 24 }}
+            role="dialog"
+            aria-modal="true"
+            onKeyDown={(e) => e.stopPropagation()}
           >
             {/* Botón cerrar */}
             <button

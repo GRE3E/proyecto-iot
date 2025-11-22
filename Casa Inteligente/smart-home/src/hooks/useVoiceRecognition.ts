@@ -2,11 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { axiosInstance } from "../services/authService";
 
 interface UseVoiceRecognitionProps {
-  lang?: string;
-  onResult?: (text: string) => void;
   onStart?: () => void;
   onEnd?: () => void;
-  onAudioProcessed?: (apiResponse: any) => void; // Cambiado para recibir la respuesta de la API
+  onAudioProcessed?: (apiResponse: any) => void;
 }
 
 // Función auxiliar para codificar audio a WAV
@@ -15,13 +13,13 @@ export const encodeWAV = (samples: Float32Array, sampleRate: number) => {
   const view = new DataView(buffer);
 
   /* RIFF identifier */
-  writeString(view, 0, 'RIFF');
+  writeString(view, 0, "RIFF");
   /* file length */
   view.setUint32(4, 36 + samples.length * 2, true);
   /* RIFF type */
-  writeString(view, 8, 'WAVE');
+  writeString(view, 8, "WAVE");
   /* format chunk identifier */
-  writeString(view, 12, 'fmt ');
+  writeString(view, 12, "fmt ");
   /* format chunk length */
   view.setUint32(16, 16, true);
   /* sample format (raw) */
@@ -37,13 +35,13 @@ export const encodeWAV = (samples: Float32Array, sampleRate: number) => {
   /* bits per sample */
   view.setUint16(34, 16, true);
   /* data chunk identifier */
-  writeString(view, 36, 'data');
+  writeString(view, 36, "data");
   /* data chunk length */
   view.setUint32(40, samples.length * 2, true);
 
   floatTo16BitPCM(view, 44, samples);
 
-  return new Blob([view], { type: 'audio/wav' });
+  return new Blob([view], { type: "audio/wav" });
 };
 
 const writeString = (view: DataView, offset: number, str: string) => {
@@ -52,30 +50,24 @@ const writeString = (view: DataView, offset: number, str: string) => {
   }
 };
 
-const floatTo16BitPCM = (view: DataView, offset: number, input: Float32Array) => {
+const floatTo16BitPCM = (
+  view: DataView,
+  offset: number,
+  input: Float32Array
+) => {
   for (let i = 0; i < input.length; i++, offset += 2) {
     const s = Math.max(-1, Math.min(1, input[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
 };
 
-interface UseVoiceRecognitionProps {
-  lang?: string;
-  onResult?: (text: string) => void;
-  onStart?: () => void;
-  onEnd?: () => void;
-}
-
 export function useVoiceRecognition({
-  lang = "es-PE",
-  onResult,
   onStart,
   onEnd,
-  onAudioProcessed, // Nuevo callback para cuando el audio es procesado y enviado
+  onAudioProcessed,
 }: UseVoiceRecognitionProps = {}) {
   const [listening, setListening] = useState(false);
   const listeningStateRef = useRef(listening);
-  const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -90,49 +82,6 @@ export function useVoiceRecognition({
     listeningStateRef.current = listening;
   }, [listening]);
 
-  useEffect(() => {
-    const SpeechRecognition =
-      (window as any).webkitSpeechRecognition ||
-      (window as any).SpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = lang;
-    recognition.interimResults = true;
-    recognition.continuous = true;
-
-    recognition.onstart = () => {
-      setListening(true);
-      onStart?.();
-    };
-
-    recognition.onend = () => {
-      if (listeningStateRef.current) {
-        // recognitionRef.current?.start(); // No reiniciar SpeechRecognition aquí, MediaRecorder controlará la duración
-      } else {
-        setListening(false);
-        onEnd?.();
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("SpeechRecognition Error:", event.error);
-      if (event.error === "no-speech") {
-        // Si no se detecta habla, detener la grabación
-        stopListening();
-      }
-    };
-
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((r: any) => r[0].transcript)
-        .join("");
-      onResult?.(transcript);
-    };
-
-    recognitionRef.current = recognition;
-  }, [lang, onStart, onEnd, onResult]);
-
   const startListening = async () => {
     try {
       // Limpiar cualquier temporizador de silencio anterior
@@ -146,7 +95,8 @@ export function useVoiceRecognition({
       streamRef.current = stream;
 
       // Configurar AudioContext y AnalyserNode para detección de silencio
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.minDecibels = -90; // Nivel mínimo de decibelios
@@ -166,7 +116,14 @@ export function useVoiceRecognition({
         analyserRef.current.getByteFrequencyData(dataArray);
         const sum = dataArray.reduce((a, b) => a + b, 0);
         const average = sum / bufferLength;
-        console.log("Audio average:", average, "Silence threshold:", SILENCE_THRESHOLD, "Silence timeout active:", !!silenceTimeoutRef.current);
+        console.log(
+          "Audio average:",
+          average,
+          "Silence threshold:",
+          SILENCE_THRESHOLD,
+          "Silence timeout active:",
+          !!silenceTimeoutRef.current
+        );
 
         if (average < SILENCE_THRESHOLD) {
           if (!silenceTimeoutRef.current) {
@@ -197,11 +154,19 @@ export function useVoiceRecognition({
 
       mediaRecorderRef.current.onstop = async () => {
         console.log("Audio chunks collected:", audioChunksRef.current.length);
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        console.log("Audio Blob size:", audioBlob.size, "type:", audioBlob.type);
-        
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        console.log(
+          "Audio Blob size:",
+          audioBlob.size,
+          "type:",
+          audioBlob.type
+        );
+
         // Convertir a WAV
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioContext = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
         const arrayBuffer = await audioBlob.arrayBuffer();
         const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
         const float32Array = decodedAudio.getChannelData(0); // Asumiendo un solo canal
@@ -210,7 +175,18 @@ export function useVoiceRecognition({
 
         // Enviar el archivo WAV a la API
         const formData = new FormData();
-        formData.append('audio_file', wavBlob, 'audio.wav');
+        formData.append("audio_file", wavBlob, "audio.wav");
+
+        // Log para debugging
+        console.log("Preparando para enviar audio a la API");
+        console.log("WAV Blob info:", {
+          size: wavBlob.size,
+          type: wavBlob.type,
+        });
+        console.log(
+          "Token disponible:",
+          !!localStorage.getItem("access_token")
+        );
 
         try {
           const response = await axiosInstance.post(
@@ -218,8 +194,9 @@ export function useVoiceRecognition({
             formData,
             {
               headers: {
-                accept: "application/json",
-                // No establecer 'Content-Type' manualmente; axios lo gestiona con FormData
+                // IMPORTANTE: No establecer 'Content-Type' manualmente
+                // El browser debe establecerlo con el boundary correcto para FormData
+                "Content-Type": undefined,
               },
             }
           );
@@ -229,13 +206,19 @@ export function useVoiceRecognition({
           if (onAudioProcessed) {
             onAudioProcessed(data);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error sending audio to AI:", error);
+          if (error.response) {
+            console.error("Error response data:", error.response.data);
+            console.error("Error response status:", error.response.status);
+            console.error("Error response headers:", error.response.headers);
+          }
         }
       };
 
       mediaRecorderRef.current.start();
-      recognitionRef.current?.start();
+      setListening(true);
+      onStart?.();
     } catch (err) {
       console.warn("SpeechRecognition or MediaRecorder start error:", err);
     }
@@ -244,9 +227,8 @@ export function useVoiceRecognition({
   const stopListening = () => {
     console.log("Stopping listening...");
     try {
-      recognitionRef.current?.stop();
       mediaRecorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach(track => track.stop()); // Detener la pista de audio
+      streamRef.current?.getTracks().forEach((track) => track.stop()); // Detener la pista de audio
       audioContextRef.current?.close(); // Cerrar AudioContext
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);

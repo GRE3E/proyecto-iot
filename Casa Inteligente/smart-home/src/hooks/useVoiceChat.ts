@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAuth } from './useAuth';
+import { useAuth } from "./useAuth";
 import { useVoiceRecognition } from "./useVoiceRecognition";
 import { speakText, SpeechSynthesisSupported } from "../utils/voiceUtils";
 import { useAnimation } from "framer-motion";
@@ -21,23 +21,35 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
   const waveControls = useAnimation();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  
+
   useEffect(() => {
     if (!options?.prefetchHistory) return;
     const fetchHistory = async () => {
       try {
         const response = await axiosInstance.get(`/nlp/nlp/history?limit=50`);
         const data = response.data;
-        const formattedMessages: Message[] = data.history.flatMap((item: any) => {
-          const msgs: Message[] = [];
-          if (item.user_message) {
-            msgs.push({ sender: "Tú", text: item.user_message, timestamp: new Date(), type: "text" });
+        const formattedMessages: Message[] = data.history.flatMap(
+          (item: any) => {
+            const msgs: Message[] = [];
+            if (item.user_message) {
+              msgs.push({
+                sender: "Tú",
+                text: item.user_message,
+                timestamp: new Date(),
+                type: "text",
+              });
+            }
+            if (item.assistant_message) {
+              msgs.push({
+                sender: "CasaIA",
+                text: item.assistant_message,
+                timestamp: new Date(),
+                type: "text",
+              });
+            }
+            return msgs;
           }
-          if (item.assistant_message) {
-            msgs.push({ sender: "CasaIA", text: item.assistant_message, timestamp: new Date(), type: "text" });
-          }
-          return msgs;
-        });
+        );
         setMessages(formattedMessages);
       } catch (error) {
         console.error("Error fetching chat history:", error);
@@ -46,13 +58,13 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
     fetchHistory();
   }, [options?.prefetchHistory]);
 
-  // Reconocimiento de voz
+  // Reconocimiento de voz - todo el procesamiento se hace en el backend
   const { listening, startListening, stopListening } = useVoiceRecognition({
-    onResult: (transcript) => {
-      setText(transcript);
-    },
     onStart: () => startWaveAnimation(),
-    onEnd: () => stopWaveAnimation(),
+    onEnd: () => {
+      stopWaveAnimation();
+      setVoiceActive(false);
+    },
     onAudioProcessed: (apiResponse: any) => {
       if (apiResponse) {
         // Añadir el mensaje del usuario al chat
@@ -77,7 +89,10 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
           setMessages((prev) => [...prev, aiMessage]);
         }
       } else {
-        console.error("Respuesta de API inesperada de useVoiceRecognition:", apiResponse);
+        console.error(
+          "Respuesta de API inesperada de useVoiceRecognition:",
+          apiResponse
+        );
       }
     },
   });
@@ -119,11 +134,14 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
     setIsTyping(true);
 
     try {
-      const response = await axiosInstance.post(`/nlp/nlp/query`, { prompt: msg.text });
+      const response = await axiosInstance.post(`/nlp/nlp/query`, {
+        prompt: msg.text,
+      });
 
       const data = response.data;
       console.log("API Response Data:", data); // Agregado para depuración
-      const aiResponseText = data.response || "Lo siento, no pude obtener una respuesta.";
+      const aiResponseText =
+        data.response || "Lo siento, no pude obtener una respuesta.";
 
       setIsTyping(false);
       const aiMessage: Message = {
@@ -153,13 +171,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
     if (!voiceActive) startListening();
     else stopListening();
   };
-
-  useEffect(() => {
-    if (!listening && text.trim() && voiceActive) {
-      sendMessage(text);
-      setVoiceActive(false);
-    }
-  }, [listening]);
 
   const clearMessages = () => setMessages([]);
 

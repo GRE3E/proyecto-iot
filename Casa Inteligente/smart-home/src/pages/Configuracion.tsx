@@ -106,29 +106,25 @@ export default function Configuracion() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTheme("light")}
-              className={`px-3 py-1 rounded-lg text-sm ${
+              className={`p-2 rounded-lg ${
                 theme === "light"
                   ? `bg-gradient-to-r ${colors.primary} text-white`
                   : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
               }`}
+              aria-label="Tema claro"
             >
-              Claro
+              <Sun className="w-4 h-4" />
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className={`px-3 py-1 rounded-lg text-sm ${
+              className={`p-2 rounded-lg ${
                 theme === "dark"
                   ? `bg-gradient-to-r ${colors.primary} text-white`
                   : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
               }`}
+              aria-label="Tema oscuro"
             >
-              Oscuro
-            </button>
-            <button
-              onClick={toggleTheme}
-              className={`px-3 py-1 rounded-lg text-sm ${colors.cardBg} ${colors.text} border ${colors.cardHover}`}
-            >
-              Alternar
+              <Moon className="w-4 h-4" />
             </button>
           </div>
         </SimpleCard>

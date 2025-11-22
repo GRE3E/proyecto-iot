@@ -41,14 +41,18 @@ class RoutineCreateRequest(BaseModel):
     trigger: Dict[str, Any]
     trigger_type: str
     command_ids: Optional[List[int]] = None
+    actions: Optional[List[str]] = None
     enabled: bool = True
 
 class RoutineUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     trigger: Optional[Dict[str, Any]] = None
+    trigger_type: Optional[str] = None
     enabled: Optional[bool] = None
     confidence: Optional[float] = None
+    command_ids: Optional[List[int]] = None
+    actions: Optional[List[str]] = None
 
 class RoutineResponse(BaseModel):
     id: int
@@ -63,6 +67,7 @@ class RoutineResponse(BaseModel):
     updated_at: str
     last_executed: Optional[str]
     execution_count: int
+    actions: List[str]
     iot_commands: List[str]
 
     class Config:

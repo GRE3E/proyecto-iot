@@ -254,7 +254,6 @@ async def get_user_routines(
         logger.error(f"Error obteniendo rutinas: {e}")
         raise HTTPException(status_code=500, detail="Error obteniendo rutinas")
 
-
 @nlp_router.post("/routines", response_model=RoutineResponse)
 async def create_routine(
     routine_req: RoutineCreateRequest,
@@ -270,6 +269,7 @@ async def create_routine(
                 db,
                 current_user.id,
                 pattern,
+                actions=routine_req.actions,
                 command_ids=routine_req.command_ids,
                 confirmed=False
             )
@@ -344,10 +344,17 @@ async def update_routine(
                 update_kwargs['description'] = routine_req.description
             if routine_req.trigger is not None:
                 update_kwargs['trigger'] = routine_req.trigger
+            if routine_req.trigger_type is not None and (not update_kwargs.get('trigger') or 'type' not in update_kwargs['trigger']):
+                update_kwargs.setdefault('trigger', {})
+                update_kwargs['trigger']['type'] = routine_req.trigger_type
             if routine_req.enabled is not None:
                 update_kwargs['enabled'] = routine_req.enabled
             if routine_req.confidence is not None:
                 update_kwargs['confidence'] = routine_req.confidence
+            if routine_req.command_ids is not None:
+                update_kwargs['command_ids'] = routine_req.command_ids
+            if routine_req.actions is not None:
+                update_kwargs['actions'] = routine_req.actions
             
             routine = await utils._nlp_module._memory_brain.routine_manager.update_routine(
                 db,
@@ -370,6 +377,36 @@ async def update_routine(
     except Exception as e:
         logger.error(f"Error actualizando rutina: {e}")
         raise HTTPException(status_code=500, detail="Error actualizando rutina")
+
+
+@nlp_router.post("/routines/{routine_id}/execute", response_model=MessageResponse)
+async def execute_routine(
+    routine_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        async with get_db() as db:
+            routine = await utils._nlp_module._memory_brain.routine_manager.get_routine_by_id(db, routine_id)
+            if not routine:
+                raise HTTPException(status_code=404, detail="Rutina no encontrada")
+            if routine.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="No tiene permiso para ejecutar esta rutina")
+            executed = await utils._nlp_module._memory_brain.routine_manager.execute_routine(db, routine_id)
+            if executed is None:
+                raise HTTPException(status_code=400, detail="Rutina no está confirmada o habilitada")
+            response = MessageResponse(message="Rutina ejecutada correctamente")
+            await utils._save_api_log(
+                f"/routines/{routine_id}/execute",
+                {"routine_id": routine_id},
+                response.dict(),
+                db
+            )
+            return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error ejecutando rutina: {e}")
+        raise HTTPException(status_code=500, detail="Error ejecutando rutina")
 
 
 @nlp_router.delete("/routines/{routine_id}", response_model=MessageResponse)

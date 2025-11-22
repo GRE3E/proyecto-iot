@@ -112,10 +112,21 @@ class RoutineManager:
         if not routine:
             return None
 
-        allowed_fields = ['name', 'description', 'trigger', 'enabled', 'confidence']
+        allowed_fields = ['name', 'description', 'trigger', 'enabled', 'confidence', 'actions']
         for field, value in kwargs.items():
             if field in allowed_fields:
                 setattr(routine, field, value)
+
+        if 'command_ids' in kwargs and kwargs['command_ids'] is not None:
+            ids = kwargs['command_ids']
+            try:
+                result = await db.execute(
+                    select(IoTCommand).filter(IoTCommand.id.in_(ids))
+                )
+                commands = result.scalars().all()
+                routine.iot_commands = commands
+            except Exception:
+                pass
 
         routine.updated_at = datetime.now()
         await db.commit()
@@ -326,16 +337,48 @@ class RoutineManager:
             now = datetime.now()
             trigger_hour = trigger.get("hour")
             try:
+                hour_match = False
                 if isinstance(trigger_hour, str):
                     parts = trigger_hour.split(":")
                     if len(parts) == 2:
                         h = int(parts[0])
                         m = int(parts[1])
-                        return h == now.hour and m == now.minute
+                        hour_match = (h == now.hour and m == now.minute)
                     else:
-                        return int(trigger_hour) == now.hour
+                        hour_match = (int(trigger_hour) == now.hour)
                 elif isinstance(trigger_hour, int):
-                    return trigger_hour == now.hour
+                    hour_match = (trigger_hour == now.hour)
+                else:
+                    hour_match = False
+
+                if not hour_match:
+                    return False
+
+                days = trigger.get("days") or []
+                date_str = trigger.get("date")
+
+                if date_str:
+                    try:
+                        # Formato esperado YYYY-MM-DD
+                        y, mo, d = [int(x) for x in str(date_str).split("-")]
+                        return (now.year == y and now.month == mo and now.day == d)
+                    except Exception:
+                        return False
+
+                if isinstance(days, list) and len(days) > 0:
+                    weekday_map = [
+                        "Lunes",
+                        "Martes",
+                        "Miércoles",
+                        "Jueves",
+                        "Viernes",
+                        "Sábado",
+                        "Domingo",
+                    ]
+                    today_label = weekday_map[now.weekday()]
+                    return today_label in days
+
+                return True
             except Exception:
                 return False
         elif trigger_type == "context_based":
@@ -354,9 +397,14 @@ class RoutineManager:
         if pattern_type == "time_based":
             hour = pattern.get("hour", 0)
             intent = pattern.get("intent", "acción")
-            if isinstance(hour, str):
-                return f"Rutina: {intent} a las {hour}"
-            return f"Rutina: {intent} a las {hour}:00"
+            days = pattern.get("days") or []
+            date = pattern.get("date")
+            when = f"a las {hour}" if isinstance(hour, str) else f"a las {hour}:00"
+            if date:
+                when += f" el {date}"
+            elif isinstance(days, list) and len(days) > 0:
+                when += f" ({', '.join(days)})"
+            return f"Rutina: {intent} {when}"
         elif pattern_type == "context_based":
             location = pattern.get("location", "ubicación")
             action = pattern.get("action", "acción")

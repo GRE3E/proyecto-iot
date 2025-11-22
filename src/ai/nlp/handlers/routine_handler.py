@@ -375,9 +375,17 @@ class RoutineHandler:
                     trigger_info = ""
                     if routine.trigger_type == "time_based" and routine.trigger:
                         hour = routine.trigger.get("hour", "?")
-                        trigger_info = f"a las {hour}:00"
+                        days = routine.trigger.get("days") or []
+                        date = routine.trigger.get("date")
+                        base = f"a las {hour}" if isinstance(hour, str) else f"a las {hour}:00"
+                        if date:
+                            trigger_info = f"{base} el {date}"
+                        elif isinstance(days, list) and len(days) > 0:
+                            trigger_info = f"{base} ({', '.join(days)})"
+                        else:
+                            trigger_info = base
                     
-                    actions_count = len(routine.iot_commands) if routine.iot_commands else 0
+                    actions_count = (len(routine.iot_commands) if routine.iot_commands else 0) + (len(routine.actions) if routine.actions else 0)
                     routines_list.append(f"• {routine.name} ({trigger_info}) - {actions_count} acciones")
                 
                 routines_text = "\n".join(routines_list)

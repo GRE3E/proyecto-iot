@@ -34,33 +34,6 @@ export default function TimezoneSelector({
         className={`${colors.inputBg} ${colors.text} rounded px-2 py-1 text-sm border ${colors.inputBorder} hover:border-blue-500 transition-colors`}
       >
         <option value="">Selecciona una zona horaria</option>
-        <optgroup label="UTC">
-          <option value="UTC">UTC ± 0:00</option>
-          <option value="Etc/GMT+12">GMT-12:00</option>
-          <option value="Etc/GMT+11">GMT-11:00</option>
-          <option value="Etc/GMT+10">GMT-10:00</option>
-          <option value="Etc/GMT+9">GMT-09:00</option>
-          <option value="Etc/GMT+8">GMT-08:00</option>
-          <option value="Etc/GMT+7">GMT-07:00</option>
-          <option value="Etc/GMT+6">GMT-06:00</option>
-          <option value="Etc/GMT+5">GMT-05:00</option>
-          <option value="Etc/GMT+4">GMT-04:00</option>
-          <option value="Etc/GMT+3">GMT-03:00</option>
-          <option value="Etc/GMT+2">GMT-02:00</option>
-          <option value="Etc/GMT+1">GMT-01:00</option>
-          <option value="Etc/GMT-1">GMT+01:00</option>
-          <option value="Etc/GMT-2">GMT+02:00</option>
-          <option value="Etc/GMT-3">GMT+03:00</option>
-          <option value="Etc/GMT-4">GMT+04:00</option>
-          <option value="Etc/GMT-5">GMT+05:00</option>
-          <option value="Etc/GMT-6">GMT+06:00</option>
-          <option value="Etc/GMT-7">GMT+07:00</option>
-          <option value="Etc/GMT-8">GMT+08:00</option>
-          <option value="Etc/GMT-9">GMT+09:00</option>
-          <option value="Etc/GMT-10">GMT+10:00</option>
-          <option value="Etc/GMT-11">GMT+11:00</option>
-          <option value="Etc/GMT-12">GMT+12:00</option>
-        </optgroup>
         <optgroup label="América">
           <option value="America/Anchorage">(UTC-09:00) Alaska</option>
           <option value="America/Vancouver">(UTC-08:00) Pacific Time - Vancouver</option>

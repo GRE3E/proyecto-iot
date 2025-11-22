@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { axiosInstance } from "../services/authService";
 
 export interface TimezoneConfig {
   region: string;
@@ -11,7 +12,7 @@ export interface TimezoneConfig {
 }
 
 export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
-  "América Latina": [
+  "América": [
     {
       region: "Argentina",
       timezone: "America/Argentina/Buenos_Aires",
@@ -131,6 +132,13 @@ export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
       daylightSaving: false,
       utcOffset: -4,
     },
+    {
+      region: "Alaska",
+      timezone: "America/Anchorage",
+      offset: "UTC-9",
+      daylightSaving: true,
+      utcOffset: -9,
+    },
   ],
   Europa: [
     {
@@ -189,6 +197,13 @@ export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
       daylightSaving: true,
       utcOffset: 1,
     },
+    {
+      region: "Chequia",
+      timezone: "Europe/Prague",
+      offset: "UTC+1",
+      daylightSaving: true,
+      utcOffset: 1,
+    },
   ],
   Asia: [
     {
@@ -233,6 +248,13 @@ export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
       daylightSaving: false,
       utcOffset: 8,
     },
+    {
+      region: "Emiratos Árabes Unidos",
+      timezone: "Asia/Dubai",
+      offset: "UTC+4",
+      daylightSaving: false,
+      utcOffset: 4,
+    },
   ],
   Oceanía: [
     {
@@ -257,6 +279,15 @@ export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
       utcOffset: 13,
     },
   ],
+  África: [
+    {
+      region: "Egipto",
+      timezone: "Africa/Cairo",
+      offset: "UTC+2",
+      daylightSaving: true,
+      utcOffset: 2,
+    },
+  ],
 };
 
 export function useZonaHoraria() {
@@ -272,7 +303,7 @@ export function useZonaHoraria() {
       setSelectedTimezone(parsed);
     } else {
       // Usar Perú por defecto
-      const defaultTimezone = TIMEZONE_DATA["América Latina"].find(
+      const defaultTimezone = TIMEZONE_DATA["América"].find(
         (tz) => tz.region === "Perú"
       );
       if (defaultTimezone) {
@@ -314,10 +345,31 @@ export function useZonaHoraria() {
     return () => clearInterval(interval);
   }, [selectedTimezone]);
 
-  // Guardar nueva zona horaria
-  const saveTimezone = useCallback((timezone: TimezoneConfig) => {
-    setSelectedTimezone(timezone);
-    localStorage.setItem("userTimezone", JSON.stringify(timezone));
+  // Maneja el cambio de zona horaria y lo guarda en el servidor
+  const handleTimezoneChange = useCallback(async (timezoneString: string) => {
+    const timezoneConfig = getTimezoneByTimezone(timezoneString);
+    if (!timezoneConfig) {
+      console.error("Zona horaria inválida:", timezoneString);
+      return;
+    }
+
+    setSelectedTimezone(timezoneConfig);
+    localStorage.setItem("userTimezone", JSON.stringify(timezoneConfig));
+
+    try {
+      const response = await axiosInstance.put('/nlp/config/timezone', {
+        timezone: timezoneConfig.timezone,
+      });
+      if (response.status >= 200 && response.status < 300) {
+        console.log("Zona horaria actualizada exitosamente en el servidor.");
+      } else {
+        const errorMessage = (response.data && (response.data.detail || JSON.stringify(response.data))) || `status ${response.status}`;
+        console.error('Error al actualizar la zona horaria en el servidor:', errorMessage);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Error desconocido';
+      console.error('Error al actualizar la zona horaria en el servidor:', errorMessage);
+    }
   }, []);
 
   // Obtener todas las zonas horarias en un array
@@ -336,7 +388,19 @@ export function useZonaHoraria() {
         const found = continent.find((tz) => tz.timezone === timezoneString);
         if (found) return found;
       }
-      return null;
+      try {
+        const parts = timezoneString.split('/');
+        const regionName = parts[1] ? parts[1].replace('_', ' ') : parts[0];
+        return {
+          region: regionName,
+          timezone: timezoneString,
+          offset: "",
+          daylightSaving: false,
+          utcOffset: 0,
+        };
+      } catch {
+        return null;
+      }
     },
     []
   );
@@ -346,7 +410,7 @@ export function useZonaHoraria() {
     setSelectedTimezone,
     currentTime,
     currentDate,
-    saveTimezone,
+    handleTimezoneChange,
     getAllTimezones,
     getTimezoneByTimezone,
     TIMEZONE_DATA,

@@ -63,17 +63,7 @@ export default function Configuracion() {
     ownerUsernames,
   } = useConfiguracion();
 
-  const { selectedTimezone, saveTimezone, TIMEZONE_DATA } = useZonaHoraria();
-
-  const handleTimezoneChange = (timezoneString: string) => {
-    for (const continent of Object.values(TIMEZONE_DATA)) {
-      const found = continent.find((tz) => tz.timezone === timezoneString);
-      if (found) {
-        saveTimezone(found);
-        break;
-      }
-    }
-  };
+  const { selectedTimezone, handleTimezoneChange } = useZonaHoraria();
 
   return (
     <div

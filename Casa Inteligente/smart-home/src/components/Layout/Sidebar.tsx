@@ -75,6 +75,7 @@ export default function HamburgerMenu({
         >
           <button
             onClick={() => setIsSidebarOpen(true)}
+            //ABRIR MENU
             aria-label="Abrir menú"
             className={`h-11 w-11 flex flex-col justify-center items-center rounded-xl bg-gradient-to-r ${colors.primary} shadow-lg transition-transform duration-200 active:scale-95 ${colors.text}`}
           >
@@ -127,9 +128,10 @@ export default function HamburgerMenu({
                 <button
                   onClick={() => setIsSidebarOpen(false)}
                   aria-label="Cerrar menú"
-                  className={`h-11 w-11 flex items-center justify-center rounded-xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0`}
+                  //BOTON CERRAR MENU
+                  className={`h-12 w-14.5 flex items-center justify-center rounded-xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0`}
                 >
-                  <Home className={`w-5 h-5 transition-transform duration-300 hover:scale-110 ${colors.icon}`} />
+                  <Home className={`w-6 h-6 transition-transform duration-300 hover:scale-110 ${colors.icon}`} />
                 </button>
 
                 <h1

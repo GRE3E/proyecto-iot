@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import { Settings, Bell, Mic, Sun, Moon } from "lucide-react"
-import SimpleCard from "../components/UI/Card"
-import Perfil from "../components/UI/Perfil"
-import Modal from "../components/UI/Modal"
-import PageHeader from "../components/UI/PageHeader"
-import TimezoneSelector from "../components/UI/TimezoneSelector"
-import { useConfiguracion } from "../hooks/useConfiguration"
-import { useZonaHoraria } from "../hooks/useZonaHoraria"
-import { useThemeByTime } from "../hooks/useThemeByTime"
+import { Settings, Bell, Mic, Sun, Moon } from "lucide-react";
+import SimpleCard from "../components/UI/Card";
+import Perfil from "../components/UI/Perfil";
+import Modal from "../components/UI/Modal";
+import PageHeader from "../components/UI/PageHeader";
+import TimezoneSelector from "../components/UI/TimezoneSelector";
+import { useConfiguracion } from "../hooks/useConfiguration";
+import { useZonaHoraria } from "../hooks/useZonaHoraria";
+import { useThemeByTime } from "../hooks/useThemeByTime";
 
 export default function Configuracion() {
-  const { colors, theme, setTheme, toggleTheme } = useThemeByTime()
+  const { colors, theme, setTheme, toggleTheme } = useThemeByTime();
   const {
     ownerName,
     setOwnerName,
@@ -61,26 +61,24 @@ export default function Configuracion() {
     handleVerifyFacePassword,
     isCurrentUserOwner,
     ownerUsernames,
-  } = useConfiguracion()
+  } = useConfiguracion();
 
-  const {
-    selectedTimezone,
-    saveTimezone,
-    TIMEZONE_DATA,
-  } = useZonaHoraria()
+  const { selectedTimezone, saveTimezone, TIMEZONE_DATA } = useZonaHoraria();
 
   const handleTimezoneChange = (timezoneString: string) => {
     for (const continent of Object.values(TIMEZONE_DATA)) {
-      const found = continent.find((tz) => tz.timezone === timezoneString)
+      const found = continent.find((tz) => tz.timezone === timezoneString);
       if (found) {
-        saveTimezone(found)
-        break
+        saveTimezone(found);
+        break;
       }
     }
-  }
+  };
 
   return (
-    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
+    <div
+      className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}
+    >
       {/* Header */}
       <PageHeader
         title="CONFIGURACIÓN"
@@ -91,15 +89,47 @@ export default function Configuracion() {
         {/* Tema del sistema */}
         <SimpleCard className="p-4 flex items-center justify-between">
           <div>
-            <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
-              {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} Tema
+            <div
+              className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
+            >
+              {theme === "light" ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}{" "}
+              Tema
             </div>
-            <div className={`text-xs ${colors.mutedText}`}>Elige claro u oscuro</div>
+            <div className={`text-xs ${colors.mutedText}`}>
+              Elige claro u oscuro
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setTheme("light")} className={`px-3 py-1 rounded-lg text-sm ${theme==="light"?`bg-gradient-to-r ${colors.primary} text-white`:`${colors.cardBg} ${colors.text} border ${colors.cardHover}`}`}>Claro</button>
-            <button onClick={() => setTheme("dark")} className={`px-3 py-1 rounded-lg text-sm ${theme==="dark"?`bg-gradient-to-r ${colors.primary} text-white`:`${colors.cardBg} ${colors.text} border ${colors.cardHover}`}`}>Oscuro</button>
-            <button onClick={toggleTheme} className={`px-3 py-1 rounded-lg text-sm ${colors.cardBg} ${colors.text} border ${colors.cardHover}`}>Alternar</button>
+            <button
+              onClick={() => setTheme("light")}
+              className={`px-3 py-1 rounded-lg text-sm ${
+                theme === "light"
+                  ? `bg-gradient-to-r ${colors.primary} text-white`
+                  : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
+              }`}
+            >
+              Claro
+            </button>
+            <button
+              onClick={() => setTheme("dark")}
+              className={`px-3 py-1 rounded-lg text-sm ${
+                theme === "dark"
+                  ? `bg-gradient-to-r ${colors.primary} text-white`
+                  : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
+              }`}
+            >
+              Oscuro
+            </button>
+            <button
+              onClick={toggleTheme}
+              className={`px-3 py-1 rounded-lg text-sm ${colors.cardBg} ${colors.text} border ${colors.cardHover}`}
+            >
+              Alternar
+            </button>
           </div>
         </SimpleCard>
         {/* Perfil del propietario con propietarios arriba y familiares debajo */}
@@ -112,7 +142,11 @@ export default function Configuracion() {
             setMembers={setMembers}
             isOwnerFixed={false}
             onEditProfile={handleEditProfile}
-            onAddMember={isCurrentUserOwner ? () => setIsAddMemberModalOpen(true) : undefined}
+            onAddMember={
+              isCurrentUserOwner
+                ? () => setIsAddMemberModalOpen(true)
+                : undefined
+            }
             owners={ownerUsernames}
           />
         </SimpleCard>
@@ -122,10 +156,14 @@ export default function Configuracion() {
           {/* Notificaciones */}
           <SimpleCard className="p-4 flex items-center justify-between">
             <div>
-              <div className={`${colors.text} flex items-center gap-2 font-medium text-sm`}>
+              <div
+                className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
+              >
                 <Bell className="w-4 h-4" /> Notificaciones
               </div>
-              <div className={`text-xs ${colors.mutedText}`}>Activar o desactivar alertas</div>
+              <div className={`text-xs ${colors.mutedText}`}>
+                Activar o desactivar alertas
+              </div>
             </div>
             <input
               type="checkbox"
@@ -150,7 +188,9 @@ export default function Configuracion() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nombre</label>
+              <label className="block text-sm text-slate-400 mb-1">
+                Nombre
+              </label>
               <input
                 type="text"
                 value={modalOwnerName}
@@ -160,7 +200,9 @@ export default function Configuracion() {
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <label className="block text-sm text-slate-400 mb-1">
+                Contraseña actual
+              </label>
               <input
                 type="password"
                 value={modalCurrentPassword}
@@ -171,7 +213,9 @@ export default function Configuracion() {
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nueva contraseña</label>
+              <label className="block text-sm text-slate-400 mb-1">
+                Nueva contraseña
+              </label>
               <input
                 type="password"
                 value={modalPassword}
@@ -221,7 +265,9 @@ export default function Configuracion() {
         >
           <div className="flex flex-col items-center gap-4">
             <div className="w-full">
-              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <label className="block text-sm text-slate-400 mb-1">
+                Contraseña actual
+              </label>
               <input
                 type="password"
                 value={voicePassword}
@@ -236,7 +282,9 @@ export default function Configuracion() {
                 Verificar contraseña
               </button>
               {voicePasswordVerified && (
-                <p className="text-green-400 text-xs mt-1">Contraseña verificada ✔️</p>
+                <p className="text-green-400 text-xs mt-1">
+                  Contraseña verificada ✔️
+                </p>
               )}
             </div>
             <p className="text-sm text-slate-400 text-center">
@@ -249,7 +297,9 @@ export default function Configuracion() {
             <button
               onClick={handleChangeVoice}
               className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white transition-all w-full md:w-auto ${
-                isListening ? "bg-red-600 animate-pulse cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                isListening
+                  ? "bg-red-600 animate-pulse cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
               }`}
               disabled={isListening || !voicePasswordVerified}
             >
@@ -258,7 +308,9 @@ export default function Configuracion() {
             </button>
 
             {statusMessage && (
-              <p className="text-sm text-slate-300 text-center">{statusMessage}</p>
+              <p className="text-sm text-slate-300 text-center">
+                {statusMessage}
+              </p>
             )}
             {transcript && (
               <p className="text-sm text-slate-400 text-center italic">
@@ -276,7 +328,7 @@ export default function Configuracion() {
               {voiceConfirmed && (
                 <button
                   onClick={() => {
-                    handleUploadVoiceToUser()
+                    handleUploadVoiceToUser();
                   }}
                   className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
                 >
@@ -295,7 +347,9 @@ export default function Configuracion() {
         >
           <div className="space-y-4 text-center">
             <div className="text-left">
-              <label className="block text-sm text-slate-400 mb-1">Contraseña actual</label>
+              <label className="block text-sm text-slate-400 mb-1">
+                Contraseña actual
+              </label>
               <input
                 type="password"
                 value={facePassword}
@@ -310,7 +364,9 @@ export default function Configuracion() {
                 Verificar contraseña
               </button>
               {facePasswordVerified && (
-                <p className="text-green-400 text-xs mt-1">Contraseña verificada ✔️</p>
+                <p className="text-green-400 text-xs mt-1">
+                  Contraseña verificada ✔️
+                </p>
               )}
             </div>
             <p className="text-sm text-slate-400">
@@ -318,7 +374,9 @@ export default function Configuracion() {
             </p>
 
             <div className="bg-slate-800 border border-slate-700 rounded-xl w-full h-48 flex items-center justify-center">
-              <span className="text-slate-500 text-sm">📷 Vista previa de cámara</span>
+              <span className="text-slate-500 text-sm">
+                📷 Vista previa de cámara
+              </span>
             </div>
 
             {!faceDetected && (
@@ -347,7 +405,7 @@ export default function Configuracion() {
               {faceDetected && (
                 <button
                   onClick={() => {
-                    handleRegisterFaceToUser()
+                    handleRegisterFaceToUser();
                   }}
                   className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
                 >
@@ -363,8 +421,8 @@ export default function Configuracion() {
           title="Agregar nuevo familiar"
           isOpen={isAddMemberModalOpen}
           onClose={() => {
-            setIsAddMemberModalOpen(false)
-            setCurrentStep(1)
+            setIsAddMemberModalOpen(false);
+            setCurrentStep(1);
           }}
         >
           <div className="space-y-6">
@@ -372,7 +430,9 @@ export default function Configuracion() {
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1">Nombre de usuario</label>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Nombre de usuario
+                  </label>
                   <input
                     type="text"
                     value={newMember.username}
@@ -383,7 +443,9 @@ export default function Configuracion() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1">Contraseña</label>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Contraseña
+                  </label>
                   <input
                     type="password"
                     value={newMember.password}
@@ -395,10 +457,15 @@ export default function Configuracion() {
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
-                  <label className="text-sm text-slate-300">¿Es administrador?</label>
+                  <label className="text-sm text-slate-300">
+                    ¿Es administrador?
+                  </label>
                   <button
                     onClick={() =>
-                      setNewMember({ ...newMember, isAdmin: !newMember.isAdmin })
+                      setNewMember({
+                        ...newMember,
+                        isAdmin: !newMember.isAdmin,
+                      })
                     }
                     className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
                       newMember.isAdmin ? "bg-blue-600" : "bg-slate-600"
@@ -412,17 +479,23 @@ export default function Configuracion() {
                   </button>
                 </div>
 
-                {errorMessage && <p className="text-red-400 text-sm">{errorMessage}</p>}
+                {errorMessage && (
+                  <p className="text-red-400 text-sm">{errorMessage}</p>
+                )}
 
                 <div className="flex justify-end">
                   <button
                     onClick={handleFinalizeMember}
                     disabled={isRegisteringMember}
                     className={`px-4 py-2 rounded-lg text-sm w-full md:w-auto ${
-                      isRegisteringMember ? "bg-slate-600 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                      isRegisteringMember
+                        ? "bg-slate-600 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700"
                     }`}
                   >
-                    {isRegisteringMember ? "Registrando..." : "Registrar usuario"}
+                    {isRegisteringMember
+                      ? "Registrando..."
+                      : "Registrar usuario"}
                   </button>
                 </div>
               </div>
@@ -431,5 +504,5 @@ export default function Configuracion() {
         </Modal>
       </div>
     </div>
-  )
+  );
 }

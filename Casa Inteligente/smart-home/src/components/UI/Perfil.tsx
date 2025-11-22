@@ -131,16 +131,14 @@ export default function Perfil({
 
               {/* Propietarios - Tags dentro de Administradores */}
               {owners && owners.length > 0 && (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {owners.map((name) => (
-                    <div
-                      key={name}
-                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition"
-                    >
-                      <div>
-                        <div className="font-medium">{name}</div>
-                        <div className={`text-xs ${colors.mutedText}`}>
-                        </div>
+                    <div key={name} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                      <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{name}</div>
                       </div>
                     </div>
                   ))}
@@ -150,36 +148,27 @@ export default function Perfil({
               {admins.length === 0 ? (
                 <p className="text-slate-400 text-sm"></p>
               ) : (
-                admins.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition"
-                  >
-                    <div>
-                      <div className="font-medium">{m.name}</div>
-                      <div className={`text-xs ${colors.mutedText}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {admins.map((m) => (
+                    <div key={m.id} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                      <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{m.name}</div>
+                        <div className={`text-[11px] ${colors.mutedText}`}>Administrador</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteMember(m.id)} className="text-red-400 hover:text-red-600 transition" title="Eliminar miembro">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setEditingMember(m)}
-                        className="text-blue-400 hover:text-blue-500 transition"
-                        title="Editar miembro"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => deleteMember(m.id)}
-                        className="text-red-400 hover:text-red-600 transition"
-                        title="Eliminar miembro"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
 
@@ -193,36 +182,26 @@ export default function Perfil({
               {familiares.length === 0 ? (
                 <p className={`text-sm ${colors.mutedText}`}>No hay familiares</p>
               ) : (
-                familiares.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition"
-                  >
-                    <div>
-                      <div className="font-medium">{m.name}</div>
-                      <div className={`text-xs ${colors.mutedText}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {familiares.map((m) => (
+                    <div key={m.id} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                      <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{m.name}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteMember(m.id)} className="text-red-400 hover:text-red-600 transition" title="Eliminar miembro">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setEditingMember(m)}
-                        className="text-blue-400 hover:text-blue-500 transition"
-                        title="Editar miembro"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => deleteMember(m.id)}
-                        className="text-red-400 hover:text-red-600 transition"
-                        title="Eliminar miembro"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </>

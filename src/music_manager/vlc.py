@@ -29,7 +29,7 @@ class PlaybackError(Exception):
 class VlcBackend:
     """Backend de reproducción usando python-vlc."""
     
-    def __init__(self, volume: int = 65):
+    def __init__(self, volume: int = 65, song_ended_callback=None):
         """
         Inicializa el backend VLC.
         
@@ -45,6 +45,7 @@ class VlcBackend:
         self._lock = threading.RLock()
         self._position_update_thread = None
         self._stop_position_thread = threading.Event()
+        self._song_ended_callback = song_ended_callback
         
         if vlc is None:
             logger.error("python-vlc no está instalado. Por favor instala con: pip install python-vlc")
@@ -64,6 +65,11 @@ class VlcBackend:
             self._player = self._instance.media_player_new()
             if not self._player:
                 raise PlaybackError("No se pudo crear reproductor VLC")
+            try:
+                em = self._player.event_manager()
+                em.event_attach(vlc.EventType.MediaPlayerEndReached, self._on_media_end)
+            except Exception:
+                pass
             
             # Configurar volumen inicial
             self.set_volume(self._volume)
@@ -86,6 +92,8 @@ class VlcBackend:
                             logger.info("Reproducción finalizada naturalmente")
                             self._state = PlaybackState.STOPPED
                             self._current_url = None
+                            if self._song_ended_callback:
+                                self._song_ended_callback()
                             break
                     
                     time.sleep(0.5)
@@ -97,6 +105,17 @@ class VlcBackend:
         self._stop_position_thread.clear()
         self._position_update_thread = threading.Thread(target=monitor_position, daemon=True)
         self._position_update_thread.start()
+
+    def _on_media_end(self, event):
+        try:
+            with self._lock:
+                self._stop_position_monitor()
+                self._state = PlaybackState.STOPPED
+                self._current_url = None
+            if self._song_ended_callback:
+                self._song_ended_callback()
+        except Exception:
+            pass
     
     def _stop_position_monitor(self):
         """Detiene el monitoreo de posición."""
@@ -135,7 +154,7 @@ class VlcBackend:
                 
                 # Iniciar reproducción
                 result = self._player.play()
-                if result != 0:
+                if result is not None and result != 0:
                     raise PlaybackError("Error al iniciar reproducción")
                 
                 # Esperar un momento para que comience la reproducción
@@ -177,8 +196,10 @@ class VlcBackend:
                 if not self._player:
                     raise PlaybackError("Reproductor no inicializado")
                 
+                logger.debug(f"Estado de VLC antes de pausar: {self._player.get_state()}")
                 result = self._player.pause()
-                if result != 0:
+                logger.debug(f"Resultado de self._player.pause(): {result}")
+                if result is not None and result != 0:
                     raise PlaybackError("Error al pausar")
                 
                 self._state = PlaybackState.PAUSED
@@ -373,6 +394,40 @@ class VlcBackend:
                 'duration': self.get_duration(),
                 'backend': 'vlc'
             }
+
+    def seek(self, seconds: float) -> bool:
+        """
+        Salta a una posición específica en segundos.
+        """
+        with self._lock:
+            try:
+                if not self._player:
+                    raise PlaybackError("Reproductor no inicializado")
+                ms = int(max(0, seconds) * 1000)
+                result = self._player.set_time(ms)
+                if result is None or result == 0:
+                    return True
+                # Fallback 1: usar set_position si set_time reporta error
+                length = self._player.get_length()
+                if length and length > 0:
+                    pos = max(0.0, min(1.0, ms / float(length)))
+                    self._player.set_position(pos)
+                    return True
+                # Fallback 2: si está PAUSADO, reproducir brevemente, hacer seek y pausar
+                try:
+                    if self._state == PlaybackState.PAUSED:
+                        self._player.play()
+                        time.sleep(0.05)
+                        self._player.set_time(ms)
+                        self._player.pause()
+                        return True
+                except Exception:
+                    pass
+                # Si no logramos cambiar, no generar excepción dura
+                return False
+            except Exception as e:
+                logger.error(f"Error en seek VLC: {e}")
+                return False
     
     def cleanup(self):
         """Limpia recursos del reproductor."""

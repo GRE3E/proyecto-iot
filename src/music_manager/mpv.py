@@ -24,7 +24,7 @@ class PlaybackError(Exception):
 class MpvBackend:
     """Backend de reproducción usando mpv como proceso externo."""
     
-    def __init__(self, volume: int = 65):
+    def __init__(self, volume: int = 65, song_ended_callback=None):
         """
         Inicializa el backend mpv.
         
@@ -39,6 +39,7 @@ class MpvBackend:
         self._monitor_thread = None
         self._stop_monitor = threading.Event()
         self._ipc_socket = None
+        self._song_ended_callback = song_ended_callback
         
         # Verificar que mpv esté disponible
         self._check_mpv_availability()
@@ -73,6 +74,11 @@ class MpvBackend:
                                 logger.info("mpv terminó naturalmente")
                                 self._state = PlaybackState.STOPPED
                                 self._current_url = None
+                                if self._song_ended_callback:
+                                    try:
+                                        self._song_ended_callback()
+                                    except Exception as cb_err:
+                                        logger.error(f"Error en callback de fin: {cb_err}")
                         break
                     
                     time.sleep(0.5)
@@ -404,6 +410,20 @@ class MpvBackend:
                 'duration': self.get_duration(),
                 'backend': 'mpv'
             }
+
+    def seek(self, seconds: float) -> bool:
+        """
+        Intenta saltar a una posición específica usando el comando de mpv.
+        """
+        with self._lock:
+            try:
+                if not self._process or self._process.poll() is not None:
+                    raise PlaybackError("Proceso mpv no está activo")
+                cmd = f'seek {max(0, float(seconds))} absolute'
+                return self._send_mpv_command(cmd)
+            except Exception as e:
+                logger.error(f"Error en seek mpv: {e}")
+                return False
     
     def cleanup(self):
         """Limpia recursos del reproductor."""

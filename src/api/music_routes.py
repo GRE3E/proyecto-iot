@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
 import logging
 import asyncio
+import json
+from typing import Set
+from starlette.responses import JSONResponse
 from src.api.music_schemas import (
     MusicPlayRequest,
     MusicPlayResponse,
@@ -11,8 +14,10 @@ from src.api.music_schemas import (
     MusicConfigResponse,
     MusicConfigUpdateRequest,
     MusicNowPlayingResponse,
+    MusicSeekRequest,
 )
 from src.api import utils
+from src.websocket.connection_manager import manager as ws_manager
 from src.db.database import get_db
 from src.auth.auth_service import get_current_user
 from src.db.models import MusicPlayLog, User
@@ -21,6 +26,30 @@ from sqlalchemy import select
 logger = logging.getLogger("APIRoutes")
 
 music_router = APIRouter()
+
+connections: Set[WebSocket] = set()
+
+async def broadcast(message: dict):
+    for connection in list(connections):
+        try:
+            await connection.send_json(message)
+        except RuntimeError:
+            # Handle WebSocket connection already closed
+            connections.remove(connection)
+
+@music_router.websocket("/ws/music-status")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    connections.add(websocket)
+    try:
+        while True:
+            # Keep the connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        connections.remove(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        connections.remove(websocket)
 
 @music_router.post("/play", response_model=MusicPlayResponse)
 async def play_music(request: MusicPlayRequest, current_user: User = Depends(get_current_user)):
@@ -45,6 +74,27 @@ async def play_music(request: MusicPlayRequest, current_user: User = Depends(get
             db.add(entry)
             await db.commit()
             await utils._save_api_log("/music/play", request.dict(), response_obj.dict(), db)
+        # Anotar metadata de la última agregada si se encoló
+        try:
+            if response_obj.status == "queued":
+                utils._music_manager.annotate_last_added(current_user.id, current_user.nombre, request.query)
+            elif response_obj.status == "playing":
+                utils._music_manager.annotate_current_track(current_user.id, current_user.nombre, request.query)
+        except Exception as e:
+            logger.warning(f"No se pudo anotar metadata de la última agregada: {e}")
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "playing",
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/play: {e}", exc_info=True)
@@ -60,6 +110,19 @@ async def pause_music():
         response_obj = MusicActionResponse(**result)
         async with get_db() as db:
             await utils._save_api_log("/music/pause", {}, response_obj.dict(), db)
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "paused",
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/pause: {e}", exc_info=True)
@@ -75,6 +138,19 @@ async def resume_music():
         response_obj = MusicActionResponse(**result)
         async with get_db() as db:
             await utils._save_api_log("/music/resume", {}, response_obj.dict(), db)
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "playing",
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/resume: {e}", exc_info=True)
@@ -90,6 +166,19 @@ async def stop_music():
         response_obj = MusicActionResponse(**result)
         async with get_db() as db:
             await utils._save_api_log("/music/stop", {}, response_obj.dict(), db)
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "stopped",
+            "current_track": None,
+            "queue": [],
+            "last_added": None,
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/stop: {e}", exc_info=True)
@@ -119,6 +208,20 @@ async def set_volume(request: MusicVolumeSetRequest):
         response_obj = MusicActionResponse(**result)
         async with get_db() as db:
             await utils._save_api_log("/music/volume", request.dict(), response_obj.dict(), db)
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "volume_changed",
+            "volume": request.volume,
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/volume (PUT): {e}", exc_info=True)
@@ -130,6 +233,7 @@ async def get_status():
         raise HTTPException(status_code=503, detail="El módulo de música está fuera de línea")
     try:
         info = utils._music_manager.get_info()
+        info['history'] = await _get_last_history()
         response_obj = MusicStatusResponse(**info)
         async with get_db() as db:
             await utils._save_api_log("/music/status", {}, response_obj.dict(), db)
@@ -137,6 +241,32 @@ async def get_status():
     except Exception as e:
         logger.error(f"Error en /music/status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error al obtener el estado del módulo de música")
+
+@music_router.put("/seek", response_model=MusicActionResponse)
+async def seek_music(request: MusicSeekRequest):
+    if utils._music_manager is None:
+        raise HTTPException(status_code=503, detail="El módulo de música está fuera de línea")
+    try:
+        result = await utils._music_manager.seek(request.position)
+        response_obj = MusicActionResponse(**result)
+        async with get_db() as db:
+            await utils._save_api_log("/music/seek", request.dict(), response_obj.dict(), db)
+        msg = {
+            "type": "music_update",
+            "status": "playing",
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history(),
+            "position": utils._music_manager.get_position(),
+            "duration": utils._music_manager.get_duration(),
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+        return response_obj
+    except Exception as e:
+        logger.error(f"Error en /music/seek: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error al realizar seek")
 
 @music_router.get("/config", response_model=MusicConfigResponse)
 async def get_config():
@@ -162,6 +292,20 @@ async def update_config(request: MusicConfigUpdateRequest):
         response_obj = MusicConfigResponse(**data)
         async with get_db() as db:
             await utils._save_api_log("/music/config", request.dict(exclude_none=True), response_obj.dict(), db)
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": "config_updated",
+            "config": data['music'],
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/config (PUT): {e}", exc_info=True)
@@ -176,7 +320,45 @@ async def now_playing():
         info = utils._music_manager.get_info()
         current = info.get("current_track")
         if not current:
-            return MusicNowPlayingResponse(status="idle")
+            data = {
+                "status": "idle",
+                "queue": utils._music_manager.get_queue(),
+                "history": [],
+                "position": utils._music_manager.get_position(),
+                "duration": utils._music_manager.get_duration(),
+            }
+            try:
+                async with get_db() as db:
+                    result_hist = await db.execute(
+                        select(MusicPlayLog).order_by(MusicPlayLog.started_at.desc()).limit(3)
+                    )
+                    logs = result_hist.scalars().all()
+                    data["history"] = [
+                        {
+                            "id": str(l.id),
+                            "title": l.title,
+                            "uploader": l.uploader,
+                            "duration": l.duration,
+                            "thumbnail": l.thumbnail,
+                            "query": l.query,
+                            "started_at": l.started_at.isoformat() if l.started_at else None,
+                            "started_by": {"user_id": l.user_id, "username": l.user_name},
+                        }
+                        for l in logs
+                    ]
+            except Exception:
+                pass
+            msg = {
+                "type": "music_update",
+                "status": data["status"],
+                "current_track": utils._music_manager.get_current_track(),
+                "queue": utils._music_manager.get_queue(),
+                "last_added": utils._music_manager.get_last_added(),
+                "history": data["history"]
+            }
+            await broadcast(msg)
+            await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+            return MusicNowPlayingResponse(**data)
         async with get_db() as db:
             result = await db.execute(
                 select(MusicPlayLog)
@@ -205,8 +387,114 @@ async def now_playing():
             "query": log.query if log else None,
             "started_at": log.started_at.isoformat() if log and log.started_at else None,
             "started_by": {"user_id": log.user_id, "username": log.user_name} if log else None,
+            "queue": utils._music_manager.get_queue(),
+            "history": [],
+            "position": utils._music_manager.get_position(),
+            "duration": utils._music_manager.get_duration(),
         }
+        try:
+            async with get_db() as db:
+                result_hist = await db.execute(
+                    select(MusicPlayLog).order_by(MusicPlayLog.started_at.desc()).limit(3)
+                )
+                logs = result_hist.scalars().all()
+                data["history"] = [
+                    {
+                        "id": str(l.id),
+                        "title": l.title,
+                        "uploader": l.uploader,
+                        "duration": l.duration,
+                        "thumbnail": l.thumbnail,
+                        "query": l.query,
+                        "started_at": l.started_at.isoformat() if l.started_at else None,
+                        "started_by": {"user_id": l.user_id, "username": l.user_name},
+                    }
+                    for l in logs
+                ]
+        except Exception:
+            pass
+        
+        # Enviar actualización por WebSocket
+        msg = {
+            "type": "music_update",
+            "status": data["status"],
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": data["history"]
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return MusicNowPlayingResponse(**data)
     except Exception as e:
         logger.error(f"Error en /music/now-playing: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error al obtener canción actual")
+
+@music_router.post("/previous", response_model=MusicActionResponse)
+async def previous_track():
+    if utils._music_manager is None:
+        raise HTTPException(status_code=503, detail="El módulo de música está fuera de línea")
+    try:
+        result = await utils._music_manager.previous()
+        response_obj = MusicActionResponse(**result)
+        
+        msg = {
+            "type": "music_update",
+            "status": "playing",
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+        return response_obj
+    except Exception as e:
+        logger.error(f"Error en /music/previous: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al ir a la canción anterior: {e}")
+
+@music_router.post("/next", response_model=MusicActionResponse)
+async def next_track():
+    if utils._music_manager is None:
+        raise HTTPException(status_code=503, detail="El módulo de música está fuera de línea")
+    try:
+        result = await utils._music_manager.next()
+        response_obj = MusicActionResponse(**result)
+        
+        msg = {
+            "type": "music_update",
+            "status": response_obj.status,
+            "current_track": utils._music_manager.get_current_track(),
+            "queue": utils._music_manager.get_queue(),
+            "last_added": utils._music_manager.get_last_added(),
+            "history": await _get_last_history()
+        }
+        await broadcast(msg)
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+        return response_obj
+    except Exception as e:
+        logger.error(f"Error en /music/next: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error al ir a la siguiente canción: {e}")
+async def _get_last_history(limit: int = 3):
+    try:
+        async with get_db() as db:
+            result_hist = await db.execute(
+                select(MusicPlayLog).order_by(MusicPlayLog.started_at.desc()).limit(limit)
+            )
+            logs = result_hist.scalars().all()
+            return [
+                {
+                    "id": str(l.id),
+                    "title": l.title,
+                    "uploader": l.uploader,
+                    "duration": l.duration,
+                    "thumbnail": l.thumbnail,
+                    "query": l.query,
+                    "started_at": l.started_at.isoformat() if l.started_at else None,
+                    "started_by": {"user_id": l.user_id, "username": l.user_name},
+                }
+                for l in logs
+            ]
+    except Exception:
+        return []

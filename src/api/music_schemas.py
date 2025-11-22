@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 class MusicPlayRequest(BaseModel):
     query: str = Field(..., example="Nirvana Smells Like Teen Spirit")
@@ -29,6 +29,8 @@ class MusicStatusResponse(BaseModel):
     backend: Optional[Dict[str, Any]] = None
     current_track: Optional[Dict[str, Any]] = None
     volume: int
+    queue: Optional[List[Dict[str, Any]]] = None
+    history: Optional[List[Dict[str, Any]]] = None
 
 class MusicConfigResponse(BaseModel):
     music: Dict[str, Any]
@@ -50,3 +52,9 @@ class MusicNowPlayingResponse(BaseModel):
     query: Optional[str] = None
     started_at: Optional[str] = None
     started_by: Optional[Dict[str, Any]] = None
+    queue: Optional[List[Dict[str, Any]]] = None
+    history: Optional[List[Dict[str, Any]]] = None
+    position: Optional[float] = None
+
+class MusicSeekRequest(BaseModel):
+    position: float = Field(..., ge=0, description="Posición en segundos")

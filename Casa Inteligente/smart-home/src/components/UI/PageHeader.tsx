@@ -1,7 +1,7 @@
 // PageHeader.tsx
 "use client"
 import type { ReactNode } from "react"
-import { useEffect } from "react"
+import { useEffect, isValidElement, cloneElement } from "react"
 import { useThemeByTime } from "../../hooks/useThemeByTime"
 import ProfileNotifications from "./ProfileNotifications"
 
@@ -15,6 +15,16 @@ export default function PageHeader({
   icon,
 }: PageHeaderProps) {
   const { colors } = useThemeByTime()
+  const themedIcon = isValidElement(icon)
+    ? cloneElement(icon as any, {
+        className: [
+          (icon as any)?.props?.className?.replace(/\btext-[^\s]+\b/g, ""),
+          colors.icon,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      })
+    : <span className={colors.icon}>{icon}</span>
   // Header fijo en mobile: sin desplazamiento
   useEffect(() => {
     // Asegura que el body tenga suficiente padding-top si fuese necesario
@@ -39,7 +49,7 @@ export default function PageHeader({
         {/* CENTRO: ICONO + TITULO */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className={`p-2 rounded-xl backdrop-blur-sm border ${colors.cardBg} flex-shrink-0`}>
-            {icon}
+            {themedIcon}
           </div>
           <h2 className={`text-2xl font-bold tracking-tight truncate ${colors.title}`}>
             {title}
@@ -56,7 +66,7 @@ export default function PageHeader({
       <div className="hidden md:flex flex-row items-start md:items-center justify-between gap-4 -mt-2 relative">
         <div className="flex items-center gap-4 -mt-7">
           <div className={`p-2 md:p-3 rounded-xl backdrop-blur-sm border ${colors.cardBg}`}>
-            {icon}
+            {themedIcon}
           </div>
           <h2 className={`text-3xl md:text-4xl font-bold tracking-tight md:translate-y-[-4px] ${colors.title}`}>
             {title}

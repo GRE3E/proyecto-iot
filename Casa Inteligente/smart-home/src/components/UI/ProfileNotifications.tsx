@@ -1,4 +1,5 @@
-import { Bell } from "lucide-react"
+import { Bell, Zap, ShieldAlert, User as UserIcon, X, Trash2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../hooks/useAuth"
 import { useNotifications } from "../../hooks/useNotification"
 import { useThemeByTime } from "../../hooks/useThemeByTime"
@@ -31,6 +32,27 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
     return "bg-purple-500"
   }
 
+  const typeBorder = (t?: string) => {
+    const key = (t || "").toLowerCase()
+    if (key.includes("luz")) return "border-yellow-500"
+    if (key.includes("seg")) return "border-red-500"
+    if (key.includes("user")) return "border-blue-500"
+    return "border-purple-500"
+  }
+
+  const typeIcon = (t?: string) => {
+    const key = (t || "").toLowerCase()
+    if (key.includes("luz")) return Zap
+    if (key.includes("seg")) return ShieldAlert
+    if (key.includes("user")) return UserIcon
+    return Bell
+  }
+
+  const panelBg = theme === "light" ? "bg-white" : "bg-slate-900"
+  const chipClass = theme === "light" ? "bg-slate-200 text-slate-900 border border-slate-300" : "bg-slate-800 text-white border border-slate-700"
+  const clearBtnClass = theme === "light" ? "inline-flex items-center justify-center p-2 rounded-md bg-slate-200 text-slate-900 hover:bg-slate-300" : "inline-flex items-center justify-center p-2 rounded-md bg-slate-700 text-white hover:bg-slate-600"
+  const deleteBtnClass = "inline-flex items-center justify-center p-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+
   return (
     <div className="flex items-center gap-3 md:gap-4 -mt-1 md:-mt-7">
       {/* Usuario */}
@@ -44,38 +66,71 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
       </div>
 
       <div className="relative">
-        <button type="button" onClick={toggle} className="relative">
+        <motion.button type="button" onClick={toggle} className="relative"
+          whileTap={{ scale: 0.95 }}
+          aria-label="Abrir notificaciones"
+        >
           <Bell className={`w-6 h-6 ${colors.icon} cursor-pointer hover:text-cyan-400 transition-colors duration-200`} />
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             {notifications.length}
           </span>
-        </button>
-        {open && (
-          <div className={`absolute right-0 mt-2 w-80 rounded-xl border ${colors.border} ${colors.cardBg} ${colors.text} shadow-xl z-50 backdrop-blur p-3`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Notificaciones</span>
-              <button type="button" onClick={clearAll} className="text-xs text-cyan-300 hover:text-cyan-200">Limpiar</button>
-            </div>
-            {notifications.length === 0 ? (
-              <div className={`text-sm ${colors.mutedText}`}>Sin notificaciones</div>
-            ) : (
-              <ul className="max-h-64 overflow-auto divide-y divide-white/10">
-                {notifications.map((n) => (
-                  <li key={n.id} className="flex items-start justify-between gap-3 py-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        {n.type && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBg(n.type)} text-white`}>{n.type}</span>}
-                      </div>
-                      {n.title && <div className="mt-1 text-sm font-semibold">{n.title}</div>}
-                      {n.message && <div className={`mt-0.5 text-sm ${colors.mutedText}`}>{n.message}</div>}
-                    </div>
-                    <button type="button" onClick={() => remove(n.id)} className="text-xs text-red-400 hover:text-red-300">Eliminar</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        </motion.button>
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+              className={`absolute right-0 mt-2 w-[92vw] sm:w-80 rounded-xl border ${colors.border} ${panelBg} ${colors.text} shadow-xl z-50 p-3`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Bell className={`w-4 h-4 ${colors.icon}`} />
+                  <span className="text-sm font-medium">Notificaciones</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${chipClass}`}>{notifications.length}</span>
+                </div>
+                <button type="button" onClick={clearAll} className={clearBtnClass} aria-label="Limpiar notificaciones">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {notifications.length === 0 ? (
+                <div className={`text-sm ${colors.mutedText}`}>Sin notificaciones</div>
+              ) : (
+                <ul className="max-h-64 overflow-auto space-y-2">
+                  {notifications.map((n) => {
+                    const Icon = typeIcon(n.type)
+                    return (
+                      <motion.li key={n.id}
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className={`group flex items-start justify-between gap-3 p-2 rounded-lg border ${colors.border} hover:shadow-lg transition ${colors.cardBg} ${typeBorder(n.type)} border-l-4`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-700/30">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {n.type && <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeBg(n.type)} text-white`}>{n.type}</span>}
+                          {n.title && <div className="mt-1 text-sm font-semibold truncate">{n.title}</div>}
+                          {n.message && <div className={`mt-0.5 text-xs ${colors.mutedText} line-clamp-2`}>{n.message}</div>}
+                        </div>
+                        <div className="flex items-center">
+                          <button type="button" onClick={() => remove(n.id)} className={deleteBtnClass} aria-label="Eliminar notificación">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </motion.li>
+                    )
+                  })}
+                </ul>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

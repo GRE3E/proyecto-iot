@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid"
 
 export function useNotifications(
   initial: Notification[] = initialNotifications,
-  options?: { apiBase?: string; token?: string; limit?: number; offset?: number }
+  options?: { apiBase?: string; token?: string; limit?: number; offset?: number; userId?: number }
 ) {
   const [notifications, setNotifications] = useState<Notification[]>(initial)
   const [open, setOpen] = useState(false)
@@ -16,17 +16,31 @@ export function useNotifications(
   const clientId = useRef(uuidv4())
   const { message: wsMessage } = useWebSocket(clientId.current)
 
+  const storageKey = options?.userId ? `dismissed_notifications_${options.userId}` : `dismissed_notifications`
+  const getDismissed = (): number[] => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
+      const arr = raw ? JSON.parse(raw) : []
+      return Array.isArray(arr) ? arr : []
+    } catch { return [] }
+  }
+  const setDismissed = (ids: number[]) => {
+    try {
+      if (typeof window !== 'undefined') window.localStorage.setItem(storageKey, JSON.stringify(Array.from(new Set(ids))))
+    } catch {}
+  }
+
   const remove = (id: number) => {
     const prev = notifications
+    const dismissed = getDismissed()
+    setDismissed([...dismissed, id])
     setNotifications((p) => p.filter((n) => n.id !== id))
-    deleteNotification(id, options?.apiBase, options?.token)
-      .then((ok) => {
-        if (!ok) setNotifications(prev)
-      })
-      .catch(() => setNotifications(prev))
   }
 
   const clearAll = () => {
+    const dismissed = getDismissed()
+    const allIds = notifications.map((n) => n.id)
+    setDismissed([...dismissed, ...allIds])
     setNotifications([])
     setOpen(false)
   }
@@ -42,7 +56,8 @@ export function useNotifications(
       setOpen(true)
       fetchNotifications(options?.apiBase, options?.token, { limit: options?.limit, offset: options?.offset })
         .then((list) => {
-          setNotifications(list)
+          const dismissed = getDismissed()
+          setNotifications(list.filter((n) => !dismissed.includes(n.id)))
         })
         .catch(() => {})
     }
@@ -80,7 +95,10 @@ export function useNotifications(
 
   useEffect(() => {
     fetchNotifications(options?.apiBase, options?.token, { limit: options?.limit, offset: options?.offset })
-      .then((list) => setNotifications(list))
+      .then((list) => {
+        const dismissed = getDismissed()
+        setNotifications(list.filter((n) => !dismissed.includes(n.id)))
+      })
       .catch(() => {})
   }, [])
 

@@ -22,7 +22,7 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
     || (user as any)?.jwt
     || (user as any)?.idToken
     || (typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || undefined) : undefined)
-  const { notifications, open, toggle, remove, clearAll } = useNotifications(initialNotifications, { apiBase, token, limit: 50, offset: 0 })
+  const { notifications, open, toggle, remove, clearAll } = useNotifications(initialNotifications, { apiBase, token, limit: 50, offset: 0, userId: (user as any)?.user?.id })
 
   const typeBg = (t?: string) => {
     const key = (t || "").toLowerCase()

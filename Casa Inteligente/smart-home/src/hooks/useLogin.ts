@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 import { useThemeByTime } from "./useThemeByTime";
 import { useAuth } from "./useAuth"; // Importar useAuth
 
-export type ThemeMode = "day" | "afternoon" | "night";
+export type ThemeMode = "light" | "dark";
 
 export function useLogin() {
   const [username, setUsername] = useState("");

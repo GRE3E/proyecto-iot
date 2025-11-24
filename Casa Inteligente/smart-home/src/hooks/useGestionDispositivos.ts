@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "./useAuth";
-import authService, { axiosInstance } from "../services/authService";
+import { axiosInstance } from "../services/authService";
 import { useWebSocket } from "./useWebSocket";
 import { v4 as uuidv4 } from "uuid";
 

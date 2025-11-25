@@ -14,7 +14,7 @@ export default function PageHeader({
   title,
   icon,
 }: PageHeaderProps) {
-  const { colors } = useThemeByTime()
+  const { colors, theme } = useThemeByTime()
   const themedIcon = isValidElement(icon)
     ? cloneElement(icon as any, {
         className: [
@@ -25,17 +25,17 @@ export default function PageHeader({
           .join(" "),
       })
     : <span className={colors.icon}>{icon}</span>
-  // Header fijo en mobile: sin desplazamiento
+  
   useEffect(() => {
-    // Asegura que el body tenga suficiente padding-top si fuese necesario
-    // (la página ya maneja sus paddings; aquí no forzamos nada)
     return () => {}
   }, [])
+
+  const borderColor = theme === "light" ? "border-slate-200" : "border-slate-700/50"
 
   return (
     <>    
     <div
-      className={`fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out backdrop-blur-sm border-b md:bg-transparent md:border-0 md:backdrop-blur-0`}
+      className={`fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out backdrop-blur-sm border-b md:bg-transparent md:border-0 md:backdrop-blur-0 ${borderColor}`}
       style={{
         transform: "translateY(0px)",
       }}
@@ -57,7 +57,7 @@ export default function PageHeader({
         </div>
 
         {/* DERECHA: Perfil + Notificaciones */}
-        <div className="flex-shrink-0 pr-2">
+        <div className="flex-shrink-0 pr-2 pt-2">
           <ProfileNotifications />
         </div>
       </div>

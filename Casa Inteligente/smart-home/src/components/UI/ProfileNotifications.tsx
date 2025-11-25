@@ -54,7 +54,7 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
   const deleteBtnClass = "inline-flex items-center justify-center p-2 rounded-md bg-red-600 text-white hover:bg-red-700"
 
   return (
-    <div className="flex items-center gap-3 md:gap-4 -mt-1 md:-mt-7">
+    <div className="flex items-center gap-3 md:gap-4 md:-mt-7">
       {/* Usuario */}
       <div className="flex items-center gap-2">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-lg ${theme === "light" ? "bg-slate-300 text-slate-900" : "bg-slate-800 text-white"}`}>
@@ -65,7 +65,7 @@ export default function ProfileNotifications({ userName }: ProfileNotificationsP
         </span>
       </div>
 
-      <div className="relative">
+      <div className="relative mt-1 md:mt-0">
         <motion.button type="button" onClick={toggle} className="relative"
           whileTap={{ scale: 0.95 }}
           aria-label="Abrir notificaciones"

@@ -25,10 +25,10 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
   const [filter, setFilter] = useState<string>("Todos");
 
   useEffect(() => {
-    if (message && message.device_name && message.state) {
+    if (message && message.id && message.state) {
       setDevices((prevDevices) =>
         prevDevices.map((device) =>
-          device.name.replace(/ /g, "_") === message.device_name
+          device.id === message.id
             ? {
                 ...device,
                 on:

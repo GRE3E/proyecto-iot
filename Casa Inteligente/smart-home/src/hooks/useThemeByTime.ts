@@ -295,10 +295,10 @@ export function useThemeByTime() {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("theme_mode")
       if (stored === "light" || stored === "dark") return stored as ThemeMode
-      localStorage.setItem("theme_mode", "light")
-      return "light"
+      localStorage.setItem("theme_mode", "dark")
+      return "dark"
     }
-    return "light"
+    return "dark"
   }
 
   const subscribers: Set<(mode: ThemeMode) => void> = (globalThis as any).__themeSubscribers || new Set()

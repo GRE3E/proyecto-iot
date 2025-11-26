@@ -100,10 +100,10 @@ export default function MusicaPage() {
           icon={<Music className="w-8 md:w-10 h-8 md:h-10 text-white" />}
         />
         <div className="flex justify-center items-center min-h-96">
-          <SimpleCard className="p-8 w-full max-w-md">
+          <SimpleCard className={`p-8 w-full max-w-md ${colors.cardBg}`}>
             <div className="text-center">
               <Loader className="w-12 h-12 text-purple-500 animate-spin mx-auto mb-4" />
-              <p className={`${colors.text} text-opacity-70`}>
+              <p className={`${colors.mutedText}`}>
                 Cargando canciones...
               </p>
             </div>
@@ -141,12 +141,7 @@ export default function MusicaPage() {
               <div className="space-y-8">
                 {/* Visualizador de Audio */}
                 <div
-                  className={`w-full h-64 rounded-3xl overflow-hidden flex items-center justify-center group backdrop-blur-sm border transition-all ${
-                    colors.cardBg ===
-                    "bg-gradient-to-br from-gray-900/80 via-purple-900/40 to-black/80"
-                      ? "border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20"
-                      : "border-white/10 bg-white/5"
-                  }`}
+                  className={`w-full h-64 rounded-3xl overflow-hidden flex items-center justify-center group backdrop-blur-sm border transition-all border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20`}
                 >
                   {estado.cancionActual.thumbnail ? (
                     <img
@@ -174,7 +169,7 @@ export default function MusicaPage() {
                         <Music className="w-14 h-14 text-purple-300/60" />
                       </div>
                       <p
-                        className={`${colors.text} text-opacity-60 text-sm font-medium`}
+                        className={`${colors.mutedText} text-opacity-60 text-sm font-medium`}
                       >
                         En pausa
                       </p>
@@ -211,7 +206,7 @@ export default function MusicaPage() {
                             >
                               <Calendar className="w-3 h-3 text-purple-300" />
                               <span
-                                className={`text-xs ${colors.text} text-opacity-70`}
+                                className={`text-xs ${colors.mutedText}`}
                               >
                                 {formatearFecha(estado.cancionActual.createdAt)}
                               </span>
@@ -301,10 +296,10 @@ export default function MusicaPage() {
                     </div>
                   </div>
                   <div className="flex justify-between text-xs font-mono px-1">
-                    <span className={`${colors.text} text-opacity-40`}>
+                    <span className={`${colors.mutedText}`}>
                       {formatearTiempo(estado.tiempoActual)}
                     </span>
-                    <span className={`${colors.text} text-opacity-40`}>
+                    <span className={`${colors.mutedText}`}>
                       {estado.cancionActual
                         ? formatearTiempo(estado.cancionActual.duracion)
                         : "0:00"}
@@ -381,7 +376,7 @@ export default function MusicaPage() {
                   <p className={`${colors.text} text-lg font-semibold mb-2`}>
                     No hay canciones en la cola
                   </p>
-                  <p className={`${colors.text} text-opacity-50 text-sm`}>
+                  <p className={`${colors.mutedText} text-sm`}>
                     Agrega una canción de YouTube para comenzar
                   </p>
                 </div>
@@ -460,7 +455,7 @@ export default function MusicaPage() {
                           {cancion.titulo}
                         </p>
                         <p
-                          className={`${colors.text} text-opacity-50 text-xs truncate mt-0.5`}
+                          className={`${colors.mutedText} text-xs truncate mt-0.5`}
                         >
                           {cancion.artista}
                         </p>
@@ -482,7 +477,7 @@ export default function MusicaPage() {
                             >
                               <Calendar className="w-3 h-3 text-purple-300" />
                               <span
-                                className={`text-[10px] ${colors.text} text-opacity-70`}
+                                className={`text-[10px] ${colors.mutedText}`}
                               >
                                 {" "}
                                 {formatearFecha(cancion.createdAt)}{" "}
@@ -496,7 +491,7 @@ export default function MusicaPage() {
                           e.stopPropagation();
                           eliminarCancion(cancion.id);
                         }}
-                        className={`${colors.text} text-opacity-50 hover:text-red-400 transition-colors flex-shrink-0 hover:scale-110 transform opacity-0 group-hover:opacity-100`}
+                        className={`${colors.mutedText} hover:text-red-400 transition-colors flex-shrink-0 hover:scale-110 transform opacity-0 group-hover:opacity-100`}
                       >
                         <X size={16} />
                       </button>
@@ -506,7 +501,7 @@ export default function MusicaPage() {
               ) : (
                 <div className="flex items-center justify-center h-24">
                   <p
-                    className={`text-center ${colors.text} text-opacity-50 text-xs`}
+                    className={`text-center ${colors.mutedText} text-xs`}
                   >
                     La cola está vacía
                   </p>
@@ -547,7 +542,7 @@ export default function MusicaPage() {
                             {cancion.titulo}
                           </p>
                           <p
-                            className={`${colors.text} text-opacity-50 text-xs truncate mt-0.5`}
+                            className={`${colors.mutedText} text-xs truncate mt-0.5`}
                           >
                             {cancion.artista}
                           </p>
@@ -568,7 +563,7 @@ export default function MusicaPage() {
                               >
                                 <Calendar className="w-3 h-3 text-purple-300" />
                                 <span
-                                  className={`text-[10px] ${colors.text} text-opacity-70`}
+                                  className={`text-[10px] ${colors.mutedText}`}
                                 >
                                   {formatearFecha(cancion.createdAt)}
                                 </span>
@@ -596,7 +591,7 @@ export default function MusicaPage() {
               ) : (
                 <div className="flex items-center justify-center h-16">
                   <p
-                    className={`text-center ${colors.text} text-opacity-50 text-xs`}
+                    className={`text-center ${colors.mutedText} text-xs`}
                   >
                     Aún no hay historial
                   </p>

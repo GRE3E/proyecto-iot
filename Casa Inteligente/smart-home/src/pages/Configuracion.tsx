@@ -11,7 +11,7 @@ import { useZonaHoraria } from "../hooks/useZonaHoraria";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 
 export default function Configuracion() {
-  const { colors, theme, setTheme, toggleTheme } = useThemeByTime();
+  const { colors, theme, setTheme} = useThemeByTime();
   const {
     ownerName,
     setOwnerName,
@@ -69,7 +69,6 @@ export default function Configuracion() {
     <div
       className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}
     >
-      {/* Header */}
       <PageHeader
         title="CONFIGURACIÓN"
         icon={<Settings className="w-8 md:w-10 h-8 md:h-10 text-white" />}
@@ -77,7 +76,7 @@ export default function Configuracion() {
 
       <div className="space-y-6">
         {/* Tema del sistema */}
-        <SimpleCard className="p-4 flex items-center justify-between">
+        <SimpleCard className={`p-4 flex items-center justify-between ${colors.cardBg}`}>
           <div>
             <div
               className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
@@ -96,10 +95,10 @@ export default function Configuracion() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTheme("light")}
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg transition-all ${
                 theme === "light"
                   ? `bg-gradient-to-r ${colors.primary} text-white`
-                  : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
+                  : `${colors.cardBg} ${colors.text} border ${colors.border}`
               }`}
               aria-label="Tema claro"
             >
@@ -107,10 +106,10 @@ export default function Configuracion() {
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className={`p-2 rounded-lg ${
+              className={`p-2 rounded-lg transition-all ${
                 theme === "dark"
                   ? `bg-gradient-to-r ${colors.primary} text-white`
-                  : `${colors.cardBg} ${colors.text} border ${colors.cardHover}`
+                  : `${colors.cardBg} ${colors.text} border ${colors.border}`
               }`}
               aria-label="Tema oscuro"
             >
@@ -118,8 +117,9 @@ export default function Configuracion() {
             </button>
           </div>
         </SimpleCard>
-        {/* Perfil del propietario con propietarios arriba y familiares debajo */}
-        <SimpleCard className="p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4">
+
+        {/* Perfil del propietario */}
+        <SimpleCard className={`p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4 ${colors.cardBg}`}>
           <Perfil
             name={ownerName}
             setName={setOwnerName}
@@ -140,7 +140,7 @@ export default function Configuracion() {
         {/* Preferencias */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Notificaciones */}
-          <SimpleCard className="p-4 flex items-center justify-between">
+          <SimpleCard className={`p-4 flex items-center justify-between ${colors.cardBg}`}>
             <div>
               <div
                 className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
@@ -159,7 +159,7 @@ export default function Configuracion() {
             />
           </SimpleCard>
 
-          {/* Zona horaria - Componente modular */}
+          {/* Zona horaria */}
           <TimezoneSelector
             selectedTimezone={selectedTimezone}
             onTimezoneChange={handleTimezoneChange}
@@ -174,39 +174,39 @@ export default function Configuracion() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
                 Nombre
               </label>
               <input
                 type="text"
                 value={modalOwnerName}
                 onChange={(e) => setModalOwnerName(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
               />
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
                 Contraseña actual
               </label>
               <input
                 type="password"
                 value={modalCurrentPassword}
                 onChange={(e) => setModalCurrentPassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                 placeholder="Confirma tu contraseña"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
                 Nueva contraseña
               </label>
               <input
                 type="password"
                 value={modalPassword}
                 onChange={(e) => setModalPassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                 placeholder="Ingresa nueva contraseña (opcional)"
               />
             </div>
@@ -214,13 +214,13 @@ export default function Configuracion() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setChangeVoiceModalOpen(true)}
-                className="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                className={`flex-1 px-4 py-2 rounded-lg text-sm transition-all ${colors.buttonActive}`}
               >
                 Agregar voz
               </button>
               <button
                 onClick={() => setChangeFaceModalOpen(true)}
-                className="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                className={`flex-1 px-4 py-2 rounded-lg text-sm transition-all ${colors.buttonActive}`}
               >
                 Agregar rostro
               </button>
@@ -229,13 +229,13 @@ export default function Configuracion() {
             <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3 mt-4">
               <button
                 onClick={() => setIsProfileModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
+                className={`px-4 py-2 rounded-lg text-sm ${colors.buttonInactive}`}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveProfile}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
+                className={`px-4 py-2 rounded-lg text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white`}
               >
                 Guardar
               </button>
@@ -251,29 +251,29 @@ export default function Configuracion() {
         >
           <div className="flex flex-col items-center gap-4">
             <div className="w-full">
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
                 Contraseña actual
               </label>
               <input
                 type="password"
                 value={voicePassword}
                 onChange={(e) => setVoicePassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                 placeholder="Confirma tu contraseña"
               />
               <button
                 onClick={handleVerifyVoicePassword}
-                className="mt-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                className={`mt-2 px-4 py-2 rounded-lg text-sm ${colors.buttonActive}`}
               >
                 Verificar contraseña
               </button>
               {voicePasswordVerified && (
                 <p className="text-green-400 text-xs mt-1">
-                  Contraseña verificada ✔️
+                  Contraseña verificada ✓
                 </p>
               )}
             </div>
-            <p className="text-sm text-slate-400 text-center">
+            <p className={`text-sm ${colors.mutedText} text-center`}>
               Di la siguiente frase para registrar tu voz:
             </p>
             <p className="text-blue-400 font-semibold text-center text-lg">
@@ -294,12 +294,12 @@ export default function Configuracion() {
             </button>
 
             {statusMessage && (
-              <p className="text-sm text-slate-300 text-center">
+              <p className={`text-sm ${colors.text} text-center`}>
                 {statusMessage}
               </p>
             )}
             {transcript && (
-              <p className="text-sm text-slate-400 text-center italic">
+              <p className={`text-sm ${colors.mutedText} text-center italic`}>
                 🗣️ Detectado: "{transcript}"
               </p>
             )}
@@ -307,7 +307,7 @@ export default function Configuracion() {
             <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3 w-full">
               <button
                 onClick={() => setChangeVoiceModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
+                className={`px-4 py-2 rounded-lg text-sm ${colors.buttonInactive}`}
               >
                 Cancelar
               </button>
@@ -316,7 +316,7 @@ export default function Configuracion() {
                   onClick={() => {
                     handleUploadVoiceToUser();
                   }}
-                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
+                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm text-white"
                 >
                   Guardar voz
                 </button>
@@ -333,34 +333,34 @@ export default function Configuracion() {
         >
           <div className="space-y-4 text-center">
             <div className="text-left">
-              <label className="block text-sm text-slate-400 mb-1">
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
                 Contraseña actual
               </label>
               <input
                 type="password"
                 value={facePassword}
                 onChange={(e) => setFacePassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                 placeholder="Confirma tu contraseña"
               />
               <button
                 onClick={handleVerifyFacePassword}
-                className="mt-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm"
+                className={`mt-2 px-4 py-2 rounded-lg text-sm ${colors.buttonActive}`}
               >
                 Verificar contraseña
               </button>
               {facePasswordVerified && (
                 <p className="text-green-400 text-xs mt-1">
-                  Contraseña verificada ✔️
+                  Contraseña verificada ✓
                 </p>
               )}
             </div>
-            <p className="text-sm text-slate-400">
+            <p className={`text-sm ${colors.mutedText}`}>
               Usa la cámara para registrar el reconocimiento de tu rostro.
             </p>
 
-            <div className="bg-slate-800 border border-slate-700 rounded-xl w-full h-48 flex items-center justify-center">
-              <span className="text-slate-500 text-sm">
+            <div className={`rounded-xl w-full h-48 flex items-center justify-center border ${colors.border} ${colors.panelBg}`}>
+              <span className={`text-sm ${colors.mutedText}`}>
                 📷 Vista previa de cámara
               </span>
             </div>
@@ -368,7 +368,7 @@ export default function Configuracion() {
             {!faceDetected && (
               <button
                 onClick={handleChangeFace}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm w-full md:w-auto"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white disabled:opacity-50"
                 disabled={!facePasswordVerified}
               >
                 Escanear rostro
@@ -377,14 +377,14 @@ export default function Configuracion() {
 
             {faceDetected && (
               <p className="text-green-400 text-sm font-medium">
-                Rostro detectado correctamente ✅
+                Rostro detectado correctamente ✓
               </p>
             )}
 
             <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3">
               <button
                 onClick={() => setChangeFaceModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
+                className={`px-4 py-2 rounded-lg text-sm ${colors.buttonInactive}`}
               >
                 Cancelar
               </button>
@@ -393,7 +393,7 @@ export default function Configuracion() {
                   onClick={() => {
                     handleRegisterFaceToUser();
                   }}
-                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm w-full md:w-auto"
+                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm text-white"
                 >
                   Guardar rostro
                 </button>
@@ -412,11 +412,10 @@ export default function Configuracion() {
           }}
         >
           <div className="space-y-6">
-            {/* Registro de familiar (solo credenciales y rol) */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1">
+                  <label className={`block text-sm ${colors.mutedText} mb-1`}>
                     Nombre de usuario
                   </label>
                   <input
@@ -425,11 +424,11 @@ export default function Configuracion() {
                     onChange={(e) =>
                       setNewMember({ ...newMember, username: e.target.value })
                     }
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                    className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-slate-400 mb-1">
+                  <label className={`block text-sm ${colors.mutedText} mb-1`}>
                     Contraseña
                   </label>
                   <input
@@ -438,12 +437,12 @@ export default function Configuracion() {
                     onChange={(e) =>
                       setNewMember({ ...newMember, password: e.target.value })
                     }
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                    className={`w-full rounded-lg px-3 py-2 text-sm ${colors.inputBg} border ${colors.border} ${colors.text}`}
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
-                  <label className="text-sm text-slate-300">
+                <div className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.cardBg}`}>
+                  <label className={`text-sm ${colors.text}`}>
                     ¿Es administrador?
                   </label>
                   <button
@@ -473,10 +472,10 @@ export default function Configuracion() {
                   <button
                     onClick={handleFinalizeMember}
                     disabled={isRegisteringMember}
-                    className={`px-4 py-2 rounded-lg text-sm w-full md:w-auto ${
+                    className={`px-4 py-2 rounded-lg text-sm w-full md:w-auto transition-all ${
                       isRegisteringMember
-                        ? "bg-slate-600 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700"
+                        ? `${colors.buttonInactive} cursor-not-allowed`
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
                     }`}
                   >
                     {isRegisteringMember

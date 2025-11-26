@@ -163,10 +163,10 @@ export default function Rutinas() {
     ...props
   }: any) => (
     <label className="block">
-      <span className="text-sm text-slate-300">{label}</span>
+      <span className={`text-sm ${colors.mutedText}`}>{label}</span>
       {type === "textarea" ? (
         <textarea
-          className="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
+          className={`mt-1 w-full rounded-lg ${colors.inputBg} border ${colors.inputBorder} px-3 py-2 ${colors.text}`}
           value={value}
           onChange={onChange}
           {...props}
@@ -177,7 +177,7 @@ export default function Rutinas() {
           ref={inputRef}
           autoFocus={autoFocus}
           onKeyDown={(e) => e.stopPropagation()}
-          className="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
+          className={`mt-1 w-full rounded-lg ${colors.inputBg} border ${colors.inputBorder} px-3 py-2 ${colors.text}`}
           value={value}
           onChange={onChange}
           {...props}
@@ -188,9 +188,9 @@ export default function Rutinas() {
 
   const SelectField = ({ label, value, onChange, options }: any) => (
     <label className="block">
-      <span className="text-sm text-slate-300">{label}</span>
+      <span className={`text-sm ${colors.mutedText}`}>{label}</span>
       <select
-        className="mt-1 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
+        className={`mt-1 w-full rounded-lg ${colors.inputBg} border ${colors.inputBorder} px-3 py-2 ${colors.text}`}
         value={value}
         onChange={onChange}
       >
@@ -207,7 +207,7 @@ export default function Rutinas() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="space-y-3">
-          <span className="text-sm text-slate-300">Datos básicos</span>
+          <span className={`text-sm ${colors.mutedText}`}>Datos básicos</span>
           <FormField
             label="Nombre"
             value={form.name}
@@ -230,8 +230,8 @@ export default function Rutinas() {
               onClick={() => updateForm({ enabled: !form.enabled })}
               className={
                 form.enabled
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/20"
-                  : "bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                  ? colors.successChip
+                  : colors.buttonInactive
               }
             >
               {form.enabled ? "Habilitada" : "Deshabilitada"}
@@ -240,10 +240,10 @@ export default function Rutinas() {
         </div>
 
         <div className="space-y-3">
-          <span className="text-sm text-slate-300">Resumen</span>
-          <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-3 text-sm text-slate-300">
+          <span className={`text-sm ${colors.mutedText}`}>Resumen</span>
+          <div className={`rounded-xl border ${colors.border} ${colors.panelBg} p-3 text-sm ${colors.mutedText}`}>
             <div className="mb-2">
-              <span className="font-semibold text-slate-200">Tipo:</span>{" "}
+              <span className={`font-semibold ${colors.text}`}>Tipo:</span>{" "}
               {form.triggerType === "NLP" ? "Voz" : form.triggerType}
             </div>
             <div className="mb-2">
@@ -281,7 +281,7 @@ export default function Rutinas() {
               )}
             </div>
             <div>
-              <span className="font-semibold text-slate-200">Acciones:</span>{" "}
+              <span className={`font-semibold ${colors.text}`}>Acciones:</span>{" "}
               {form.actionIds.length + (form.ttsMessages?.length || 0)}
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function Rutinas() {
       </div>
 
       <div className="space-y-4">
-        <span className="text-sm text-slate-300">Disparador</span>
+        <span className={`text-sm ${colors.mutedText}`}>Disparador</span>
         <SelectField
           label="Tipo de trigger"
           value={form.triggerType}
@@ -317,8 +317,8 @@ export default function Rutinas() {
                 onClick={() => updateForm({ relativeMinutes: 0 })}
                 className={
                   !(form.relativeMinutes > 0)
-                    ? "text-xs rounded-full px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-                    : "text-xs rounded-full px-3 py-1.5 bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                    ? `text-xs rounded-full px-3 py-1.5 ${colors.buttonActive}`
+                    : `text-xs rounded-full px-3 py-1.5 ${colors.buttonInactive}`
                 }
               >
                 Hora fija
@@ -333,8 +333,8 @@ export default function Rutinas() {
                 }
                 className={
                   form.relativeMinutes > 0
-                    ? "text-xs rounded-full px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-                    : "text-xs rounded-full px-3 py-1.5 bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                    ? `text-xs rounded-full px-3 py-1.5 ${colors.buttonActive}`
+                    : `text-xs rounded-full px-3 py-1.5 ${colors.buttonInactive}`
                 }
               >
                 En minutos
@@ -375,8 +375,8 @@ export default function Rutinas() {
                   }
                   className={
                     form.timeDays.includes(day)
-                      ? "text-xs rounded-full px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-                      : "text-xs rounded-full px-3 py-1.5 bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                      ? `text-xs rounded-full px-3 py-1.5 ${colors.buttonActive}`
+                      : `text-xs rounded-full px-3 py-1.5 ${colors.buttonInactive}`
                   }
                   disabled={form.relativeMinutes > 0}
                 >
@@ -453,7 +453,7 @@ export default function Rutinas() {
 
       <CollapsibleSection title="Acciones" defaultOpen={true}>
         <div className="space-y-3">
-          <span className="text-sm text-slate-300">Acciones IoT</span>
+          <span className={`text-sm ${colors.mutedText}`}>Acciones IoT</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {hook.availableActions.map((a) => {
               const active = form.actionIds.includes(a.id);
@@ -470,8 +470,8 @@ export default function Rutinas() {
                   }
                   className={
                     active
-                      ? "w-full justify-start rounded-2xl px-4 py-3 text-left bg-gradient-to-br from-teal-600 to-emerald-600 text-white border-transparent shadow-emerald-500/20"
-                      : "w-full justify-start rounded-2xl px-4 py-3 text-left bg-slate-800/60 border border-slate-600/40 text-slate-200 hover:bg-slate-700/60"
+                      ? `w-full justify-start rounded-2xl px-4 py-3 text-left ${colors.successChip}`
+                      : `w-full justify-start rounded-2xl px-4 py-3 text-left ${colors.buttonInactive} ${colors.buttonHover}`
                   }
                 >
                   {a.name}
@@ -480,11 +480,11 @@ export default function Rutinas() {
             })}
           </div>
           <div className="space-y-2">
-            <span className="text-sm text-slate-300">Acciones de voz</span>
+            <span className={`text-sm ${colors.mutedText}`}>Acciones de voz</span>
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                className="flex-1 rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-white"
+                className={`flex-1 rounded-lg ${colors.inputBg} border ${colors.inputBorder} px-3 py-2 ${colors.text}`}
                 placeholder="Mensaje (ej. 'Buenos días')"
                 value={form.ttsInput}
                 onChange={(e: any) => updateForm({ ttsInput: e.target.value })}
@@ -498,7 +498,7 @@ export default function Rutinas() {
                     ttsInput: "",
                   });
                 }}
-                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/20"
+                className={colors.successChip}
               >
                 Añadir
               </SimpleButton>
@@ -508,7 +508,7 @@ export default function Rutinas() {
                 {form.ttsMessages.map((msg, idx) => (
                   <span
                     key={`${msg}-${idx}`}
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                    className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full ${colors.chipBg} border ${colors.border} ${colors.chipText}`}
                   >
                     {msg}
                     <button
@@ -520,7 +520,7 @@ export default function Rutinas() {
                           ),
                         })
                       }
-                      className="text-red-400 hover:text-red-300"
+                      className={`${colors.redIcon} hover:opacity-80`}
                     >
                       ×
                     </button>
@@ -536,44 +536,44 @@ export default function Rutinas() {
 
   const RutinaCard = ({ r }: any) => {
     const colorMap: Record<string, string> = {
-      NLP: "from-purple-500/10 to-pink-500/10 border-purple-400/30",
-      Tiempo: "from-orange-500/10 to-red-500/10 border-orange-400/30",
-      Evento: "from-cyan-500/10 to-blue-500/10 border-cyan-400/30",
+      NLP: colors.purpleGradient,
+      Tiempo: colors.orangeGradient,
+      Evento: colors.cyanGradient,
     };
     return (
       <SimpleCard
-        className={`p-4 bg-gradient-to-br border transition-shadow hover:shadow-lg hover:shadow-black/20 ${
+        className={`p-4 bg-gradient-to-br border transition-shadow hover:shadow-lg ${colors.glow} ${
           colorMap[r.trigger.type]
         }`}
       >
         <div className="flex items-start justify-between">
           <div>
-            <h4 className="text-lg font-semibold text-white">{r.name}</h4>
-            <p className="text-slate-400 text-sm">{r.description}</p>
+            <h4 className={`text-lg font-semibold ${colors.text}`}>{r.name}</h4>
+            <p className={`${colors.mutedText} text-sm`}>{r.description}</p>
           </div>
           <span
             className={`text-xs inline-block px-2 py-0.5 rounded ${
               r.confirmed
-                ? "bg-emerald-900/30 text-emerald-300 border border-emerald-400/30"
-                : "bg-amber-900/30 text-amber-300 border border-amber-400/30"
+                ? colors.successChip
+                : colors.warningChip
             }`}
           >
             {r.confirmed ? "Confirmada" : "Pendiente"}
           </span>
         </div>
         <div className="mt-3 text-sm">
-          <div className="flex items-center gap-2 text-slate-300">
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800/60 border border-slate-600/40">
+          <div className={`flex items-center gap-2 ${colors.mutedText}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${colors.chipBg} border ${colors.border}`}>
               {r.trigger.type === "NLP" ? "Voz" : r.trigger.type}
             </span>
-            <span className="text-slate-400">
+            <span className={colors.mutedText}>
               {hook.describeTrigger(r.trigger)}
             </span>
           </div>
         </div>
         {r.actions.length > 0 && (
           <div className="mt-3">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className={`flex items-center gap-2 text-xs ${colors.mutedText}`}>
               <Zap className="w-3 h-3" />
               <span>Acciones</span>
             </div>
@@ -581,27 +581,27 @@ export default function Rutinas() {
               {r.actions.slice(0, 3).map((a: any) => (
                 <span
                   key={a.id}
-                  className="text-xs px-2 py-1 rounded-full bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                  className={`text-xs px-2 py-1 rounded-full ${colors.chipBg} border ${colors.border} ${colors.chipText}`}
                 >
                   {a.name}
                 </span>
               ))}
               {r.actions.length > 3 && (
-                <span className="text-xs px-2 py-1 rounded-full bg-slate-800/60 border border-slate-600/40 text-slate-200">
+                <span className={`text-xs px-2 py-1 rounded-full ${colors.chipBg} border ${colors.border} ${colors.chipText}`}>
                   +{r.actions.length - 3} más
                 </span>
               )}
             </div>
           </div>
         )}
-        <div className="my-3 border-t border-slate-700/40" />
+        <div className={`my-3 border-t ${colors.border}`} />
         <div className="mt-3 flex items-center gap-2">
           <SimpleButton
             onClick={() => hook.toggleEnabled(r.id, !r.enabled)}
             className={`px-2 py-1.5 whitespace-nowrap w-auto text-center text-xs font-medium rounded-lg ${
               r.enabled
-                ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-                : "bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                ? colors.buttonActive
+                : colors.buttonInactive
             }`}
           >
             {r.enabled ? "Habilitada" : "Deshabilitada"}
@@ -609,19 +609,19 @@ export default function Rutinas() {
           <div className="ml-auto flex items-center justify-center gap-2">
             <SimpleButton
               onClick={() => startDetail(r.id)}
-              className="p-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
+              className={`p-2 rounded-xl ${colors.buttonActive}`}
             >
               <Eye className="w-5 h-5" />
             </SimpleButton>
             <SimpleButton
               onClick={() => startEdit(r.id)}
-              className="p-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white border-transparent shadow-violet-500/20"
+              className={`p-2 rounded-xl bg-gradient-to-r ${colors.secondary} text-white border-transparent shadow-violet-500/20`}
             >
               <Pencil className="w-5 h-5" />
             </SimpleButton>
             <SimpleButton
               onClick={() => setDeleteId(r.id)}
-              className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white border-transparent shadow-rose-500/20"
+              className={`p-2 rounded-xl ${colors.dangerChip}`}
             >
               <Trash2 className="w-5 h-5" />
             </SimpleButton>
@@ -637,13 +637,13 @@ export default function Rutinas() {
     >
       <PageHeader
         title="Rutinas"
-        icon={<ListTodo className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+        icon={<ListTodo className={`w-8 md:w-10 h-8 md:h-10 ${colors.icon}`} />}
       />
 
       {message && (
         <div
           className={`rounded-xl px-4 py-3 text-sm ${
-            message.type === "success" ? colors.successChip : colors.dangerChip
+            message.type === "success" ? colors.notifySuccess : colors.notifyError
           }`}
         >
           {message.text}
@@ -659,7 +659,7 @@ export default function Rutinas() {
                 setActiveTab("list");
                 setView("list");
               }}
-              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-lg shadow-blue-500/20"
+              className={`w-full sm:w-auto ${colors.buttonActive}`}
             >
               <span className="inline-flex items-center gap-2">
                 <ClipboardList className="w-5 h-5" /> Rutinas
@@ -668,7 +668,7 @@ export default function Rutinas() {
             <SimpleButton
               active={activeTab === "suggestions"}
               onClick={openSuggestions}
-              className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white border-transparent shadow-lg shadow-pink-500/20"
+              className={`w-full sm:w-auto bg-gradient-to-r ${colors.secondary} text-white border-transparent shadow-lg shadow-pink-500/20`}
             >
               <span className="inline-flex items-center gap-2">
                 <Wand2 className="w-5 h-5" /> Sugerencias
@@ -676,7 +676,7 @@ export default function Rutinas() {
             </SimpleButton>
             <SimpleButton
               onClick={startCreate}
-              className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-lg shadow-emerald-500/20"
+              className={`w-full sm:w-auto ${colors.successChip}`}
             >
               <span className="inline-flex items-center gap-2">
                 <PlusCircle className="w-5 h-5" /> Crear Rutina
@@ -688,8 +688,8 @@ export default function Rutinas() {
                 onClick={() => setShowOnlyEnabled((v) => !v)}
                 className={`${
                   showOnlyEnabled
-                    ? "bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-                    : "bg-gradient-to-r from-slate-700 to-slate-600 text-slate-200 border border-slate-500/40"
+                    ? colors.buttonActive
+                    : colors.buttonInactive
                 } ring-1 ring-white/10 w-full sm:w-auto`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -701,8 +701,8 @@ export default function Rutinas() {
                 onClick={() => setShowOnlyConfirmed((v) => !v)}
                 className={`${
                   showOnlyConfirmed
-                    ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white border-transparent shadow-violet-500/20"
-                    : "bg-gradient-to-r from-slate-700 to-slate-600 text-slate-200 border border-slate-500/40"
+                    ? `bg-gradient-to-r ${colors.secondary} text-white border-transparent shadow-violet-500/20`
+                    : colors.buttonInactive
                 } ring-1 ring-white/10 w-full sm:w-auto`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -713,14 +713,14 @@ export default function Rutinas() {
           </div>
 
           {hook.isLoadingList ? (
-            <div className="text-slate-400">Cargando rutinas...</div>
+            <div className={colors.mutedText}>Cargando rutinas...</div>
           ) : filteredRutinas.length === 0 ? (
-            <SimpleCard className="p-6 bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-400/30">
-              <p className="text-slate-300">No hay rutinas registradas</p>
+            <SimpleCard className={`p-6 bg-gradient-to-br ${colors.purpleGradient} border`}>
+              <p className={colors.mutedText}>No hay rutinas registradas</p>
               <div className="mt-3">
                 <SimpleButton
                   onClick={startCreate}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-lg shadow-emerald-500/20"
+                  className={colors.successChip}
                 >
                   Crear una rutina
                 </SimpleButton>
@@ -737,21 +737,21 @@ export default function Rutinas() {
       )}
 
       {view === "edit" && selectedId && (
-        <SimpleCard className="p-4">
-          <h3 className="text-xl md:text-2xl font-semibold text-slate-200 mb-4">
+        <SimpleCard className={`p-4 ${colors.cardBg}`}>
+          <h3 className={`text-xl md:text-2xl font-semibold ${colors.text} mb-4`}>
             Editar Rutina
           </h3>
           <Form />
           <div className="mt-4 flex flex-wrap gap-2">
             <SimpleButton
               onClick={handleUpdate}
-              className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-transparent shadow-violet-500/20"
+              className={`bg-gradient-to-r ${colors.secondary} text-white border-transparent shadow-violet-500/20`}
             >
               Guardar cambios
             </SimpleButton>
             <SimpleButton
               onClick={() => setView("detail")}
-              className="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40"
+              className={`${colors.buttonInactive} ${colors.buttonHover}`}
             >
               Volver
             </SimpleButton>
@@ -764,22 +764,22 @@ export default function Rutinas() {
         (() => {
           const r = hook.getRoutineById(selectedId);
           return r ? (
-            <SimpleCard className="p-4">
+            <SimpleCard className={`p-4 ${colors.cardBg}`}>
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-xl md:text-2xl font-semibold text-slate-200">
+                    <h3 className={`text-xl md:text-2xl font-semibold ${colors.text}`}>
                       {r.name}
                     </h3>
-                    <p className="text-slate-400">{r.description}</p>
+                    <p className={colors.mutedText}>{r.description}</p>
                   </div>
-                  <div className="text-xs text-slate-400 text-right space-y-1">
+                  <div className={`text-xs ${colors.mutedText} text-right space-y-1`}>
                     <div>
                       <span
                         className={`inline-block px-2 py-0.5 rounded ${
                           r.confirmed
-                            ? "bg-emerald-900/30 text-emerald-300 border border-emerald-400/30"
-                            : "bg-amber-900/30 text-amber-300 border border-amber-400/30"
+                            ? colors.successChip
+                            : colors.warningChip
                         }`}
                       >
                         {r.confirmed ? "Confirmada" : "Pendiente"}
@@ -787,7 +787,7 @@ export default function Rutinas() {
                     </div>
                     <div>
                       Tipo:{" "}
-                      <span className="font-bold text-slate-200">
+                      <span className={`font-bold ${colors.text}`}>
                         {r.trigger.type === "NLP" ? "Voz" : r.trigger.type}
                       </span>
                     </div>
@@ -799,8 +799,8 @@ export default function Rutinas() {
                     onClick={() => hook.toggleEnabled(r.id, !r.enabled)}
                     className={`px-2 py-1.5 whitespace-nowrap w-auto text-center text-xs font-medium ${
                       r.enabled
-                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/20"
-                        : "bg-slate-800/60 border border-slate-600/40 text-slate-200"
+                        ? colors.successChip
+                        : colors.buttonInactive
                     }`}
                   >
                     {r.enabled ? "Habilitada" : "Deshabilitada"}
@@ -813,7 +813,7 @@ export default function Rutinas() {
                           if (res.success) showMessage("Rutina confirmada");
                           else showMessage("No se pudo confirmar", "error");
                         }}
-                        className="text-sm bg-gradient-to-r from-emerald-600 to-green-600 text-white border-transparent shadow-emerald-500/20"
+                        className={`text-sm ${colors.successChip}`}
                       >
                         Confirmar rutina
                       </SimpleButton>
@@ -823,7 +823,7 @@ export default function Rutinas() {
                           if (res.success) showMessage("Rutina eliminada");
                           else showMessage("No se pudo rechazar", "error");
                         }}
-                        className="text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white border-transparent shadow-amber-500/20"
+                        className={`text-sm ${colors.warningChip}`}
                       >
                         Rechazar rutina
                       </SimpleButton>
@@ -831,26 +831,26 @@ export default function Rutinas() {
                   )}
                 </div>
                 <div>
-                  <h4 className="text-slate-200 font-semibold">
+                  <h4 className={`${colors.text} font-semibold`}>
                     Comandos asociados
                   </h4>
-                  <ul className="list-disc list-inside text-slate-300">
+                  <ul className={`list-disc list-inside ${colors.mutedText}`}>
                     {r.actions.map((a) => (
                       <li key={a.id}>{a.name}</li>
                     ))}
                   </ul>
                 </div>
-                <div className="text-sm text-slate-400">
+                <div className={`text-sm ${colors.mutedText}`}>
                   <div>
                     Ejecutada:{" "}
-                    <span className="text-slate-200 font-bold">
+                    <span className={`${colors.text} font-bold`}>
                       {r.executionsCount}
                     </span>{" "}
                     veces
                   </div>
                   <div>
                     Última ejecución:{" "}
-                    <span className="text-slate-200 font-bold">
+                    <span className={`${colors.text} font-bold`}>
                       {r.lastExecutedAt
                         ? new Date(r.lastExecutedAt).toLocaleString()
                         : "—"}
@@ -860,13 +860,13 @@ export default function Rutinas() {
                 <div className="flex flex-wrap gap-2">
                   <SimpleButton
                     onClick={() => startEdit(r.id)}
-                    className="p-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white border-transparent shadow-violet-500/20"
+                    className={`p-2 rounded-xl bg-gradient-to-r ${colors.secondary} text-white border-transparent shadow-violet-500/20`}
                   >
                     <Pencil className="w-5 h-5" />
                   </SimpleButton>
                   <SimpleButton
                     onClick={() => setDeleteId(r.id)}
-                    className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white border-transparent shadow-rose-500/20"
+                    className={`p-2 rounded-xl ${colors.dangerChip}`}
                   >
                     <Trash2 className="w-5 h-5" />
                   </SimpleButton>
@@ -875,7 +875,7 @@ export default function Rutinas() {
                       setView("list");
                       setActiveTab("list");
                     }}
-                    className="text-sm bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40"
+                    className={`text-sm ${colors.buttonInactive} ${colors.buttonHover}`}
                   >
                     Volver a lista
                   </SimpleButton>
@@ -892,42 +892,42 @@ export default function Rutinas() {
               setActiveTab("list");
               setView("list");
             }}
-            className="flex items-center gap-2 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40 text-slate-200 mb-4"
+            className={`flex items-center gap-2 ${colors.buttonInactive} ${colors.buttonHover} mb-4`}
           >
             <ArrowLeft className="w-4 h-4" />
             Volver
           </SimpleButton>
           {hook.isLoadingSuggestions ? (
-            <div className="text-slate-400">Cargando sugerencias...</div>
+            <div className={colors.mutedText}>Cargando sugerencias...</div>
           ) : hook.suggestions.length === 0 ? (
-            <SimpleCard className="p-6">
-              <p className="text-slate-300">No hay sugerencias disponibles</p>
+            <SimpleCard className={`p-6 ${colors.cardBg}`}>
+              <p className={colors.mutedText}>No hay sugerencias disponibles</p>
             </SimpleCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {hook.suggestions.map((s) => (
                 <SimpleCard
                   key={s.id}
-                  className="p-4 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-400/30"
+                  className={`p-4 bg-gradient-to-br ${colors.cyanGradient} border`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="text-lg font-semibold text-white">
+                      <h4 className={`text-lg font-semibold ${colors.text}`}>
                         {s.name}
                       </h4>
-                      <div className="text-sm text-slate-300">
+                      <div className={`text-sm ${colors.mutedText}`}>
                         {s.trigger.type} — {hook.describeTrigger(s.trigger)}
                       </div>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-400/30">
+                    <span className={`text-xs px-2 py-1 rounded ${colors.chipBg} ${colors.chipText} border ${colors.border}`}>
                       Confianza: {s.confidence}%
                     </span>
                   </div>
                   <div className="mt-2">
-                    <h5 className="text-slate-200 font-semibold">
+                    <h5 className={`${colors.text} font-semibold`}>
                       Comandos sugeridos
                     </h5>
-                    <ul className="list-disc list-inside text-slate-300">
+                    <ul className={`list-disc list-inside ${colors.mutedText}`}>
                       {s.actions.map((a) => (
                         <li key={a.id}>{a.name}</li>
                       ))}
@@ -941,7 +941,7 @@ export default function Rutinas() {
                           "Sugerencia aceptada y convertida en rutina"
                         );
                       }}
-                      className="text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/20"
+                      className={`text-sm ${colors.successChip}`}
                     >
                       Aceptar
                     </SimpleButton>
@@ -950,7 +950,7 @@ export default function Rutinas() {
                         hook.rejectSuggestion(s.id);
                         showMessage("Sugerencia rechazada");
                       }}
-                      className="text-sm bg-gradient-to-r from-rose-600 to-red-600 text-white border-transparent shadow-rose-500/20"
+                      className={`text-sm ${colors.dangerChip}`}
                     >
                       Rechazar
                     </SimpleButton>
@@ -970,8 +970,8 @@ export default function Rutinas() {
           setActiveTab("list");
         }}
         panelClassName="max-w-3xl md:max-w-4xl"
-        backdropClassName="bg-black/50 backdrop-blur-sm"
-        className="bg-transparent bg-gradient-to-br from-sky-950/70 to-indigo-900/50 border border-sky-500/30 ring-1 ring-white/10 backdrop-blur-md"
+        backdropClassName={colors.backdropBg}
+        className={`bg-transparent ${colors.modalBg} border ${colors.border} ring-1 ring-white/10 backdrop-blur-md`}
       >
         <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
           <Form />
@@ -989,7 +989,7 @@ export default function Rutinas() {
                     (form.ttsMessages && form.ttsMessages.length > 0))
                 )
               }
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`${colors.successChip} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isEditing ? "Guardar cambios" : "Crear Rutina"}
             </SimpleButton>
@@ -998,7 +998,7 @@ export default function Rutinas() {
                 setIsCreateModalOpen(false);
                 resetForm();
               }}
-              className="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40"
+              className={`${colors.buttonInactive} ${colors.buttonHover}`}
             >
               Cancelar
             </SimpleButton>
@@ -1011,19 +1011,19 @@ export default function Rutinas() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
       >
-        <p className="text-slate-300">
+        <p className={colors.mutedText}>
           Esta acción no se puede deshacer. ¿Deseas eliminar la rutina?
         </p>
         <div className="mt-4 flex gap-2">
           <SimpleButton
             onClick={handleDelete}
-            className="bg-gradient-to-r from-rose-600 to-red-600 text-white border-transparent shadow-rose-500/20"
+            className={colors.dangerChip}
           >
             Eliminar
           </SimpleButton>
           <SimpleButton
             onClick={() => setDeleteId(null)}
-            className="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40"
+            className={`${colors.buttonInactive} ${colors.buttonHover}`}
           >
             Cancelar
           </SimpleButton>

@@ -44,7 +44,7 @@ export default function Chat() {
       />
 
       {/* ÁREA DEL CHAT */}
-      <div className={`flex flex-col w-full h-[78vh] backdrop-blur-md rounded-3xl border shadow-xl overflow-hidden ${colors.cardBg}`}>
+      <div className={`flex flex-col w-full h-[78vh] backdrop-blur-md rounded-3xl border shadow-xl overflow-hidden ${colors.cardBg} ${colors.cardBorder}`}>
 
         {/* Sub-header dentro del chat */}
         <div className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b ${colors.border}`}>
@@ -69,8 +69,8 @@ export default function Chat() {
                 <div
                   className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-md ${
                     msg.sender === "Tú"
-                      ? "bg-blue-600 text-white rounded-br-none"
-                      : "bg-slate-800/70 text-gray-100 rounded-bl-none border border-slate-700/60"
+                      ? `bg-gradient-to-r ${colors.primary} text-white rounded-br-none`
+                      : `${colors.cardBg} ${colors.text} rounded-bl-none border ${colors.border}`
                   }`}
                 >
                   <p>{msg.text}</p>
@@ -83,7 +83,7 @@ export default function Chat() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-gray-500 italic text-xs px-2"
+              className={`${colors.mutedText} italic text-xs px-2`}
             >
               MURPHY está escribiendo...
             </motion.div>
@@ -100,7 +100,7 @@ export default function Chat() {
             className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition-all ${
               listening
                 ? "bg-red-600 text-white animate-pulse"
-                : `${colors.cardBg} hover:shadow-md`
+                : `${colors.cardBg} hover:shadow-md border ${colors.border}`
             }`}
           >
             <Mic className="w-5 h-5" />
@@ -114,7 +114,7 @@ export default function Chat() {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder={listening ? "Escuchando..." : "Escribe tu mensaje..."}
-            className={`flex-1 rounded-xl px-4 py-2 text-sm focus:outline-none ${colors.inputBg} ${colors.inputBorder} ${colors.text}`}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm focus:outline-none ${colors.inputBg} ${colors.inputBorder} border ${colors.text}`}
           />
 
           {/* Enviar */}
@@ -124,7 +124,7 @@ export default function Chat() {
             className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition ${
               canSend
                 ? `bg-gradient-to-r ${colors.primary} text-white`
-                : `${colors.cardBg} cursor-not-allowed`
+                : `${colors.cardBg} cursor-not-allowed opacity-50`
             }`}
           >
             <Send className="w-5 h-5" />

@@ -31,87 +31,7 @@ export default function Inicio({
 } = {}) {
   const [expandedCard, setExpandedCard] = useState<"energy" | "temp" | "humidity" | "devices" | null>("energy")
   const [deviceFilter, setDeviceFilter] = useState<'all' | 'luz' | 'puerta' | 'ventilador'>('all')
-  const { colors, theme } = useThemeByTime()
-
-  // Colores temáticos específicos para cada sección
-  const themeConfig = {
-    energy: {
-      light: {
-        bg: "from-emerald-50 to-emerald-100/50",
-        ring: "ring-emerald-300",
-        accent: "emerald",
-        textPrimary: "text-emerald-900",
-        textSecondary: "text-emerald-700",
-        chart: "#10b981",
-      },
-      dark: {
-        bg: "from-emerald-950/40 to-emerald-900/20",
-        ring: "ring-emerald-500",
-        accent: "emerald",
-        textPrimary: "text-emerald-100",
-        textSecondary: "text-emerald-300",
-        chart: "#10b981",
-      },
-    },
-    temp: {
-      light: {
-        bg: "from-orange-50 to-orange-100/50",
-        ring: "ring-orange-300",
-        accent: "orange",
-        textPrimary: "text-orange-900",
-        textSecondary: "text-orange-700",
-        chart: "#f97316",
-      },
-      dark: {
-        bg: "from-orange-950/40 to-orange-900/20",
-        ring: "ring-orange-500",
-        accent: "orange",
-        textPrimary: "text-orange-100",
-        textSecondary: "text-orange-300",
-        chart: "#f97316",
-      },
-    },
-    humidity: {
-      light: {
-        bg: "from-cyan-50 to-cyan-100/50",
-        ring: "ring-cyan-300",
-        accent: "cyan",
-        textPrimary: "text-cyan-900",
-        textSecondary: "text-cyan-700",
-        chart: "#06b6d4",
-      },
-      dark: {
-        bg: "from-cyan-950/40 to-cyan-900/20",
-        ring: "ring-cyan-500",
-        accent: "cyan",
-        textPrimary: "text-cyan-100",
-        textSecondary: "text-cyan-300",
-        chart: "#06b6d4",
-      },
-    },
-    devices: {
-      light: {
-        bg: "from-violet-50 to-violet-100/50",
-        ring: "ring-violet-300",
-        accent: "violet",
-        textPrimary: "text-violet-900",
-        textSecondary: "text-violet-700",
-        chart: "#8b5cf6",
-      },
-      dark: {
-        bg: "from-violet-950/40 to-violet-900/20",
-        ring: "ring-violet-500",
-        accent: "violet",
-        textPrimary: "text-violet-100",
-        textSecondary: "text-violet-300",
-        chart: "#8b5cf6",
-      },
-    },
-  }
-
-  const getThemeForSection = (section: "energy" | "temp" | "humidity" | "devices") => {
-    return themeConfig[section][theme]
-  }
+  const { colors } = useThemeByTime()
 
   const energyHistory = useMemo(() => {
     return Array.from({ length: 24 }, (_, i) => {
@@ -161,6 +81,16 @@ export default function Inicio({
 
   const filteredDevices = getDevicesByFilter()
 
+  const getSectionTheme = (type: "energy" | "temp" | "humidity" | "devices") => {
+    const themeMap = {
+      energy: { card: colors.energyCard, border: colors.energyBorder, shadow: colors.energyShadow, text: colors.greenText, icon: colors.greenIcon },
+      temp: { card: colors.tempCard, border: colors.tempBorder, shadow: colors.tempShadow, text: colors.orangeText, icon: colors.orangeIcon },
+      humidity: { card: colors.humidityCard, border: colors.humidityBorder, shadow: colors.humidityShadow, text: colors.cyanText, icon: colors.cyanIcon },
+      devices: { card: colors.devicesCard, border: colors.devicesBorder, shadow: colors.devicesShadow, text: colors.violetText, icon: colors.violetIcon },
+    }
+    return themeMap[type]
+  }
+
   const NavButton = ({ type, label, icon: Icon, value, unit }: {
     type: "energy" | "temp" | "humidity" | "devices"
     label: string
@@ -168,7 +98,7 @@ export default function Inicio({
     value: string | number
     unit?: string
   }) => {
-    const sectionTheme = getThemeForSection(type)
+    const sectionTheme = getSectionTheme(type)
     const isActive = expandedCard === type
 
     return (
@@ -176,17 +106,17 @@ export default function Inicio({
         onClick={() => setExpandedCard(type)}
         className={`flex-1 p-4 rounded-lg transition-all text-left backdrop-blur-sm ${
           isActive
-            ? `bg-gradient-to-br ${sectionTheme.bg} ring-2 ${sectionTheme.ring} shadow-lg shadow-${sectionTheme.accent}-500/20 ${colors.cardBorder}`
+            ? `bg-gradient-to-br ${sectionTheme.card} ring-2 ${sectionTheme.border} shadow-lg ${sectionTheme.shadow} ${colors.cardBorder}`
             : `${colors.cardBg} hover:shadow-md`
         }`}
       >
         <div className="flex items-center gap-3">
-          <Icon className={`w-5 h-5 ${isActive ? sectionTheme.textPrimary : colors.icon}`} />
+          <Icon className={`w-5 h-5 ${isActive ? sectionTheme.icon : colors.icon}`} />
           <div>
-            <h4 className={`font-semibold text-sm ${isActive ? sectionTheme.textPrimary : colors.text}`}>
+            <h4 className={`font-semibold text-sm ${isActive ? sectionTheme.text : colors.text}`}>
               {label}
             </h4>
-            <p className={`text-xs mt-0.5 ${isActive ? sectionTheme.textSecondary : colors.mutedText}`}>
+            <p className={`text-xs mt-0.5 ${isActive ? sectionTheme.text : colors.mutedText}`}>
               {value}{unit}
             </p>
           </div>
@@ -196,8 +126,14 @@ export default function Inicio({
   }
 
   const renderChart = (type: "energy" | "temp" | "humidity", data: number[]) => {
-    const sectionTheme = getThemeForSection(type)
-    const chartColor = sectionTheme.chart
+    const sectionTheme = getSectionTheme(type)
+    const chartColorMap = {
+      energy: "#10b981",
+      temp: "#f97316",
+      humidity: "#06b6d4",
+      devices: "#8b5cf6",
+    }
+    const chartColor = chartColorMap[type]
     const gradientId = `${type}Gradient`
 
     if (type === "energy") {
@@ -293,19 +229,19 @@ export default function Inicio({
   }
 
   const renderSection = (type: "energy" | "temp" | "humidity" | "devices") => {
-    const sectionTheme = getThemeForSection(type)
+    const sectionTheme = getSectionTheme(type)
 
     if (type === "energy") {
       return (
-        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.accent}-300/30 transition-all`}>
+        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.border} transition-all`}>
           <div className="flex items-center mb-3">
-            <Zap className={`w-5 h-5 ${sectionTheme.textPrimary}`} />
+            <Zap className={`w-5 h-5 ${sectionTheme.icon}`} />
             <div className="ml-2">
-              <h3 className={`text-md font-bold ${sectionTheme.textPrimary}`}>Energía</h3>
-              <p className={`text-[10px] mt-0.5 ${sectionTheme.textSecondary}`}>Últimas 24 horas</p>
+              <h3 className={`text-md font-bold ${sectionTheme.text}`}>Energía</h3>
+              <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
             </div>
           </div>
-          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.bg} p-2 border ${sectionTheme.ring}/20`}>
+          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.card} p-2 border ${sectionTheme.border}`}>
             {renderChart("energy", energyHistory)}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -315,11 +251,11 @@ export default function Inicio({
               { label: "Máximo", value: Math.round(maxEnergy) },
               { label: "Mínimo", value: Math.round(minEnergy) },
             ].map((item) => (
-              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.ring}/10`}>
-                <p className={`text-[10px] ${sectionTheme.textSecondary}`}>{item.label}</p>
+              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border}`}>
+                <p className={`text-[10px] ${colors.mutedText}`}>{item.label}</p>
                 <div className="flex items-center gap-1 md:gap-2">
-                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.textPrimary}`}>{item.value}</p>
-                  <span className={`text-[9px] md:text-xs ${sectionTheme.textSecondary}`}>kWh</span>
+                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.text}`}>{item.value}</p>
+                  <span className={`text-[9px] md:text-xs ${colors.mutedText}`}>kWh</span>
                 </div>
               </div>
             ))}
@@ -330,24 +266,24 @@ export default function Inicio({
 
     if (type === "temp") {
       return (
-        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.accent}-300/30 transition-all`}>
+        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.border} transition-all`}>
           <div className="flex items-center mb-3">
-            <Thermometer className={`w-5 h-5 ${sectionTheme.textPrimary}`} />
+            <Thermometer className={`w-5 h-5 ${sectionTheme.icon}`} />
             <div className="ml-2">
-              <h3 className={`text-md font-bold ${sectionTheme.textPrimary}`}>Temperatura</h3>
-              <p className={`text-[10px] mt-0.5 ${sectionTheme.textSecondary}`}>Últimas 24 horas</p>
+              <h3 className={`text-md font-bold ${sectionTheme.text}`}>Temperatura</h3>
+              <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
             </div>
           </div>
-          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.bg} p-2 border ${sectionTheme.ring}/20`}>
+          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.card} p-2 border ${sectionTheme.border}`}>
             {renderChart("temp", temperatureHistory)}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[{label:"Actual",value:temperature,unit:"°C"},{label:"Promedio",value:avgTemp,unit:"°C"},{label:"Máximo",value:maxTemp,unit:"°C"},{label:"Mínimo",value:minTemp,unit:"°C"}].map(item=>(
-              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.ring}/10`}>
-                <p className={`text-[10px] ${sectionTheme.textSecondary}`}>{item.label}</p>
+              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border}`}>
+                <p className={`text-[10px] ${colors.mutedText}`}>{item.label}</p>
                 <div className="flex items-center gap-1 md:gap-2">
-                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.textPrimary}`}>{item.value}</p>
-                  <span className={`text-[9px] md:text-xs ${sectionTheme.textSecondary}`}>{item.unit}</span>
+                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.text}`}>{item.value}</p>
+                  <span className={`text-[9px] md:text-xs ${colors.mutedText}`}>{item.unit}</span>
                 </div>
               </div>
             ))}
@@ -358,24 +294,24 @@ export default function Inicio({
 
     if (type === "humidity") {
       return (
-        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.accent}-300/30 transition-all`}>
+        <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.border} transition-all`}>
           <div className="flex items-center mb-3">
-            <Droplets className={`w-5 h-5 ${sectionTheme.textPrimary}`} />
+            <Droplets className={`w-5 h-5 ${sectionTheme.icon}`} />
             <div className="ml-2">
-              <h3 className={`text-md font-bold ${sectionTheme.textPrimary}`}>Humedad</h3>
-              <p className={`text-[10px] mt-0.5 ${sectionTheme.textSecondary}`}>Últimas 24 horas</p>
+              <h3 className={`text-md font-bold ${sectionTheme.text}`}>Humedad</h3>
+              <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>Últimas 24 horas</p>
             </div>
           </div>
-          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.bg} p-2 border ${sectionTheme.ring}/20`}>
+          <div className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.card} p-2 border ${sectionTheme.border}`}>
             {renderChart("humidity", humidityHistory)}
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[{label:"Actual",value:humidity,unit:"%"},{label:"Promedio",value:avgHumidity,unit:"%"},{label:"Máximo",value:80,unit:"%"},{label:"Mínimo",value:20,unit:"%"}].map(item=>(
-              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.ring}/10`}>
-                <p className={`text-[10px] ${sectionTheme.textSecondary}`}>{item.label}</p>
+              <div key={item.label} className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border}`}>
+                <p className={`text-[10px] ${colors.mutedText}`}>{item.label}</p>
                 <div className="flex items-center gap-1 md:gap-2">
-                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.textPrimary}`}>{item.value}</p>
-                  <span className={`text-[9px] md:text-xs ${sectionTheme.textSecondary}`}>{item.unit}</span>
+                  <p className={`text-xl md:text-2xl font-bold ${sectionTheme.text}`}>{item.value}</p>
+                  <span className={`text-[9px] md:text-xs ${colors.mutedText}`}>{item.unit}</span>
                 </div>
               </div>
             ))}
@@ -385,12 +321,12 @@ export default function Inicio({
     }
 
     return (
-      <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.accent}-300/30 transition-all`}>
+      <div className={`p-4 pt-4 pb-1 md:p-5 md:pb-2 rounded-lg backdrop-blur-sm ${colors.cardBg} border border-transparent hover:border-${sectionTheme.border} transition-all`}>
         <div className="flex items-center mb-3">
-          <Power className={`w-5 h-5 ${sectionTheme.textPrimary}`} />
+          <Power className={`w-5 h-5 ${sectionTheme.icon}`} />
           <div className="ml-2">
-            <h3 className={`text-md font-bold ${sectionTheme.textPrimary}`}>Dispositivos</h3>
-            <p className={`text-[10px] mt-0.5 ${sectionTheme.textSecondary}`}>{activeDevices} de {devices.length} activos</p>
+            <h3 className={`text-md font-bold ${sectionTheme.text}`}>Dispositivos</h3>
+            <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>{activeDevices} de {devices.length} activos</p>
           </div>
         </div>
 
@@ -404,18 +340,18 @@ export default function Inicio({
 
         <div className="space-y-2 mb-2">
           {filteredDevices.length>0 ? filteredDevices.map((d,i)=>(
-            <div key={i} className={`flex items-center justify-between p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.ring}/10 hover:border-${sectionTheme.accent}-300/30 transition-all`}>
+            <div key={i} className={`flex items-center justify-between p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border} hover:border-${sectionTheme.border} transition-all`}>
               <div className="flex-1">
-                <p className={`text-sm font-semibold ${sectionTheme.textPrimary}`}>{d.name}</p>
-                {d.location && <p className={`text-xs mt-1 ${sectionTheme.textSecondary}`}>{d.location}</p>}
+                <p className={`text-sm font-semibold ${sectionTheme.text}`}>{d.name}</p>
+                {d.location && <p className={`text-xs mt-1 ${colors.mutedText}`}>{d.location}</p>}
               </div>
               <div className="text-right">
-                <p className={`text-xs ${sectionTheme.textSecondary}`}>Consumo</p>
-                <p className={`text-sm font-semibold ${sectionTheme.textPrimary}`}>{d.power}</p>
+                <p className={`text-xs ${colors.mutedText}`}>Consumo</p>
+                <p className={`text-sm font-semibold ${sectionTheme.text}`}>{d.power}</p>
               </div>
-              <div className={`w-3 h-3 ml-4 rounded-full shadow-lg transition-all ${d.on ? `bg-${sectionTheme.accent}-400 shadow-${sectionTheme.accent}-400/60` : "bg-slate-400"}`} />
+              <div className={`w-3 h-3 ml-4 rounded-full shadow-lg transition-all ${d.on ? "bg-green-400 shadow-green-400/60" : "bg-slate-400"}`} />
             </div>
-          )) : <p className={`text-sm ${sectionTheme.textSecondary}/60`}>No hay dispositivos en esta categoría.</p>}
+          )) : <p className={`text-sm ${colors.mutedText}`}>No hay dispositivos en esta categoría.</p>}
         </div>
       </div>
     )
@@ -423,8 +359,7 @@ export default function Inicio({
 
   return (
     <div className={`p-4 md:p-6 pt-8 md:pt-4 space-y-6 font-inter ${colors.background} ${colors.text}`}>
-
-      <PageHeader title="Bienvenido" icon={<Home className="w-8 md:w-10 h-8 md:h-10" style={{color: theme === "dark" ? "white" : "currentColor"}} />} />
+      <PageHeader title="Bienvenido" icon={<Home className="w-8 md:w-10 h-8 md:h-10 text-white" />} />
       <AnimatedClockWidget temperature={temperature} />
 
       <div>
@@ -449,7 +384,7 @@ export default function Inicio({
 
           <div className="hidden lg:block w-full lg:w-80 space-y-4">
             {(["energy", "temp", "humidity", "devices"] as const).map(type => {
-              const sectionTheme = getThemeForSection(type)
+              const sectionTheme = getSectionTheme(type)
               const isActive = expandedCard === type
               const config = {
                 energy: { label: "Energía", icon: Zap, value: `${energyUsage} kWh usados` },
@@ -465,15 +400,15 @@ export default function Inicio({
                   onClick={() => setExpandedCard(type)}
                   className={`w-full p-4 rounded-lg cursor-pointer transition-all text-left backdrop-blur-sm ${
                     isActive
-                      ? `bg-gradient-to-br ${sectionTheme.bg} ring-2 ${sectionTheme.ring} shadow-lg shadow-${sectionTheme.accent}-500/20`
+                      ? `bg-gradient-to-br ${sectionTheme.card} ring-2 ${sectionTheme.border} shadow-lg ${sectionTheme.shadow}`
                       : `${colors.cardBg} hover:shadow-md border border-transparent`
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${isActive ? sectionTheme.textPrimary : colors.icon}`} />
-                    <h4 className={`font-semibold text-sm ${isActive ? sectionTheme.textPrimary : colors.text}`}>{label}</h4>
+                    <Icon className={`w-5 h-5 ${isActive ? sectionTheme.icon : colors.icon}`} />
+                    <h4 className={`font-semibold text-sm ${isActive ? sectionTheme.text : colors.text}`}>{label}</h4>
                   </div>
-                  <p className={`text-xs mt-1 ${isActive ? sectionTheme.textSecondary : colors.mutedText}`}>{value}</p>
+                  <p className={`text-xs mt-1 ${isActive ? sectionTheme.text : colors.mutedText}`}>{value}</p>
                 </button>
               )
             })}

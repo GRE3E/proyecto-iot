@@ -10,19 +10,14 @@ import {
   XCircle,
   Activity,
   Filter,
-  BarChart3,
-  TrendingUp,
   Lightbulb,
   Wind,
   DoorOpen,
   Power,
-  BarChart2,
-  Calendar,
   Computer,
 } from "lucide-react"
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
 import { useThemeByTime } from "../hooks/useThemeByTime"
-import EnergyGauge from "../components/widgets/EnergyGauge"
 
 interface Device {
   id: number
@@ -38,13 +33,9 @@ export default function GestionDispositivos() {
   const {
     devices,
     energyUsage,
-    setEnergyUsage,
     filter,
     setFilter,
     toggleDevice,
-    estimatedDailyCost,
-    estimatedMonthlyCost,
-    estimatedAnnualCost,
   } = useGestionDispositivos()
   const { colors } = useThemeByTime()
 
@@ -109,16 +100,6 @@ export default function GestionDispositivos() {
             activeTab === "energia" ? colors.text : `${colors.mutedText} ${colors.buttonHover}`
           }`}
         >
-          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-          <span className="text-center sm:text-left leading-tight font-semibold">
-            Consumo de energía
-          </span>
-          {activeTab === "energia" && (
-            <motion.span
-              layoutId="underline"
-              className={`absolute bottom-[-1px] left-0 right-0 h-[3px] bg-gradient-to-r ${colors.accent} rounded-full`}
-            />
-          )}
         </button>
       </div>
 
@@ -242,9 +223,6 @@ export default function GestionDispositivos() {
                             <span className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold ${colors.text} font-inter whitespace-normal`}>
                               {device.name}
                             </span>
-                            <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 rounded-full ${
-                              device.on ? colors.deviceActive : colors.deviceInactive
-                            }`} />
                           </div>
                           <div className={`text-xs sm:text-sm ${colors.mutedText}`}>{device.power}</div>
                         </div>
@@ -265,126 +243,6 @@ export default function GestionDispositivos() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === "energia" && (
-            <motion.div
-              key="energia-tab"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              role="tabpanel"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-7 md:mb-8">
-                <SimpleCard className={`p-5 sm:p-6 md:p-7 lg:p-8 flex flex-col items-center justify-center ${colors.cardBg}`}>
-                  <div className="flex items-center justify-between w-full mb-4">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Zap className={`w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0 ${colors.violetIcon}`} />
-                      <h3 className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold ${colors.text} font-inter`}>
-                        Consumo actual
-                      </h3>
-                    </div>
-                    <div className={`flex items-center text-xs sm:text-sm font-semibold ${colors.successChip} rounded-full px-2 py-1`}>
-                      <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      Eficiente
-                    </div>
-                  </div>
-                  <EnergyGauge
-                    value={energyUsage}
-                    maxValue={500}
-                    label="Consumo total"
-                    color="pink"
-                    icon={<Zap />}
-                  />
-                  <input
-                    type="range"
-                    min="100"
-                    max="500"
-                    value={energyUsage}
-                    onChange={(e) => setEnergyUsage(Number.parseInt(e.target.value))}
-                    className={`w-full h-2 md:h-3 ${colors.sliderBg} rounded-lg appearance-none cursor-pointer mt-4 ${colors.sliderAccent}`}
-                    style={{
-                      background: `linear-gradient(to right, #4ade80 ${((energyUsage - 100) / 400) * 100}%, ${colors.sliderBg} ${((energyUsage - 100) / 400) * 100}%)`
-                    }}
-                  />
-                </SimpleCard>
-
-                <SimpleCard className={`p-5 sm:p-6 md:p-7 lg:p-8 ${colors.cardBg}`}>
-                  <h3 className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-4 sm:mb-5 md:mb-6 ${colors.greenText} font-inter flex items-center gap-2`}>
-                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
-                    Costo estimado
-                  </h3>
-                  <div className="space-y-3 sm:space-y-4 md:space-y-5">
-                    <div className={`flex justify-between items-center text-sm sm:text-base md:text-lg lg:text-xl p-2 sm:p-3 rounded-lg ${colors.tableBg}`}>
-                      <span className={`${colors.mutedText} font-medium`}>Hoy:</span>
-                      <span className={`${colors.greenText} font-bold`}>${estimatedDailyCost.toFixed(2)}</span>
-                    </div>
-                    <div className={`flex justify-between items-center text-sm sm:text-base md:text-lg lg:text-xl p-2 sm:p-3 rounded-lg ${colors.tableBg}`}>
-                      <span className={`${colors.mutedText} font-medium`}>Este mes:</span>
-                      <span className={`${colors.orangeText} font-bold`}>${estimatedMonthlyCost.toFixed(2)}</span>
-                    </div>
-                    <div className={`flex justify-between items-center text-sm sm:text-base md:text-lg lg:text-xl p-2 sm:p-3 rounded-lg ${colors.tableBg}`}>
-                      <span className={`${colors.mutedText} font-medium`}>Proyección anual:</span>
-                      <span className={`${colors.redIcon} font-bold`}>${estimatedAnnualCost.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </SimpleCard>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-                <SimpleCard className={`p-5 sm:p-6 md:p-7 lg:p-8 ${colors.cardBg}`}>
-                  <h3 className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-4 sm:mb-5 md:mb-6 ${colors.purpleText} font-inter flex items-center gap-2`}>
-                    <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
-                    Tendencia de Consumo
-                  </h3>
-                  <div className={`w-full h-24 sm:h-32 md:h-40 ${colors.panelBg} rounded-lg p-2 sm:p-3`}>
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-                      <defs>
-                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      {(() => {
-                        const data = [210, 220, 200, 230, 240, 250, 260, 245, 235, 255, 270, 265, 280, 290]
-                        const max = Math.max(...data)
-                        const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / max) * 100}`).join(" ")
-                        return (
-                          <>
-                            <path d={`M 0,${100 - (data[0] / max) * 100} L ${points}`} fill="url(#chartGradient)" stroke="none" />
-                            <polyline fill="none" stroke="#a78bfa" strokeWidth={2} points={points} strokeLinecap="round" strokeLinejoin="round" />
-                          </>
-                        )
-                      })()}
-                    </svg>
-                  </div>
-                </SimpleCard>
-                <SimpleCard className={`p-5 sm:p-6 md:p-7 lg:p-8 ${colors.cardBg}`}>
-                  <h3 className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-4 sm:mb-5 md:mb-6 ${colors.cyanText} font-inter flex items-center gap-2`}>
-                    <Activity className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 flex-shrink-0" />
-                    Consumo por Dispositivo
-                  </h3>
-                  <div className="space-y-2.5 sm:space-y-3 md:space-y-4">
-                    {devices
-                      .filter((d) => d.on)
-                      .map((device, i) => (
-                        <div
-                          key={i}
-                          className={`flex justify-between items-center p-3.5 sm:p-4 md:p-5 ${colors.panelBg} rounded-xl ${colors.buttonHover} transition-colors`}
-                        >
-                          <span className={`text-sm sm:text-base md:text-lg font-medium ${colors.text} truncate pr-3`}>
-                            {device.name}
-                          </span>
-                          <span className={`${colors.cyanText} font-bold text-sm sm:text-base md:text-lg flex-shrink-0`}>
-                            {device.power}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </SimpleCard>
               </div>
             </motion.div>
           )}

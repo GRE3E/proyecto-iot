@@ -396,9 +396,10 @@ export default function MusicaPage() {
                   value={nombreCancion}
                   onChange={(e) => setNombreCancion(e.target.value)}
                   disabled={agregando}
-                  className={`w-full ${
-                    colors.cardBg
-                  } text-white px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-600 text-sm border ${
+                  className={`w-full ${colors.cardBg} ${colors.text} px-4 py-3 rounded-xl 
+                  outline-none focus:ring-2 focus:ring-purple-500 
+                  ${colors.mutedText.replace("text-", "placeholder-")} 
+                  text-sm border ${
                     validationError ? "border-red-500" : "border-purple-500/20"
                   } disabled:opacity-50 transition-all backdrop-blur-sm`}
                 />

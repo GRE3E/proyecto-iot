@@ -11,6 +11,8 @@ from sqlalchemy import select
 from src.db.models import IoTCommand
 from src.iot.mqtt_client import MQTTClient
 from src.ai.nlp.iot_command_cache import IoTCommandCache
+import json
+from src.iot.device_manager import get_device_state, _extract_device_info_from_topic
 
 logger = logging.getLogger("IoTCommandProcessor")
 
@@ -336,6 +338,19 @@ class IoTCommandProcessor:
             except Exception as e:
                 logger.error(f"Error al buscar comando en BD: {e}")
                 return f"Error al buscar comando: {str(e)}"
+
+            # Extraer device_type y device_name del topic y payload
+            device_type, device_name, _ = _extract_device_info_from_topic(topic, payload)
+
+            if device_name and device_type:
+                current_device_state = await get_device_state(db, device_name, device_type)
+                if current_device_state:
+                    current_status = json.loads(current_device_state.state_json).get("status")
+                    desired_status = payload.upper() # Asumiendo que el payload es el estado deseado (ON/OFF/OPEN/CLOSE)
+
+                    if current_status == desired_status:
+                        logger.info(f"Dispositivo {device_name} ({device_type}) ya está en estado {desired_status}.")
+                        return f"La {device_type} {device_name} ya está {desired_status.lower()}."
             
             if not db_command:
                 logger.warning(f"Comando no encontrado en BD: topic='{topic}', payload='{payload}'")

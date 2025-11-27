@@ -39,8 +39,8 @@ class MemoryBrain:
             location=location
         )
 
-    def analyze_user(self, user_id: int) -> Dict[str, Any]:
-        return self.pattern_analyzer.detect_all_patterns(user_id)
+    async def analyze_user(self, db: AsyncSession, user_id: int) -> Dict[str, Any]:
+        return await self.pattern_analyzer.detect_all_patterns(db, user_id)
 
     async def suggest_routines(
         self, 
@@ -48,7 +48,7 @@ class MemoryBrain:
         user_id: int, 
         min_confidence: float = 0.5
     ) -> List[Routine]:
-        patterns = self.analyze_user(user_id)
+        patterns = await self.analyze_user(db, user_id)
         suggested_routines = []
 
         for pattern in patterns.get("time_patterns", []):

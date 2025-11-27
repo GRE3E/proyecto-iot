@@ -286,6 +286,22 @@ class AuthService:
         await self.db.refresh(user)
         return {"id": user.id, "username": user.nombre}
 
+    async def delete_user_and_data(self, username: str):
+        """
+        Elimina un usuario y todos sus datos asociados.
+        """
+        logger.info(f"Intentando eliminar usuario: {username}")
+        result = await self.db.execute(select(User).filter(User.nombre == username))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            logger.warning(f"Intento de eliminación fallido: usuario {username} no encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+        await self.db.delete(user)
+        await self.db.commit()
+        logger.info(f"Usuario {username} y sus datos asociados eliminados exitosamente.")
+
     async def update_password(self, user_id: int, new_password: str, current_password: str) -> dict:
         """
         Actualiza la contraseña tras verificar la contraseña actual.

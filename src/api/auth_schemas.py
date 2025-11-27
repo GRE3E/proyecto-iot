@@ -48,4 +48,7 @@ class UpdatePasswordRequest(BaseModel):
 
 class VerifyPasswordRequest(BaseModel):
     current_password: str
+
+class UserDeleteRequest(BaseModel):
+    username: str
     

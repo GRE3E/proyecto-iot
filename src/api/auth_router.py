@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File,
 from fastapi.security import OAuth2PasswordRequestForm
 import logging
 from src.db.database import get_db
-from src.auth.jwt_manager import get_current_user
-from src.auth.auth_service import AuthService
+from src.auth.auth_service import AuthService, get_current_user
 from src.auth.device_auth import get_device_api_key
+from src.db.models import User
 from .auth_schemas import (
     UserRegister, TokenRefresh, OwnerRegister,
     UpdateUsernameRequest, UpdatePasswordRequest, VerifyPasswordRequest,
-    MemberSummary,
+    MemberSummary, UserDeleteRequest,
 )
 from src.auth.voice_auth_recovery import voice_password_recovery
 from src.auth.face_auth_recovery import face_password_recovery
@@ -215,4 +215,28 @@ async def face_password_recovery_endpoint(new_password: str = Form(...), source:
     except Exception as e:
         logger.error(f"Error en la recuperación de contraseña por reconocimiento facial: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
+
+@router.delete("/delete-user", status_code=status.HTTP_200_OK)
+async def delete_user(
+    payload: UserDeleteRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Permite a un propietario eliminar un usuario y todos sus datos asociados.
+    """
+    if not current_user.is_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo los propietarios pueden eliminar usuarios.")
+
+    try:
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            await auth_service.delete_user_and_data(payload.username)
+        logger.info(f"Usuario {payload.username} eliminado exitosamente por el propietario {current_user.nombre}")
+        return {"message": f"Usuario {payload.username} y sus datos asociados eliminados exitosamente."}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error al eliminar usuario {payload.username}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor al eliminar usuario.")
+
     

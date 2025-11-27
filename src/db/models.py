@@ -201,7 +201,7 @@ class User(Base):
     preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user")
     permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user")
     memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
-    conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user")
+    conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user", cascade="all, delete-orphan")
     faces: Mapped[List["Face"]] = relationship("Face", back_populates="user")
     routines: Mapped[List["Routine"]] = relationship("Routine", back_populates="user", cascade="all, delete-orphan")
     context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")

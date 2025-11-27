@@ -36,10 +36,12 @@ async def register(user: UserRegister):
         raise
 
 @router.post("/register-owner", status_code=status.HTTP_201_CREATED)
-async def register_owner(user: OwnerRegister, api_key: str =  Depends(get_current_user)):
+async def register_owner(user: OwnerRegister, current_user: User = Depends(get_current_user)):
     """
     Registra un nuevo usuario propietario en el sistema (protegido por API Key).
     """
+    if not current_user.is_owner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo los propietarios pueden registrar otros propietarios.")
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
@@ -82,7 +84,7 @@ async def refresh_token(token_refresh: TokenRefresh):
         raise
 
 @router.get("/me")
-async def get_profile(current_user: dict = Depends(get_current_user)):
+async def get_profile(current_user: User = Depends(get_current_user)):
     """
     Obtiene el perfil del usuario autenticado.
     """
@@ -90,7 +92,7 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
         async with get_db() as db:
             auth_service = AuthService(db)
             return {
-                "user": await auth_service.get_user_profile(current_user["user_id"])
+                "user": await auth_service.get_user_profile(current_user.id)
             }
     except Exception as e:
         logger.error(f"Error al obtener perfil de usuario: {e}")
@@ -122,12 +124,12 @@ async def list_members():
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al listar miembros")
 
 @router.post("/verify-password", dependencies=[Depends(get_current_user)])
-async def verify_password(payload: VerifyPasswordRequest, current_user: dict = Depends(get_current_user)):
+async def verify_password(payload: VerifyPasswordRequest, current_user: User = Depends(get_current_user)):
     """Verifica la contraseña actual del usuario autenticado."""
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
-            ok = await auth_service.verify_current_password(current_user["user_id"], payload.current_password)
+            ok = await auth_service.verify_current_password(current_user.id, payload.current_password)
             if not ok:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña actual incorrecta")
         return {"status": "ok"}
@@ -138,17 +140,17 @@ async def verify_password(payload: VerifyPasswordRequest, current_user: dict = D
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al verificar contraseña")
 
 @router.post("/update-username", dependencies=[Depends(get_current_user)])
-async def update_username(payload: UpdateUsernameRequest, current_user: dict = Depends(get_current_user)):
+async def update_username(payload: UpdateUsernameRequest, current_user: User = Depends(get_current_user)):
     """Actualiza el nombre de usuario, requiriendo la contraseña actual."""
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
             result = await auth_service.update_username(
-                user_id=current_user["user_id"],
+                user_id=current_user.id,
                 new_username=payload.new_username,
                 current_password=payload.current_password,
             )
-        logger.info(f"Usuario {current_user['user_id']} actualizó su nombre a {result['username']}")
+        logger.info(f"Usuario {current_user.nombre} actualizó su nombre a {result['username']}")
         return {"message": "Nombre de usuario actualizado", "user": result}
     except HTTPException as e:
         raise e
@@ -157,17 +159,17 @@ async def update_username(payload: UpdateUsernameRequest, current_user: dict = D
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al actualizar nombre de usuario")
 
 @router.post("/update-password", dependencies=[Depends(get_current_user)])
-async def update_password(payload: UpdatePasswordRequest, current_user: dict = Depends(get_current_user)):
+async def update_password(payload: UpdatePasswordRequest, current_user: User = Depends(get_current_user)):
     """Actualiza la contraseña del usuario, requiriendo la contraseña actual."""
     try:
         async with get_db() as db:
             auth_service = AuthService(db)
             result = await auth_service.update_password(
-                user_id=current_user["user_id"],
+                user_id=current_user.id,
                 new_password=payload.new_password,
                 current_password=payload.current_password,
             )
-        logger.info(f"Usuario {current_user['user_id']} actualizó su contraseña")
+        logger.info(f"Usuario {current_user.nombre} actualizó su contraseña")
         return {"message": "Contraseña actualizada", "user": result}
     except HTTPException as e:
         raise e

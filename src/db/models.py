@@ -198,11 +198,11 @@ class User(Base):
     refresh_token = Column(String(255), nullable=True)
     is_owner = Column(Boolean, default=False)
 
-    preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user")
-    permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user")
-    memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False)
+    preferences: Mapped[List["Preference"]] = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
+    permissions: Mapped[List["UserPermission"]] = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan")
+    memory: Mapped["UserMemory"] = relationship("UserMemory", back_populates="user", uselist=False, cascade="all, delete-orphan")
     conversation_logs: Mapped[List["ConversationLog"]] = relationship("ConversationLog", back_populates="user", cascade="all, delete-orphan")
-    faces: Mapped[List["Face"]] = relationship("Face", back_populates="user")
+    faces: Mapped[List["Face"]] = relationship("Face", back_populates="user", cascade="all, delete-orphan")
     routines: Mapped[List["Routine"]] = relationship("Routine", back_populates="user", cascade="all, delete-orphan")
     context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")
 

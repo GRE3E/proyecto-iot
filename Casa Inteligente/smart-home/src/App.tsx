@@ -4,6 +4,7 @@ import { useThemeByTime } from "./hooks/useThemeByTime";
 import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo, Music } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import HamburgerMenu from "./components/Layout/Sidebar";
+import { DoorTransition } from "./pages/login";
 
 const Login = lazy(() => import("./pages/login"));
 const RecuperarContraseña = lazy(() => import("./pages/RecuperarContraseña"));
@@ -20,7 +21,7 @@ export default function App() {
   const { isAuthenticated, isLoading, logout } = useAuth();
   const [selectedMenu, setSelectedMenu] = useState("Inicio");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { colors } = useThemeByTime();
+  const { colors, theme } = useThemeByTime();
 
   const menuItems = [
     { name: "Inicio", icon: Home },
@@ -95,7 +96,7 @@ export default function App() {
   }, [isAuthenticated]);
 
   if (isLoading) {
-    return <div>Cargando...</div>;
+    return <DoorTransition theme={theme as "dark" | "light"} />;
   }
 
   return (

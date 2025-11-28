@@ -77,6 +77,8 @@ const DoorTransition: React.FC<{ theme: "dark" | "light" }> = ({ theme }) => {
   );
 };
 
+export { DoorTransition };
+
 interface LoginProps {
   onNavigate?: (section: string) => void;
 }
@@ -235,7 +237,6 @@ export default function Login({ onNavigate }: LoginProps) {
           </div>
         </div>
       )}
-
       {showDoorTransition && <DoorTransition theme={themeByTime as any} />}
     </div>
   );

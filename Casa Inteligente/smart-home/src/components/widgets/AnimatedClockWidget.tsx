@@ -14,26 +14,58 @@ export default function AnimatedClockWidget({ temperature }: { temperature?: num
   const [weatherCondition, setWeatherCondition] = useState('Cloudy')
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords
-          try {
-            const response = await fetch(`https://wttr.in/${latitude},${longitude}?format=j1`)
-            const data = await response.json()
-            const temp = parseInt(data.current_condition[0].temp_C)
-            const condition = data.current_condition[0].weatherDesc[0].value
-            setRealTemperature(temp)
-            setWeatherCondition(condition)
-          } catch (error) {
-            console.error('Error fetching weather:', error)
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error)
+    const fetchWeather = async () => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation is not supported by your browser.')
+        setRealTemperature(22) // Default temperature
+        setWeatherCondition('Unknown') // Default condition
+        return
+      }
+
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
+
+        if (permissionStatus.state === 'denied') {
+          console.warn('Geolocation permission denied. Using default weather.')
+          setRealTemperature(22) // Default temperature
+          setWeatherCondition('Unknown') // Default condition
+          return
         }
-      )
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords
+            try {
+              const response = await fetch(`https://wttr.in/${latitude},${longitude}?format=j1`)
+              const data = await response.json()
+              const temp = parseInt(data.current_condition[0].temp_C)
+              const condition = data.current_condition[0].weatherDesc[0].value
+              setRealTemperature(temp)
+              setWeatherCondition(condition)
+            } catch (error) {
+              console.error('Error fetching weather:', error)
+              setRealTemperature(22) // Fallback temperature
+              setWeatherCondition('Unknown') // Fallback condition
+            }
+          },
+          (error) => {
+            if (error.code === error.PERMISSION_DENIED) {
+              console.warn('Geolocation permission denied. Using default weather.')
+            } else {
+              console.error('Error getting location:', error)
+            }
+            setRealTemperature(22) // Fallback temperature
+            setWeatherCondition('Unknown') // Fallback condition
+          }
+        )
+      } catch (error) {
+        console.error('Error querying geolocation permission:', error)
+        setRealTemperature(22) // Fallback temperature
+        setWeatherCondition('Unknown') // Fallback condition
+      }
     }
+
+    fetchWeather()
   }, [])
 
   const weather = getWeatherData(realTemperature, weatherCondition)

@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useEffect, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Mic, Send, Bot } from "lucide-react"
-import PageHeader from "../components/UI/PageHeader"
-import { useThemeByTime } from "../hooks/useThemeByTime"
-import { useVoiceChat } from "../hooks/useVoiceChat"
+import { useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mic, Send, Bot } from "lucide-react";
+import PageHeader from "../components/UI/PageHeader";
+import { useThemeByTime } from "../hooks/useThemeByTime";
+import { useVoiceChat } from "../hooks/useVoiceChat";
 
 export default function Chat() {
-  const { colors } = useThemeByTime()
+  const { colors } = useThemeByTime();
   const {
     messages,
     text,
@@ -18,25 +18,49 @@ export default function Chat() {
     toggleVoiceActive,
     sendMessage,
     messagesEndRef,
-  } = useVoiceChat({ prefetchHistory: true })
+  } = useVoiceChat({ prefetchHistory: true });
 
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && text.trim()) {
-      e.preventDefault()
-      sendMessage()
+      e.preventDefault();
+      sendMessage();
     }
-  }
+  };
 
-  const canSend = text.trim() !== ""
+  const canSend = text.trim() !== "";
 
   return (
-    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
+    <div
+      className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}
+    >
+      <AnimatePresence>
+        {listening && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-md bg-black/50"
+            onClick={toggleVoiceActive} // Permite detener la escucha haciendo clic en cualquier parte del popup
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className={`p-8 rounded-3xl shadow-lg flex flex-col items-center justify-center space-y-4 ${colors.cardBg} ${colors.text}`}
+            >
+              <Mic className="w-16 h-16 text-green-500 animate-pulse" />
+              <p className="text-lg font-medium">Escuchando...</p>
+              <p className="text-base text-gray-300">Haz clic para detener</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Header */}
       <PageHeader
         title="CHAT"
@@ -44,10 +68,13 @@ export default function Chat() {
       />
 
       {/* ÁREA DEL CHAT */}
-      <div className={`flex flex-col w-full h-[78vh] backdrop-blur-md rounded-3xl border shadow-xl overflow-hidden ${colors.cardBg} ${colors.cardBorder}`}>
-
+      <div
+        className={`flex flex-col w-full h-[78vh] backdrop-blur-md rounded-3xl border shadow-xl overflow-hidden ${colors.cardBg} ${colors.cardBorder}`}
+      >
         {/* Sub-header dentro del chat */}
-        <div className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b ${colors.border}`}>
+        <div
+          className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b ${colors.border}`}
+        >
           <div className="flex items-center gap-2 font-medium text-lg">
             <Bot className="w-5 h-5" />
             <span>MURPHY</span>
@@ -64,7 +91,9 @@ export default function Chat() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`flex ${msg.sender === "Tú" ? "justify-end" : "justify-start"}`}
+                className={`flex ${
+                  msg.sender === "Tú" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-md ${
@@ -93,13 +122,15 @@ export default function Chat() {
         </div>
 
         {/* INPUT BAR */}
-        <div className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t ${colors.border} backdrop-blur-sm`}>
+        <div
+          className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:px-6 md:py-3 border-t ${colors.border} backdrop-blur-sm`}
+        >
           {/* Mic */}
           <button
             onClick={toggleVoiceActive}
             className={`h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-full transition-all ${
               listening
-                ? "bg-red-600 text-white animate-pulse"
+                ? "bg-green-500 text-white animate-pulse"
                 : `${colors.cardBg} hover:shadow-md border ${colors.border}`
             }`}
           >
@@ -132,5 +163,5 @@ export default function Chat() {
         </div>
       </div>
     </div>
-  )
+  );
 }

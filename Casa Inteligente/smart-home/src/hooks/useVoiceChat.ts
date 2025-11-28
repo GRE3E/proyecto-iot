@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useAuth } from "./useAuth";
+import { useState, useRef, useEffect } from "react";
 import { useVoiceRecognition } from "./useVoiceRecognition";
-import { speakText, SpeechSynthesisSupported } from "../utils/voiceUtils";
 import { useAnimation } from "framer-motion";
 import { axiosInstance } from "../services/authService";
 
@@ -19,8 +17,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const waveControls = useAnimation();
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     if (!options?.prefetchHistory) return;
@@ -151,8 +147,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
         type: "text",
       };
       setMessages((prev) => [...prev, aiMessage]);
-
-      if (SpeechSynthesisSupported) speakText(aiResponseText);
     } catch (error) {
       console.error("Error sending message to AI:", error);
       setIsTyping(false);

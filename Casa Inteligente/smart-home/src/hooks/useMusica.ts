@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { axiosInstance } from "../services/authService";
-import { v4 as uuidv4 } from "uuid";
 import { useWebSocket } from "./useWebSocket";
 
 export interface Cancion {
@@ -29,8 +28,7 @@ export interface EstadoMusica {
 }
 
 export const useMusica = () => {
-  const clientId = useRef(uuidv4());
-  const { message } = useWebSocket(clientId.current);
+  const { message } = useWebSocket();
   const [estado, setEstado] = useState<EstadoMusica>({
     cancionActual: null,
     volumen: 70,

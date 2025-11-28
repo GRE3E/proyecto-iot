@@ -1,10 +1,9 @@
 // useGestionDispositivos.ts
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { axiosInstance } from "../services/authService";
 import { useWebSocket } from "./useWebSocket";
-import { v4 as uuidv4 } from "uuid";
 
 export interface Device {
   id: number;
@@ -16,13 +15,14 @@ export interface Device {
   last_updated: string;
 }
 
-export function useGestionDispositivos(initialDevices?: Device[]) {
-  const clientId = useRef(uuidv4());
-  const { message } = useWebSocket(clientId.current);
-  // const { accessToken } = useAuth(); // Ya no es necesario obtenerlo aquí directamente
+export function useGestionDispositivos() {
+  const { message } = useWebSocket();
   const [devices, setDevices] = useState<Device[]>([]);
-  const [energyUsage, setEnergyUsage] = useState<number>(150); // mismo nombre que usas en UI
-  const [filter, setFilter] = useState<string>("Todos");
+  const [allDevices, setAllDevices] = useState<Device[]>([]);
+  const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
+  const [energyUsage, setEnergyUsage] = useState<number>(150);
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("Todos");
+  const [statusFilter, setStatusFilter] = useState<string>("Todos");
 
   useEffect(() => {
     if (message && message.id && message.state) {
@@ -43,56 +43,59 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
     }
   }, [message]);
 
-  const fetchDevicesByType = async (deviceType: string): Promise<Device[]> => {
-    try {
-      const response = await axiosInstance.get(
-        `/iot/device_states/by_type/${deviceType}`
-      );
-      const data = response.data;
-      return data.map((item: any) => ({
-        id: item.id,
-        name: item.device_name.replace(/_/g, " "),
-        power: "60W",
-        on: item.state_json.status === "ON",
-        device_type: item.device_type,
-        state_json: item.state_json,
-        last_updated: item.last_updated,
-      }));
-    } catch (error) {
-      console.error(`Error fetching devices of type ${deviceType}:`, error);
-      return [];
-    }
-  };
-
   useEffect(() => {
-    const loadDevices = async () => {
+    const loadAllDevices = async () => {
       try {
-        const response = await axiosInstance.get(`/iot/device_types`);
-        const data = response.data;
-        const deviceTypes = data.device_types;
+        const typesResponse = await axiosInstance.get(`/iot/device_types`);
+        setDeviceTypes(typesResponse.data.device_types);
 
-        const allDevices: Device[] = [];
-
-        for (const type of deviceTypes) {
-          const fetched = await fetchDevicesByType(type);
-          allDevices.push(...fetched);
-        }
-        setDevices(allDevices);
+        const statesResponse = await axiosInstance.get(`/iot/device_states`);
+        const mappedDevices = statesResponse.data.map((item: any) => ({
+          id: item.id,
+          name: item.device_name.replace(/_/g, " "),
+          power: "60W",
+          on: item.state_json.status === "ON",
+          device_type: item.device_type,
+          state_json: item.state_json,
+          last_updated: item.last_updated,
+        }));
+        setAllDevices(mappedDevices);
+        setDevices(mappedDevices); // Inicialmente, mostrar todos los dispositivos
       } catch (error) {
-        console.error("Error loading device types or devices:", error);
+        console.error("Error loading all devices:", error);
       }
     };
 
-    loadDevices();
+    loadAllDevices();
   }, []);
 
-  // Calcula costos (misma lógica del original)
+  useEffect(() => {
+    let currentFilteredDevices = allDevices;
+
+    if (deviceTypeFilter !== "Todos") {
+      currentFilteredDevices = currentFilteredDevices.filter(
+        (device) => device.device_type === deviceTypeFilter
+      );
+    }
+
+    if (statusFilter === "Encendidos") {
+      currentFilteredDevices = currentFilteredDevices.filter(
+        (device) => device.on
+      );
+    } else if (statusFilter === "Apagados") {
+      currentFilteredDevices = currentFilteredDevices.filter(
+        (device) => !device.on
+      );
+    }
+
+    setDevices(currentFilteredDevices);
+  }, [deviceTypeFilter, statusFilter, allDevices]);
+
   const costPerKWH = 0.15;
   const estimatedDailyCost = (energyUsage / 1000) * 24 * costPerKWH;
   const estimatedMonthlyCost = estimatedDailyCost * 30;
   const estimatedAnnualCost = estimatedMonthlyCost * 12;
 
-  // toggle por index (mantiene la API que usabas: toggleDevice(devices.indexOf(device)))
   const toggleDevice = async (id: number) => {
     setDevices((prevDevices) =>
       prevDevices.map((device) =>
@@ -117,11 +120,9 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
         new_state: { status: newStatus },
       });
 
-      // Si la petición fue exitosa, el estado ya se actualizó localmente
       console.log(`Device ${id} toggled to ${newStatus}`);
     } catch (error) {
       console.error("Error toggling device:", error);
-      // Revertir el estado local si la petición falla
       setDevices((prevDevices) =>
         prevDevices.map((device) =>
           device.id === id ? { ...device, on: !device.on } : device
@@ -130,7 +131,6 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
     }
   };
 
-  // Si quieres simular variación de consumo, descomenta este useEffect:
   useEffect(() => {
     const t = setInterval(() => {
       setEnergyUsage((v) =>
@@ -141,18 +141,19 @@ export function useGestionDispositivos(initialDevices?: Device[]) {
   }, []);
 
   return {
-    // estados
     devices,
     setDevices,
     energyUsage,
     setEnergyUsage,
-    filter,
-    setFilter,
-    // funciones y cálculos
+    deviceTypeFilter,
+    setDeviceTypeFilter,
+    statusFilter,
+    setStatusFilter,
     toggleDevice,
     costPerKWH,
     estimatedDailyCost,
     estimatedMonthlyCost,
     estimatedAnnualCost,
+    deviceTypes,
   };
 }

@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import React from "react"
-import SimpleCard from "../components/UI/Card"
-import PageHeader from "../components/UI/PageHeader"
-import { motion, AnimatePresence } from "framer-motion"
+import React from "react";
+import SimpleCard from "../components/UI/Card";
+import PageHeader from "../components/UI/PageHeader";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
   CheckCircle,
@@ -15,55 +15,54 @@ import {
   DoorOpen,
   Power,
   Computer,
-} from "lucide-react"
-import { useGestionDispositivos } from "../hooks/useGestionDispositivos"
-import { useThemeByTime } from "../hooks/useThemeByTime"
+} from "lucide-react";
+import { useGestionDispositivos } from "../hooks/useGestionDispositivos";
+import { useThemeByTime } from "../hooks/useThemeByTime";
 
 interface Device {
-  id: number
-  name: string
-  power: string
-  on: boolean
-  device_type: string
-  state_json: { status: string }
-  last_updated: string
+  id: number;
+  name: string;
+  power: string;
+  on: boolean;
+  device_type: string;
+  state_json: { status: string };
+  last_updated: string;
 }
 
 export default function GestionDispositivos() {
   const {
     devices,
     energyUsage,
-    filter,
-    setFilter,
+    deviceTypes,
+    deviceTypeFilter,
+    setDeviceTypeFilter,
+    statusFilter,
+    setStatusFilter,
     toggleDevice,
-  } = useGestionDispositivos()
-  const { colors } = useThemeByTime()
+  } = useGestionDispositivos();
+  const { colors } = useThemeByTime();
 
-  const [activeTab, setActiveTab] = React.useState<"control" | "energia">("control")
-  const [deviceTypeFilter, setDeviceTypeFilter] = React.useState<string | null>(null)
+  const [activeTab, setActiveTab] = React.useState<"control" | "energia">(
+    "control"
+  );
 
   const getDeviceIcon = (device: Device) => {
     switch (device.device_type) {
       case "luz":
-        return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
+        return <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />;
       case "puerta":
-        return <DoorOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+        return <DoorOpen className="w-5 h-5 sm:w-6 sm:h-6" />;
       case "ventilador":
-        return <Wind className="w-5 h-5 sm:w-6 sm:h-6" />
+        return <Wind className="w-5 h-5 sm:w-6 sm:h-6" />;
       default:
-        return <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
+        return <Activity className="w-5 h-5 sm:w-6 sm:h-6" />;
     }
-  }
-
-  const filteredDevices = devices.filter((d) => {
-    const statusMatch =
-      filter === "Todos" || (filter === "Encendidos" && d.on) || (filter === "Apagados" && !d.on)
-    const typeMatch = deviceTypeFilter === null || d.device_type === deviceTypeFilter
-    return statusMatch && typeMatch
-  })
+  };
 
   return (
-    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
+    <div
+      className={`min-h-screen p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}
+    >
       <PageHeader
         title="Gestión de dispositivos"
         icon={<Computer className={`w-8 md:w-10 h-8 md:h-10 ${colors.icon}`} />}
@@ -78,7 +77,9 @@ export default function GestionDispositivos() {
           role="tab"
           aria-selected={activeTab === "control"}
           className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative ${
-            activeTab === "control" ? colors.text : `${colors.mutedText} ${colors.buttonHover}`
+            activeTab === "control"
+              ? colors.text
+              : `${colors.mutedText} ${colors.buttonHover}`
           }`}
         >
           <Activity className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
@@ -97,10 +98,11 @@ export default function GestionDispositivos() {
           role="tab"
           aria-selected={activeTab === "energia"}
           className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative ${
-            activeTab === "energia" ? colors.text : `${colors.mutedText} ${colors.buttonHover}`
+            activeTab === "energia"
+              ? colors.text
+              : `${colors.mutedText} ${colors.buttonHover}`
           }`}
-        >
-        </button>
+        ></button>
       </div>
 
       <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6">
@@ -116,17 +118,14 @@ export default function GestionDispositivos() {
             >
               <div className="mb-5 sm:mb-6 flex flex-col xl:flex-row md:grid md:grid-cols-[1fr_1fr] gap-2 sm:gap-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {[
-                    { name: "Todos", icon: Filter, type: null, color: "purple" },
-                    { name: "Luz", icon: Lightbulb, type: "luz", color: "yellow" },
-                    { name: "Puerta", icon: DoorOpen, type: "puerta", color: "orange" },
-                    { name: "Ventilador", icon: Wind, type: "actuador", color: "cyan" },
-                  ].map((btn) => (
+                  {["Todos", ...deviceTypes].map((type) => (
                     <motion.button
-                      key={btn.type}
-                      onClick={() => setDeviceTypeFilter(btn.type)}
+                      key={type}
+                      onClick={() =>
+                        setDeviceTypeFilter(type === "Todos" ? "Todos" : type)
+                      }
                       className={`min-h-[48px] px-4 py-2 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm border ${
-                        deviceTypeFilter === btn.type
+                        deviceTypeFilter === type
                           ? colors.buttonActive
                           : `${colors.buttonInactive} ${colors.buttonHover}`
                       }`}
@@ -134,8 +133,16 @@ export default function GestionDispositivos() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      {React.createElement(btn.icon, { className: "w-4 h-4 flex-shrink-0" })}
-                      <span>{btn.name}</span>
+                      {type === "Todos" ? (
+                        <Filter className="w-4 h-4 flex-shrink-0" />
+                      ) : (
+                        getDeviceIcon({ device_type: type } as Device)
+                      )}
+                      <span>
+                        {type === "Todos"
+                          ? "Todos"
+                          : type.charAt(0).toUpperCase() + type.slice(1)}
+                      </span>
                     </motion.button>
                   ))}
                 </div>
@@ -148,16 +155,16 @@ export default function GestionDispositivos() {
                     <motion.button
                       key={f.name}
                       onClick={() => {
-                        if (filter === f.name) {
-                          setFilter("Todos")
+                        if (statusFilter === f.name) {
+                          setStatusFilter("Todos");
                         } else {
-                          setFilter(f.name)
+                          setStatusFilter(f.name);
                         }
                       }}
                       className={`flex-1 min-h-[48px] px-4 py-2 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm border ${
-                        filter === f.name
-                          ? f.color === "green" 
-                            ? colors.successChip 
+                        statusFilter === f.name
+                          ? f.color === "green"
+                            ? colors.successChip
                             : colors.dangerChip
                           : `${colors.buttonInactive} ${colors.buttonHover}`
                       }`}
@@ -165,7 +172,9 @@ export default function GestionDispositivos() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      {React.createElement(f.icon, { className: "w-4 h-4 flex-shrink-0" })}
+                      {React.createElement(f.icon, {
+                        className: "w-4 h-4 flex-shrink-0",
+                      })}
                       <span>{f.name}</span>
                     </motion.button>
                   ))}
@@ -174,21 +183,60 @@ export default function GestionDispositivos() {
 
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 sm:mb-7 md:mb-8">
                 {[
-                  { title: "Total", icon: Activity, value: filteredDevices.length, gradient: colors.purpleGradient, text: colors.purpleText, iconColor: colors.purpleIcon },
-                  { title: "Activos", icon: CheckCircle, value: filteredDevices.filter((d) => d.on).length, gradient: colors.greenGradient, text: colors.greenText, iconColor: colors.greenIcon },
-                  { title: "Inactivos", icon: XCircle, value: filteredDevices.filter((d) => !d.on).length, gradient: colors.orangeGradient, text: colors.orangeText, iconColor: colors.redIcon },
-                  { title: "Consumo", icon: Zap, value: `${energyUsage}W`, gradient: colors.cyanGradient, text: colors.cyanText, iconColor: colors.yellowIcon },
+                  {
+                    title: "Total",
+                    icon: Activity,
+                    value: devices.length,
+                    gradient: colors.purpleGradient,
+                    text: colors.purpleText,
+                    iconColor: colors.purpleIcon,
+                  },
+                  {
+                    title: "Activos",
+                    icon: CheckCircle,
+                    value: devices.filter((d) => d.on).length,
+                    gradient: colors.greenGradient,
+                    text: colors.greenText,
+                    iconColor: colors.greenIcon,
+                  },
+                  {
+                    title: "Inactivos",
+                    icon: XCircle,
+                    value: devices.filter((d) => !d.on).length,
+                    gradient: colors.orangeGradient,
+                    text: colors.orangeText,
+                    iconColor: colors.redIcon,
+                  },
+                  {
+                    title: "Consumo",
+                    icon: Zap,
+                    value: `${energyUsage}W`,
+                    gradient: colors.cyanGradient,
+                    text: colors.cyanText,
+                    iconColor: colors.yellowIcon,
+                  },
                 ].map((stat) => (
-                  <SimpleCard key={stat.title} className={`p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br ${stat.gradient} border ${colors.cardHover}`}>
+                  <SimpleCard
+                    key={stat.title}
+                    className={`p-4 sm:p-5 md:p-6 text-center bg-gradient-to-br ${stat.gradient} border ${colors.cardHover}`}
+                  >
                     <div className="flex justify-center items-center mb-2 sm:mb-3">
-                      <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center ${colors.chipBg} shadow-lg`}>
-                        {React.createElement(stat.icon, { className: `w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 ${stat.iconColor}` })}
+                      <div
+                        className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center ${colors.chipBg} shadow-lg`}
+                      >
+                        {React.createElement(stat.icon, {
+                          className: `w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 ${stat.iconColor}`,
+                        })}
                       </div>
                     </div>
-                    <p className={`text-xs sm:text-sm md:text-base font-semibold mb-1 uppercase tracking-wider ${stat.text}`}>
+                    <p
+                      className={`text-xs sm:text-sm md:text-base font-semibold mb-1 uppercase tracking-wider ${stat.text}`}
+                    >
                       {stat.title}
                     </p>
-                    <p className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold ${colors.text} font-inter`}>
+                    <p
+                      className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold ${colors.text} font-inter`}
+                    >
                       {stat.value}
                     </p>
                   </SimpleCard>
@@ -197,7 +245,7 @@ export default function GestionDispositivos() {
 
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 <AnimatePresence>
-                  {filteredDevices.map((device, i) => (
+                  {devices.map((device, i) => (
                     <motion.div
                       key={device.id}
                       initial={{ opacity: 0, y: 50, scale: 0.8 }}
@@ -206,33 +254,43 @@ export default function GestionDispositivos() {
                       transition={{ duration: 0.4, delay: i * 0.1 }}
                     >
                       <SimpleCard
-                        className={`h-full p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4 md:gap-5 transition-all duration-300 border ${colors.cardBg} ${colors.cardHover} ${
+                        className={`h-full p-4 sm:p-5 md:p-6 flex items-center gap-3 sm:gap-4 md:gap-5 transition-all duration-300 border ${
+                          colors.cardBg
+                        } ${colors.cardHover} ${
                           device.on ? colors.energyBorder : colors.tempBorder
                         }`}
                       >
                         <div className="flex-shrink-0">
-                          <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${
-                            device.on ? colors.deviceOn : colors.deviceOff
-                          }`}>
+                          <div
+                            className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 ${
+                              device.on ? colors.deviceOn : colors.deviceOff
+                            }`}
+                          >
                             {getDeviceIcon(device)}
                           </div>
                         </div>
 
                         <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold ${colors.text} font-inter whitespace-normal`}>
+                            <span
+                              className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold ${colors.text} font-inter whitespace-normal`}
+                            >
                               {device.name}
                             </span>
                           </div>
-                          <div className={`text-xs sm:text-sm ${colors.mutedText}`}>{device.power}</div>
+                          <div
+                            className={`text-xs sm:text-sm ${colors.mutedText}`}
+                          >
+                            {device.power}
+                          </div>
                         </div>
 
                         <div className="flex-shrink-0">
                           <button
                             onClick={() => toggleDevice(device.id)}
                             className={`w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-110 active:scale-95 border-2 ${
-                              device.on 
-                                ? `bg-red-500 hover:bg-red-600 border-red-400/50 text-white` 
+                              device.on
+                                ? `bg-red-500 hover:bg-red-600 border-red-400/50 text-white`
                                 : `bg-green-500 hover:bg-green-600 border-green-400/50 text-white`
                             }`}
                           >
@@ -249,5 +307,5 @@ export default function GestionDispositivos() {
         </AnimatePresence>
       </div>
     </div>
-  )
+  );
 }

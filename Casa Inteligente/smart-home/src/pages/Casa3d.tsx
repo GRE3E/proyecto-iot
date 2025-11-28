@@ -52,12 +52,16 @@ function SwitchToggle({
           {label}
         </label>
         {tooltip && (
-          <div className={`hidden group-hover:block absolute bottom-full left-0 mb-2 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}>
+          <div
+            className={`hidden group-hover:block absolute bottom-full left-0 mb-2 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}
+          >
             {tooltip}
           </div>
         )}
       </div>
-      <div className={`flex gap-2 backdrop-blur-sm p-1 rounded-lg border transition-all ${colors.cardBg} ${colors.border}`}>
+      <div
+        className={`flex gap-2 backdrop-blur-sm p-1 rounded-lg border transition-all ${colors.cardBg} ${colors.border}`}
+      >
         <button
           onClick={() => onChange(true)}
           className={`flex-1 px-3 py-2 rounded-md font-semibold transition-all duration-300 text-sm ${
@@ -110,16 +114,22 @@ function SliderControl({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {Icon && <Icon className={`w-4 h-4 ${colors.icon}`} />}
-          <label className={`text-xs font-semibold ${colors.mutedText} cursor-help`}>
+          <label
+            className={`text-xs font-semibold ${colors.mutedText} cursor-help`}
+          >
             {label}
           </label>
           {tooltip && (
-            <div className={`hidden group-hover:block absolute top-full left-0 mt-1 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}>
+            <div
+              className={`hidden group-hover:block absolute top-full left-0 mt-1 rounded-lg p-2 text-xs whitespace-nowrap z-50 ${colors.cardBg} ${colors.border} ${colors.text}`}
+            >
               {tooltip}
             </div>
           )}
         </div>
-        <span className={`text-xs font-bold bg-gradient-to-r from-cyan-500 to-indigo-600 bg-clip-text text-transparent px-2 py-1 rounded-md`}>
+        <span
+          className={`text-xs font-bold bg-gradient-to-r from-cyan-500 to-indigo-600 bg-clip-text text-transparent px-2 py-1 rounded-md`}
+        >
           {format(value)}
         </span>
       </div>
@@ -132,7 +142,9 @@ function SliderControl({
         onChange={(e) => onChange(Number(e.target.value))}
         className={`w-full h-2.5 rounded-lg appearance-none cursor-pointer accent-cyan-500 hover:accent-cyan-400 transition-all`}
         style={{
-          background: `linear-gradient(to right, rgb(34, 197, 94), rgb(168, 85, 247), rgb(236, 72, 153)) 0% / ${(value - min) * 100 / (max - min)}% 100% no-repeat, linear-gradient(to right, rgb(71, 85, 105)) 0% / 100% 100%`
+          background: `linear-gradient(to right, rgb(34, 197, 94), rgb(168, 85, 247), rgb(236, 72, 153)) 0% / ${
+            ((value - min) * 100) / (max - min)
+          }% 100% no-repeat, linear-gradient(to right, rgb(71, 85, 105)) 0% / 100% 100%`,
         }}
       />
     </div>
@@ -157,7 +169,7 @@ export default function Casa3d({
   const [envEnabled, setEnvEnabled] = useState(true);
   const [lightIntensity] = useState(1);
   const [autoSpeed, setAutoSpeed] = useState(1.2);
-  
+
   const resetView = () => zoomToFit(groupRef, controlsRef);
 
   useEffect(() => {
@@ -168,7 +180,9 @@ export default function Casa3d({
   }, []);
 
   return (
-    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
+    <div
+      className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}
+    >
       {/* Header */}
       <PageHeader
         title="Casa 3D"
@@ -188,7 +202,11 @@ export default function Casa3d({
               <Suspense fallback={<Html center>Cargando modelo...</Html>}>
                 {envEnabled && <Environment preset="city" background={false} />}
                 <group ref={groupRef}>
-                  <Model src={modelPath} wireframe={wireframe} onReady={() => zoomToFit(groupRef, controlsRef)} />
+                  <Model
+                    src={modelPath}
+                    wireframe={wireframe}
+                    onReady={() => zoomToFit(groupRef, controlsRef)}
+                  />
                 </group>
 
                 <SceneHelpers
@@ -235,7 +253,11 @@ export default function Casa3d({
               <Suspense fallback={<Html center>Cargando modelo...</Html>}>
                 {envEnabled && <Environment preset="city" background={false} />}
                 <group ref={groupRef}>
-                  <Model src={modelPath} wireframe={wireframe} onReady={() => zoomToFit(groupRef, controlsRef)} />
+                  <Model
+                    src={modelPath}
+                    wireframe={wireframe}
+                    onReady={() => zoomToFit(groupRef, controlsRef)}
+                  />
                 </group>
 
                 <SceneHelpers
@@ -272,44 +294,50 @@ export default function Casa3d({
           </div>
 
           {/* Panel Lateral */}
-          <aside className={`w-full md:w-96 flex flex-col gap-2 max-h-[680px] overflow-hidden`}>
+          <aside
+            className={`w-full md:w-96 flex flex-col gap-2 max-h-[680px] overflow-hidden`}
+          >
             <SimpleCard className={`p-4 ${colors.cardBg}`}>
-              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}>
+              <p
+                className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}
+              >
                 <Zap className="w-3 h-3" />
                 Vistas Guardadas
               </p>
-        <div className="grid grid-cols-3 gap-2.5">
-          <SimpleButton
-            onClick={() => presets.top(controlsRef)}
-            active
-            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-          >
-            <ArrowUp className="w-4 h-4" />
-            <span>Top</span>
-          </SimpleButton>
+              <div className="grid grid-cols-3 gap-2.5">
+                <SimpleButton
+                  onClick={() => presets.top(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                  <span>Top</span>
+                </SimpleButton>
 
-          <SimpleButton
-            onClick={() => presets.front(controlsRef)}
-            active
-            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Front</span>
-          </SimpleButton>
+                <SimpleButton
+                  onClick={() => presets.front(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Front</span>
+                </SimpleButton>
 
-          <SimpleButton
-            onClick={() => presets.iso(controlsRef)}
-            active
-            className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
-          >
-            <Box className="w-4 h-4" />
-            <span>Iso</span>
-          </SimpleButton>
-        </div>
+                <SimpleButton
+                  onClick={() => presets.iso(controlsRef)}
+                  active
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm rounded-lg font-semibold transition-all duration-300 hover:scale-105 w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-indigo-500/20"
+                >
+                  <Box className="w-4 h-4" />
+                  <span>Iso</span>
+                </SimpleButton>
+              </div>
             </SimpleCard>
 
             <SimpleCard className={`p-4 ${colors.cardBg}`}>
-              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}>
+              <p
+                className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-3 ${colors.mutedText}`}
+              >
                 <Lightbulb className="w-3 h-3" />
                 Modo de Visualización
               </p>
@@ -349,7 +377,9 @@ export default function Casa3d({
             </SimpleCard>
 
             <SimpleCard className={`p-4 ${colors.cardBg}`}>
-              <p className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-4 ${colors.mutedText}`}>
+              <p
+                className={`text-xs font-bold uppercase tracking-widest px-1 flex items-center gap-2 mb-4 ${colors.mutedText}`}
+              >
                 <Settings2 className="w-3 h-3" />
                 Configuración de Rotación
               </p>
@@ -369,24 +399,24 @@ export default function Casa3d({
             </SimpleCard>
 
             <SimpleCard className={`p-3 ${colors.cardBg}`}>
-          <div className="flex gap-2.5">
-            <SimpleButton
-              onClick={handleSnapshot}
-              active
-              className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-transparent shadow-blue-500/20"
-            >
-              <Camera className="w-4 h-4" />
-              Capturar
-            </SimpleButton>
-            <SimpleButton
-              onClick={resetView}
-              active
-              className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-transparent shadow-blue-500/20"
-            >
-              <RotateCw className="w-4 h-4" />
-              Centrar
-            </SimpleButton>
-          </div>
+              <div className="flex gap-2.5">
+                <SimpleButton
+                  onClick={handleSnapshot}
+                  active
+                  className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-transparent shadow-blue-500/20"
+                >
+                  <Camera className="w-4 h-4" />
+                  Capturar
+                </SimpleButton>
+                <SimpleButton
+                  onClick={resetView}
+                  active
+                  className="flex-1 py-3 font-bold text-sm rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-transparent shadow-blue-500/20"
+                >
+                  <RotateCw className="w-4 h-4" />
+                  Centrar
+                </SimpleButton>
+              </div>
             </SimpleCard>
           </aside>
         </div>

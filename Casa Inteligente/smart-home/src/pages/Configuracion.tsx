@@ -248,6 +248,7 @@ export default function Configuracion() {
           title="Editar perfil"
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
+          backdropClassName="bg-black"
         >
           <div className="space-y-4">
             <div>

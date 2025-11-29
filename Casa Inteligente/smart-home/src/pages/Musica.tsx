@@ -134,6 +134,45 @@ export default function MusicaPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 block lg:hidden">
+          <SimpleCard className={`p-6 ${colors.cardBg} space-y-3`}>
+            <form onSubmit={handleAgregarCancion} className="space-y-3">
+              <div className="relative group">
+                <input
+                  type="text"
+                  placeholder="Escribe el nombre de la canción o artista"
+                  value={nombreCancion}
+                  onChange={(e) => setNombreCancion(e.target.value)}
+                  disabled={agregando}
+                  className={`w-full ${colors.cardBg} ${colors.text} px-4 py-3 rounded-xl 
+                  outline-none focus:ring-2 focus:ring-purple-500 
+                  ${colors.mutedText.replace("text-", "placeholder-")} 
+                  text-sm border ${
+                    validationError ? "border-red-500" : "border-purple-500/20"
+                  } disabled:opacity-50 transition-all backdrop-blur-sm`}
+                />
+                {validationError && (
+                  <p className="text-red-400 text-xs mt-1">{validationError}</p>
+                )}
+              </div>
+
+              <SimpleButton
+                onClick={handleAgregarCancion}
+                className="w-full !py-3 !text-sm"
+                active={true}
+              >
+                {agregando ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader size={16} className="animate-spin" />
+                    Agregando...
+                  </span>
+                ) : (
+                  "Agregar"
+                )}
+              </SimpleButton>
+            </form>
+          </SimpleCard>
+        </div>
         {/* Reproductor Principal */}
         <div className="lg:col-span-2">
           <SimpleCard className={`p-10 ${colors.cardBg}`}>
@@ -387,7 +426,7 @@ export default function MusicaPage() {
 
         {/* Panel Lateral - Solo Essentials */}
         <div className="lg:col-span-1 space-y-4">
-          <SimpleCard className={`p-6 ${colors.cardBg} space-y-3`}>
+          <SimpleCard className={`p-6 ${colors.cardBg} space-y-3 hidden lg:block`}>
             <form onSubmit={handleAgregarCancion} className="space-y-3">
               <div className="relative group">
                 <input

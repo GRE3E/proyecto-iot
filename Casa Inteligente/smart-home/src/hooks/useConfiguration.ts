@@ -13,7 +13,7 @@ declare global {
 }
 
 export function useConfiguracion() {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const [ownerName, setOwnerName] = useState("Usuario Principal");
   const [ownerPassword, setOwnerPassword] = useState("contraseña123");
   const [ownerUsernames, setOwnerUsernames] = useState<string[]>([]);
@@ -90,6 +90,32 @@ export function useConfiguracion() {
     refreshMembers();
   }, [user]);
 
+  // Escuchar solicitudes de refresco desde componentes hijos
+  useEffect(() => {
+    const handler = () => refreshOwners();
+    if (typeof window !== "undefined") {
+      window.addEventListener("refreshOwners", handler);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("refreshOwners", handler);
+      }
+    };
+  }, [user]);
+
+  // Escuchar refresco de miembros desde componentes hijos
+  useEffect(() => {
+    const handler = () => refreshMembers();
+    if (typeof window !== "undefined") {
+      window.addEventListener("refreshMembers", handler);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("refreshMembers", handler);
+      }
+    };
+  }, [user]);
+
   // ✏️ Editar perfil
   const handleEditProfile = () => {
     setModalOwnerName(ownerName);
@@ -118,6 +144,7 @@ export function useConfiguracion() {
           current_password: modalCurrentPassword.trim(),
         });
         setOwnerName(modalOwnerName.trim());
+        await checkAuth();
       }
 
       // Actualizar contraseña si se ingresó nueva
@@ -130,6 +157,8 @@ export function useConfiguracion() {
       }
 
       setTimezone(modalTimezone);
+      // Refrescar perfil global por si hubo cambios de contraseña u otros
+      await checkAuth();
       setIsProfileModalOpen(false);
     } catch (e: any) {
       const message = e?.response?.data?.detail || e?.message || "Error al actualizar perfil";

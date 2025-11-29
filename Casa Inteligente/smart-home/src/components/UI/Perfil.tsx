@@ -1,8 +1,9 @@
 "use client"
-import { User, Trash2, Edit, Eye, Power, UserPlus } from "lucide-react"
+import { User, Trash2, Edit, Power, UserPlus } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useThemeByTime } from "../../hooks/useThemeByTime"
 import Modal from "../UI/Modal"
+import { axiosInstance } from "../../services/authService"
 
 export interface FamilyMember {
   id: string
@@ -38,6 +39,7 @@ export default function Perfil({
 }: PerfilProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
   const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null)
+  const [editPassword, setEditPassword] = useState<string>("")
   const { colors } = useThemeByTime()
 
   // Separar administradores y familiares
@@ -54,19 +56,57 @@ export default function Perfil({
     setMemberToDelete(target)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!memberToDelete) return
-    setMembers(members.filter((m) => m.id !== memberToDelete.id))
-    setMemberToDelete(null)
+    try {
+      await axiosInstance.delete("/auth/auth/delete-user", { data: { username: memberToDelete.name } })
+      setMembers(members.filter((m) => m.id !== memberToDelete.id))
+      setMemberToDelete(null)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("refreshMembers"))
+      }
+    } catch (e: any) {
+      const message = e?.response?.data?.detail || e?.message || "Error al eliminar usuario"
+      alert(message)
+    }
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingMember) return
-    const updatedMembers = members.map((m) =>
-      m.id === editingMember.id ? editingMember : m
-    )
-    setMembers(updatedMembers)
-    setEditingMember(null)
+    try {
+      const original = members.find((m) => m.id === editingMember.id)
+      const usernameForApi = original?.name || editingMember.name
+      const proposedName = (editingMember.name || "").trim()
+      const originalNameTrim = (original?.name || "").trim()
+      const newUsernamePayload = proposedName && proposedName !== originalNameTrim ? proposedName : undefined
+      await axiosInstance.post("/auth/auth/update-member-role", {
+        username: usernameForApi,
+        make_owner: editingMember.role === "Administrador",
+        new_password: editPassword.trim() || undefined,
+        new_username: newUsernamePayload,
+      })
+      const updatedMembers = editingMember.role === "Administrador"
+        ? members.filter((m) => m.id !== editingMember.id)
+        : members.map((m) => (m.id === editingMember.id ? editingMember : m))
+      setMembers(updatedMembers)
+      setEditingMember(null)
+      setEditPassword("")
+      // Solicitar refresco según rol final
+      if (typeof window !== "undefined") {
+        const demotedOwner = editingMember.role !== "Administrador" && editingMember.id.startsWith("owner:");
+        if (demotedOwner) {
+          window.dispatchEvent(new Event("refreshOwners"));
+          window.dispatchEvent(new Event("refreshMembers"));
+        } else if (editingMember.role === "Administrador") {
+          window.dispatchEvent(new Event("refreshOwners"));
+        } else {
+          window.dispatchEvent(new Event("refreshMembers"));
+        }
+      }
+    } catch (e: any) {
+      const message = e?.response?.data?.detail || e?.message || "Error al guardar cambios"
+      alert(message)
+    }
   }
 
   const handleRoleChange = () => {
@@ -121,11 +161,8 @@ export default function Perfil({
 
       {/* Lista de usuarios - Vista Vertical (Administradores arriba, Familiares abajo) */}
       <div className="space-y-6">
-       
-        {admins.length === 0 && familiares.length === 0 ? (
-          <p className="text-slate-400 text-sm">
-            No hay usuarios registrados.
-          </p>
+        {(((owners?.length || 0) + admins.length + familiares.length) === 0) ? (
+          <p className="text-slate-400 text-sm">No hay usuarios registrados.</p>
         ) : (
           <>
             {/* ADMINISTRADORES - ARRIBA */}
@@ -162,16 +199,12 @@ export default function Perfil({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{m.name}</div>
-                        <div className={`text-[11px] ${colors.mutedText}`}>Administrador</div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => deleteMember(m.id)} className="text-red-400 hover:text-red-600 transition" title="Eliminar miembro">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
                     </div>
                   ))}
                 </div>
@@ -197,14 +230,16 @@ export default function Perfil({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{m.name}</div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
-                          <Edit className="w-4 h-4" />
-                        </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      {role === "Propietario" && (
                         <button onClick={() => deleteMember(m.id)} className="text-red-400 hover:text-red-600 transition" title="Eliminar miembro">
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      </div>
+                      )}
+                    </div>
                     </div>
                   ))}
                 </div>
@@ -239,6 +274,16 @@ export default function Perfil({
             </div>
 
             <div>
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>Contraseña</label>
+              <input
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                className={`w-full ${colors.inputBg} border ${colors.inputBorder} rounded-lg px-3 py-2 text-sm ${colors.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+            </div>
+
+            <div>
               <label className={`block text-sm ${colors.mutedText} mb-2`}>
                 Privilegios
               </label>
@@ -253,78 +298,13 @@ export default function Perfil({
                     onClick={handleRoleChange}
                     className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
                       editingMember.role === "Administrador"
-                        ? "bg-red-600"
-                        : "bg-blue-600"
+                        ? "bg-blue-600"
+                        : "bg-red-600"
                     }`}
                   >
                     <span
                       className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
                         editingMember.role === "Administrador"
-                          ? "translate-x-7"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Controlar dispositivos */}
-                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
-                  <div className="flex items-center gap-2">
-                    <Power className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm">Controlar dispositivos</span>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setEditingMember({
-                        ...editingMember,
-                        privileges: {
-                          ...editingMember.privileges,
-                          controlDevices: !editingMember.privileges
-                            .controlDevices,
-                        },
-                      })
-                    }
-                    className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
-                      editingMember.privileges.controlDevices
-                        ? "bg-blue-600"
-                        : "bg-slate-600"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                        editingMember.privileges.controlDevices
-                          ? "translate-x-7"
-                          : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Ver cámaras */}
-                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
-                  <div className="flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm">Ver cámaras</span>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setEditingMember({
-                        ...editingMember,
-                        privileges: {
-                          ...editingMember.privileges,
-                          viewCamera: !editingMember.privileges.viewCamera,
-                        },
-                      })
-                    }
-                    className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
-                      editingMember.privileges.viewCamera
-                        ? "bg-blue-600"
-                        : "bg-slate-600"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                        editingMember.privileges.viewCamera
                           ? "translate-x-7"
                           : "translate-x-1"
                       }`}

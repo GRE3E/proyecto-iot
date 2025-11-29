@@ -321,7 +321,10 @@ export default function Rutinas() {
                     type="time"
                     value={form.timeHour}
                     onChange={(e: any) =>
-                      updateForm({ timeHour: e.target.value, relativeMinutes: 0 })
+                      updateForm({
+                        timeHour: e.target.value,
+                        relativeMinutes: 0,
+                      })
                     }
                   />
                   <div>
@@ -355,7 +358,9 @@ export default function Rutinas() {
                     label="Fecha específica (opcional)"
                     type="date"
                     value={form.timeDate}
-                    onChange={(e: any) => updateForm({ timeDate: e.target.value })}
+                    onChange={(e: any) =>
+                      updateForm({ timeDate: e.target.value })
+                    }
                   />
                 </>
               ) : (
@@ -379,7 +384,9 @@ export default function Rutinas() {
                 label="Selecciona un dispositivo"
                 value={form.deviceId}
                 onChange={(e: any) => {
-                  const dev = DEVICE_OPTIONS.find((d) => d.id === e.target.value);
+                  const dev = DEVICE_OPTIONS.find(
+                    (d) => d.id === e.target.value
+                  );
                   updateForm({
                     deviceId: e.target.value,
                     deviceEvent: dev?.events[0] || "",
@@ -393,11 +400,13 @@ export default function Rutinas() {
               <SelectField
                 label="Evento a monitorear"
                 value={form.deviceEvent}
-                onChange={(e: any) => updateForm({ deviceEvent: e.target.value })}
+                onChange={(e: any) =>
+                  updateForm({ deviceEvent: e.target.value })
+                }
                 options={
-                  DEVICE_OPTIONS.find((d) => d.id === form.deviceId)?.events.map(
-                    (ev) => ({ value: ev, label: ev })
-                  ) || []
+                  DEVICE_OPTIONS.find(
+                    (d) => d.id === form.deviceId
+                  )?.events.map((ev) => ({ value: ev, label: ev })) || []
                 }
               />
               <div className="grid grid-cols-2 gap-3">
@@ -523,7 +532,7 @@ export default function Rutinas() {
                       onClick={() =>
                         updateForm({
                           ttsMessages: form.ttsMessages.filter(
-                            (m, i) => i !== idx
+                            (_, i) => i !== idx
                           ),
                         })
                       }
@@ -555,7 +564,11 @@ export default function Rutinas() {
     };
 
     return (
-      <SimpleCard className={`p-5 bg-gradient-to-br border transition-all hover:shadow-xl ${colorMap[r.trigger.type]} ${colors.glow}`}>
+      <SimpleCard
+        className={`p-5 bg-gradient-to-br border transition-all hover:shadow-xl ${
+          colorMap[r.trigger.type]
+        } ${colors.glow}`}
+      >
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
@@ -604,7 +617,9 @@ export default function Rutinas() {
                   </span>
                 ))}
                 {r.actions.length > 2 && (
-                  <span className={`text-xs px-2 py-1 rounded-full ${colors.chipBg} border ${colors.border} ${colors.chipText}`}>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${colors.chipBg} border ${colors.border} ${colors.chipText}`}
+                  >
                     +{r.actions.length - 2}
                   </span>
                 )}
@@ -614,9 +629,11 @@ export default function Rutinas() {
 
           <div className="flex items-center justify-between gap-2 pt-3">
             <SimpleButton
-              onClick={() => hook.toggleEnabled(r.id, !r.enabled)}
+              onClick={() => hook.toggleEnabled(r.id)}
               className={`text-xs px-3 py-2 font-medium rounded-lg ${
-                r.enabled ? `${colors.buttonActive}` : `${colors.buttonInactive}`
+                r.enabled
+                  ? `${colors.buttonActive}`
+                  : `${colors.buttonInactive}`
               }`}
             >
               {r.enabled ? "Activa" : "Inactiva"}
@@ -789,7 +806,9 @@ export default function Rutinas() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className={`text-xs ${colors.mutedText} uppercase tracking-wider`}>
+                    <p
+                      className={`text-xs ${colors.mutedText} uppercase tracking-wider`}
+                    >
                       Tipo de Disparador
                     </p>
                     <p className={`text-lg font-semibold ${colors.text} mt-1`}>
@@ -801,7 +820,9 @@ export default function Rutinas() {
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${colors.mutedText} uppercase tracking-wider`}>
+                    <p
+                      className={`text-xs ${colors.mutedText} uppercase tracking-wider`}
+                    >
                       Ejecutadas
                     </p>
                     <p className={`text-lg font-semibold ${colors.text} mt-1`}>
@@ -831,7 +852,9 @@ export default function Rutinas() {
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg ${colors.chipBg} border ${colors.border}`}
                         >
                           <Zap className="w-4 h-4" />
-                          <span className={`text-sm ${colors.text}`}>{a.name}</span>
+                          <span className={`text-sm ${colors.text}`}>
+                            {a.name}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -839,7 +862,9 @@ export default function Rutinas() {
                 )}
 
                 <div className={`border-t ${colors.border} pt-4`}>
-                  <p className={`text-xs ${colors.mutedText} uppercase tracking-wider mb-2`}>
+                  <p
+                    className={`text-xs ${colors.mutedText} uppercase tracking-wider mb-2`}
+                  >
                     Última ejecución
                   </p>
                   <p className={`text-sm ${colors.text}`}>
@@ -851,7 +876,7 @@ export default function Rutinas() {
 
                 <div className="flex flex-wrap gap-2 pt-4">
                   <SimpleButton
-                    onClick={() => hook.toggleEnabled(r.id, !r.enabled)}
+                    onClick={() => hook.toggleEnabled(r.id)}
                     className={`text-sm px-4 py-2 font-medium rounded-lg ${
                       r.enabled
                         ? `bg-gradient-to-r ${colors.primary} text-white`
@@ -981,7 +1006,9 @@ export default function Rutinas() {
                           {s.trigger.type}
                         </p>
                       </div>
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 whitespace-nowrap`}>
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 whitespace-nowrap`}
+                      >
                         {Math.round(s.confidence * 100)}%
                       </span>
                     </div>
@@ -992,7 +1019,9 @@ export default function Rutinas() {
 
                     {s.actions.length > 0 && (
                       <div className={`border-t border-white/10 pt-3`}>
-                        <p className={`text-xs font-semibold ${colors.text} mb-2`}>
+                        <p
+                          className={`text-xs font-semibold ${colors.text} mb-2`}
+                        >
                           Acciones sugeridas
                         </p>
                         <div className="space-y-1">

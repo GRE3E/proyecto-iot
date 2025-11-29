@@ -200,7 +200,9 @@ export function useRutinas() {
     const actionsFromTexts: RoutineAction[] = Array.isArray(r?.actions)
       ? r.actions.map((s: any) => {
           const txt = String(s);
-          const label = txt.startsWith("tts_speak:") ? txt.replace("tts_speak:", "").trim() : txt;
+          const label = txt.startsWith("tts_speak:")
+            ? txt.replace("tts_speak:", "").trim()
+            : txt;
           return { id: uuidv4(), name: label };
         })
       : [];
@@ -287,14 +289,6 @@ export function useRutinas() {
     []
   );
 
-  const mapActions = useCallback(
-    (ids: string[]): RoutineAction[] =>
-      ids
-        .map((id) => availableActions.find((a) => a.id === id))
-        .filter(Boolean) as RoutineAction[],
-    [availableActions]
-  );
-
   const validateForm = useCallback(
     (form: FormState): { valid: boolean; message?: string } => {
       if (!form.name.trim())
@@ -311,8 +305,14 @@ export function useRutinas() {
           valid: false,
           message: "Selecciona al menos un día o una fecha",
         };
-      if (form.actionIds.length === 0 && (!form.ttsMessages || form.ttsMessages.length === 0))
-        return { valid: false, message: "Añade al menos una acción (IoT o voz)" };
+      if (
+        form.actionIds.length === 0 &&
+        (!form.ttsMessages || form.ttsMessages.length === 0)
+      )
+        return {
+          valid: false,
+          message: "Añade al menos una acción (IoT o voz)",
+        };
       return { valid: true };
     },
     []
@@ -406,7 +406,7 @@ export function useRutinas() {
     }
   }, []);
 
-  const toggleEnabled = useCallback(async (id: string, enabled: boolean) => {
+  const toggleEnabled = useCallback(async (id: string) => {
     try {
       const res = await axiosInstance.post(
         `/nlp/routines/${Number(id)}/toggle`

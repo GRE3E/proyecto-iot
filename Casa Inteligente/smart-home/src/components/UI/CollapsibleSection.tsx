@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useThemeByTime } from "../../hooks/useThemeByTime";
 
 interface CollapsibleSectionProps {
   title: string;
@@ -15,7 +14,6 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   defaultOpen = false,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { colors } = useThemeByTime();
 
   return (
     <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">

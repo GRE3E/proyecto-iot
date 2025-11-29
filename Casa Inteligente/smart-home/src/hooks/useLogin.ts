@@ -43,7 +43,7 @@ export function useLogin() {
           console.log("🟢 Ejecutando onLogin()");
         }, 4000);
       } catch (err: any) {
-        console.error("Error durante el login:", err);
+        console.error("Error durante el login:", err.message, err);
         setError(err.response?.data?.message || "Error de autenticación");
         setIsLoading(false);
       }

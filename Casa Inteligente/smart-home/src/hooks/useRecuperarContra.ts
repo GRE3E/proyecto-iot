@@ -27,7 +27,6 @@ export function useRecuperarContra() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -39,7 +38,9 @@ export function useRecuperarContra() {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>(
+    []
+  );
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const faceImageBlobRef = useRef<Blob | null>(null);
   const [faceReady, setFaceReady] = useState(false);
@@ -102,7 +103,10 @@ export function useRecuperarContra() {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Simulación: validar que el usuario existe
-      if (username.toLowerCase() === "admin" || username.toLowerCase() === "user") {
+      if (
+        username.toLowerCase() === "admin" ||
+        username.toLowerCase() === "user"
+      ) {
         setSuccess("Usuario validado correctamente ✓");
         setTimeout(() => {
           setStep(2);
@@ -124,8 +128,6 @@ export function useRecuperarContra() {
     setStep(2);
   }, []);
 
-  
-
   const startVoiceRecognition = useCallback(() => {
     setError("");
     setBiometricStatus("Listo para grabar. Pulsa Iniciar grabación.");
@@ -138,7 +140,8 @@ export function useRecuperarContra() {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cams = devices.filter((d) => d.kind === "videoinput");
       setAvailableCameras(cams);
-      if (!selectedCameraId && cams.length > 0) setSelectedCameraId(cams[0].deviceId);
+      if (!selectedCameraId && cams.length > 0)
+        setSelectedCameraId(cams[0].deviceId);
     } catch {}
   }, [selectedCameraId]);
 
@@ -147,7 +150,9 @@ export function useRecuperarContra() {
       setBiometricLoading(true);
       setBiometricStatus("Iniciando cámara...");
       const constraints: MediaStreamConstraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } as any } : { facingMode: "user" },
+        video: deviceId
+          ? { deviceId: { exact: deviceId } as any }
+          : { facingMode: "user" },
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
@@ -171,7 +176,13 @@ export function useRecuperarContra() {
       }
     };
     run();
-  }, [step, recoveryMethod, enumerateCameras, startFacePreview, selectedCameraId]);
+  }, [
+    step,
+    recoveryMethod,
+    enumerateCameras,
+    startFacePreview,
+    selectedCameraId,
+  ]);
 
   const openFaceModal = useCallback(async () => {
     try {
@@ -182,12 +193,13 @@ export function useRecuperarContra() {
     } catch {}
   }, [selectedCameraId, startFacePreview, enumerateCameras]);
 
-  const updateSelectedCamera = useCallback(async (id: string) => {
-    setSelectedCameraId(id);
-    await startFacePreview(id);
-  }, [startFacePreview]);
-
-  
+  const updateSelectedCamera = useCallback(
+    async (id: string) => {
+      setSelectedCameraId(id);
+      await startFacePreview(id);
+    },
+    [startFacePreview]
+  );
 
   const beginVoiceRecording = useCallback(async () => {
     setBiometricLoading(true);
@@ -196,7 +208,8 @@ export function useRecuperarContra() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = stream;
 
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.minDecibels = -90;
@@ -232,15 +245,18 @@ export function useRecuperarContra() {
 
       checkSilence();
 
-      const mime = 'audio/webm;codecs=opus';
+      const mime = "audio/webm;codecs=opus";
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: mime });
       audioChunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const ctx = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
         const arrayBuffer = await audioBlob.arrayBuffer();
         const decoded = await ctx.decodeAudioData(arrayBuffer);
         const float32Array = decoded.getChannelData(0);
@@ -254,7 +270,9 @@ export function useRecuperarContra() {
           setBiometricLoading(false);
           setIsRecording(false);
           setVoiceReady(false);
-          try { await ctx.close(); } catch {}
+          try {
+            await ctx.close();
+          } catch {}
           return;
         }
         voiceWavBlobRef.current = wavBlob;
@@ -262,7 +280,9 @@ export function useRecuperarContra() {
         setBiometricLoading(false);
         setIsRecording(false);
         setVoiceReady(true);
-        try { await ctx.close(); } catch {}
+        try {
+          await ctx.close();
+        } catch {}
       };
 
       mediaRecorderRef.current.start();
@@ -328,14 +348,23 @@ export function useRecuperarContra() {
       if (pendingFaceSubmit) {
         const formData = new FormData();
         formData.append("new_password", newPassword);
-        const imgFile = new File([imageBlob], "face.jpg", { type: "image/jpeg" });
+        const imgFile = new File([imageBlob], "face.jpg", {
+          type: "image/jpeg",
+        });
         formData.append("image_file", imgFile);
         try {
           setLoading(true);
-          await axiosInstance.post("/auth/auth/face-password-recovery", formData, {
-            params: { source: "file" },
-            headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
-          });
+          await axiosInstance.post(
+            "/auth/auth/face-password-recovery",
+            formData,
+            {
+              params: { source: "file" },
+              headers: {
+                "Content-Type": "multipart/form-data",
+                accept: "application/json",
+              },
+            }
+          );
           setSuccess("¡Contraseña cambiada exitosamente! ✓");
           setTimeout(() => {
             window.location.href = "/login";
@@ -345,7 +374,10 @@ export function useRecuperarContra() {
           const d = err?.response?.data;
           if (d?.detail) {
             if (typeof d.detail === "string") message = d.detail;
-            else if (Array.isArray(d.detail)) message = d.detail.map((e: any) => e?.msg || e?.type || "Error").join("; ");
+            else if (Array.isArray(d.detail))
+              message = d.detail
+                .map((e: any) => e?.msg || e?.type || "Error")
+                .join("; ");
           } else if (typeof err?.message === "string") {
             message = err.message;
           }
@@ -386,12 +418,21 @@ export function useRecuperarContra() {
       if (recoveryMethod === "voice") {
         setLoading(true);
         const formData = new FormData();
-        const file = new File([voiceWavBlobRef.current as Blob], "audio.wav", { type: "audio/wav" });
+        const file = new File([voiceWavBlobRef.current as Blob], "audio.wav", {
+          type: "audio/wav",
+        });
         formData.append("audio_file", file);
         formData.append("new_password", newPassword);
-        await axiosInstance.post("/auth/auth/voice-password-recovery", formData, {
-          headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
-        });
+        await axiosInstance.post(
+          "/auth/auth/voice-password-recovery",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+              accept: "application/json",
+            },
+          }
+        );
       } else if (recoveryMethod === "face") {
         const blob = await captureFrameBlob();
         if (!blob) {
@@ -405,10 +446,17 @@ export function useRecuperarContra() {
         const imgFile = new File([blob], "face.jpg", { type: "image/jpeg" });
         formData.append("image_file", imgFile);
         setLoading(true);
-        await axiosInstance.post("/auth/auth/face-password-recovery", formData, {
-          params: { source: "file" },
-          headers: { "Content-Type": "multipart/form-data", accept: "application/json" },
-        });
+        await axiosInstance.post(
+          "/auth/auth/face-password-recovery",
+          formData,
+          {
+            params: { source: "file" },
+            headers: {
+              "Content-Type": "multipart/form-data",
+              accept: "application/json",
+            },
+          }
+        );
       }
 
       setSuccess("¡Contraseña cambiada exitosamente! ✓");
@@ -420,7 +468,10 @@ export function useRecuperarContra() {
       const d = err?.response?.data;
       if (d?.detail) {
         if (typeof d.detail === "string") message = d.detail;
-        else if (Array.isArray(d.detail)) message = d.detail.map((e: any) => e?.msg || e?.type || "Error").join("; ");
+        else if (Array.isArray(d.detail))
+          message = d.detail
+            .map((e: any) => e?.msg || e?.type || "Error")
+            .join("; ");
       } else if (typeof err?.message === "string") {
         message = err.message;
       }
@@ -428,7 +479,14 @@ export function useRecuperarContra() {
     } finally {
       setLoading(false);
     }
-  }, [newPassword, confirmPassword, recoveryMethod, enumerateCameras, startFacePreview, selectedCameraId]);
+  }, [
+    newPassword,
+    confirmPassword,
+    recoveryMethod,
+    enumerateCameras,
+    startFacePreview,
+    selectedCameraId,
+  ]);
 
   // Resetear el proceso completo
   const resetProcess = useCallback(() => {

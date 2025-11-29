@@ -4,7 +4,6 @@ import React, { useRef } from "react";
 import { Eye, EyeOff, User, HouseWifi } from "lucide-react";
 import { useLogin } from "../hooks/useLogin";
 import { useThemeByTime } from "../hooks/useThemeByTime";
-import { useAuth } from "../hooks/useAuth";
 import "../styles/animations.css";
 import FloatingIcons from "../components/effects/FloatingIcons";
 
@@ -84,7 +83,6 @@ interface LoginProps {
 }
 
 export default function Login({ onNavigate }: LoginProps) {
-  const { login: authLogin } = useAuth();
   const {
     username,
     setUsername,
@@ -123,7 +121,6 @@ export default function Login({ onNavigate }: LoginProps) {
       {!showDoorTransition && (
         <div className="relative z-10 w-full min-h-screen flex items-center justify-center px-3 xs:px-4 sm:px-6 py-6 xs:py-8 sm:py-12 md:py-16">
           <div className="w-full max-w-sm bg-[#0f1420]/95 backdrop-blur-xl rounded-2xl md:rounded-3xl p-5 xs:p-6 sm:p-8 md:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-slate-700/50 overflow-hidden animate-slideIn">
-            
             {/* Header */}
             <div className="text-center mb-6 xs:mb-7 sm:mb-8 md:mb-10">
               <div className="mb-3 xs:mb-4 sm:mb-5 md:mb-6 animate-float">
@@ -138,12 +135,21 @@ export default function Login({ onNavigate }: LoginProps) {
             </div>
 
             {/* Form */}
-            <form className="space-y-4 xs:space-y-5 sm:space-y-6" onSubmit={(e) => { e.preventDefault(); doLogin(); }}>
+            <form
+              className="space-y-4 xs:space-y-5 sm:space-y-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                doLogin();
+              }}
+            >
               {/* Username */}
               <div>
                 <label
                   className="block text-xs xs:text-sm md:text-base font-semibold tracking-wide mb-1.5 xs:mb-2 bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(90,160,255,0.3)]"
-                  style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.08em" }}
+                  style={{
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: "0.08em",
+                  }}
                 >
                   Usuario
                 </label>
@@ -169,7 +175,10 @@ export default function Login({ onNavigate }: LoginProps) {
               <div>
                 <label
                   className="block text-xs xs:text-sm md:text-base font-semibold tracking-wide mb-1.5 xs:mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-300 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(120,100,255,0.35)]"
-                  style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.08em" }}
+                  style={{
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: "0.08em",
+                  }}
                 >
                   Contraseña
                 </label>

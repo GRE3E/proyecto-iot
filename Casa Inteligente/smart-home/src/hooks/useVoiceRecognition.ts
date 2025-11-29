@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { axiosInstance } from "../services/authService";
 
 interface UseVoiceRecognitionProps {
@@ -75,8 +75,6 @@ export function useVoiceRecognition({
   const analyserRef = useRef<AnalyserNode | null>(null);
   // En navegador, setTimeout devuelve number; usar ReturnType para compatibilidad
   const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     listeningStateRef.current = listening;

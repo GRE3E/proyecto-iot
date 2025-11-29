@@ -31,7 +31,9 @@ export function useConfiguracion() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
+    null
+  );
 
   const [modalOwnerName, setModalOwnerName] = useState(ownerName);
   const [modalPassword, setModalPassword] = useState("");
@@ -72,7 +74,9 @@ export function useConfiguracion() {
   // Cargar miembros (no propietarios) desde el backend
   const refreshMembers = async () => {
     try {
-      const { data } = await axiosInstance.get<{ id: number; username: string; is_owner: boolean }[]>("/auth/auth/members");
+      const { data } = await axiosInstance.get<
+        { id: number; username: string; is_owner: boolean }[]
+      >("/auth/auth/members");
       if (Array.isArray(data)) {
         const mapped: FamilyMember[] = data.map((u) => ({
           id: String(u.id),
@@ -161,7 +165,8 @@ export function useConfiguracion() {
       await checkAuth();
       setIsProfileModalOpen(false);
     } catch (e: any) {
-      const message = e?.response?.data?.detail || e?.message || "Error al actualizar perfil";
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al actualizar perfil";
       alert(message);
     }
   };
@@ -272,7 +277,9 @@ export function useConfiguracion() {
 
       // Iniciar grabación de audio
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
         const rec = new MediaRecorder(stream);
         const chunks: BlobPart[] = [];
         rec.ondataavailable = (e) => {
@@ -307,10 +314,15 @@ export function useConfiguracion() {
             mediaRecorder.stop();
             // Asegurar cierre de pistas para forzar evento onstop en algunos navegadores
             if ((mediaRecorder as any).stream) {
-              (mediaRecorder as any).stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+              (mediaRecorder as any).stream
+                .getTracks()
+                .forEach((t: MediaStreamTrack) => t.stop());
             }
           } catch (err) {
-            console.warn("No se pudo detener el MediaRecorder en onresult", err);
+            console.warn(
+              "No se pudo detener el MediaRecorder en onresult",
+              err
+            );
           }
         }
       } else {
@@ -331,7 +343,9 @@ export function useConfiguracion() {
         try {
           mediaRecorder.stop();
           if ((mediaRecorder as any).stream) {
-            (mediaRecorder as any).stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+            (mediaRecorder as any).stream
+              .getTracks()
+              .forEach((t: MediaStreamTrack) => t.stop());
           }
         } catch (err) {
           console.warn("No se pudo detener el MediaRecorder en onend", err);
@@ -361,69 +375,75 @@ export function useConfiguracion() {
   // 📤 Subir voz capturada al backend y asociarla al usuario
   // Convierte el Blob (generalmente WebM/Opus) a WAV PCM 16-bit para el backend
   const convertBlobToWav = async (blob: Blob): Promise<Blob> => {
-    const arrayBuffer = await blob.arrayBuffer()
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new (window.AudioContext ||
+      (window as any).webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
     // Usar solo un canal (mono). Si el audio es estéreo, tomar el canal 0
-    const channelData = audioBuffer.getChannelData(0)
-    const sampleRate = audioBuffer.sampleRate
+    const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
 
     // Codificar a WAV PCM 16-bit
     const encodeWAV = (samples: Float32Array, sampleRate: number) => {
-      const numChannels = 1
-      const bytesPerSample = 2 // 16-bit
-      const blockAlign = numChannels * bytesPerSample
-      const byteRate = sampleRate * blockAlign
-      const dataSize = samples.length * bytesPerSample
-      const buffer = new ArrayBuffer(44 + dataSize)
-      const view = new DataView(buffer)
+      const numChannels = 1;
+      const bytesPerSample = 2; // 16-bit
+      const blockAlign = numChannels * bytesPerSample;
+      const byteRate = sampleRate * blockAlign;
+      const dataSize = samples.length * bytesPerSample;
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
 
       // RIFF header
       const writeString = (offset: number, str: string) => {
-        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
-      }
-      writeString(0, "RIFF")
-      view.setUint32(4, 36 + dataSize, true)
-      writeString(8, "WAVE")
+        for (let i = 0; i < str.length; i++)
+          view.setUint8(offset + i, str.charCodeAt(i));
+      };
+      writeString(0, "RIFF");
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(8, "WAVE");
 
       // fmt chunk
-      writeString(12, "fmt ")
-      view.setUint32(16, 16, true) // Subchunk1Size
-      view.setUint16(20, 1, true) // PCM
-      view.setUint16(22, numChannels, true)
-      view.setUint32(24, sampleRate, true)
-      view.setUint32(28, byteRate, true)
-      view.setUint16(32, blockAlign, true)
-      view.setUint16(34, 8 * bytesPerSample, true) // bits per sample
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true); // Subchunk1Size
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, 8 * bytesPerSample, true); // bits per sample
 
       // data chunk
-      writeString(36, "data")
-      view.setUint32(40, dataSize, true)
+      writeString(36, "data");
+      view.setUint32(40, dataSize, true);
 
       // Write samples as 16-bit PCM
-      let offset = 44
+      let offset = 44;
       for (let i = 0; i < samples.length; i++, offset += 2) {
         // Clamp to [-1, 1] and scale
-        const s = Math.max(-1, Math.min(1, samples[i]))
-        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
       }
 
-      return new Blob([view], { type: "audio/wav" })
-    }
+      return new Blob([view], { type: "audio/wav" });
+    };
 
-    const wavBlob = encodeWAV(channelData, sampleRate)
-    return wavBlob
-  }
+    const wavBlob = encodeWAV(channelData, sampleRate);
+    return wavBlob;
+  };
 
   const handleUploadVoiceToUser = async () => {
     try {
       // Feedback inmediato en UI
-      setStatusMessage("🔄 Subiendo voz...")
-      console.log("[handleUploadVoiceToUser] inicio", { isRecording, voiceConfirmed, hasBlob: !!voiceBlob })
+      setStatusMessage("🔄 Subiendo voz...");
+      console.log("[handleUploadVoiceToUser] inicio", {
+        isRecording,
+        voiceConfirmed,
+        hasBlob: !!voiceBlob,
+      });
       // En caso de carrera: si aún se está deteniendo el recorder, espera a que se genere el blob
       const waitForVoiceBlob = (timeoutMs = 5000) =>
-        new Promise<Blob | null>((resolve, reject) => {
+        new Promise<Blob | null>((resolve) => {
           const start = Date.now();
           const tick = () => {
             if (voiceBlob) return resolve(voiceBlob);
@@ -438,40 +458,52 @@ export function useConfiguracion() {
         if (mediaRecorder && isRecording) {
           try {
             // Forzar emisión de datos antes de detener
-            if (typeof (mediaRecorder as any).requestData === 'function') {
-              try { (mediaRecorder as any).requestData(); } catch {}
+            if (typeof (mediaRecorder as any).requestData === "function") {
+              try {
+                (mediaRecorder as any).requestData();
+              } catch {}
             }
             mediaRecorder.stop();
             if ((mediaRecorder as any).stream) {
-              (mediaRecorder as any).stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+              (mediaRecorder as any).stream
+                .getTracks()
+                .forEach((t: MediaStreamTrack) => t.stop());
             }
           } catch {}
           finalBlob = await waitForVoiceBlob();
           if (!finalBlob) {
             setIsRecording(false);
-            console.warn("[handleUploadVoiceToUser] sin blob tras detener recorder");
+            console.warn(
+              "[handleUploadVoiceToUser] sin blob tras detener recorder"
+            );
             return;
           }
         } else {
-          console.warn("[handleUploadVoiceToUser] no hay mediaRecorder/voiceBlob");
+          console.warn(
+            "[handleUploadVoiceToUser] no hay mediaRecorder/voiceBlob"
+          );
           return;
         }
       }
       const userId = user?.user?.id ?? user?.user?.user_id;
       if (!userId) {
         alert("No se pudo obtener tu ID de usuario.");
-        console.warn("[handleUploadVoiceToUser] userId missing", user)
+        console.warn("[handleUploadVoiceToUser] userId missing", user);
         return;
       }
       const form = new FormData();
       form.append("user_id", String(userId));
       // Convertir a WAV para que el backend (preprocess_wav) lo procese correctamente
-      const wavBlob = await convertBlobToWav(finalBlob as Blob)
+      const wavBlob = await convertBlobToWav(finalBlob as Blob);
       form.append("audio_file", wavBlob, "voice.wav");
 
-      const tokenResp = await axiosInstance.post("/speaker/speaker/add_voice_to_user", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const tokenResp = await axiosInstance.post(
+        "/speaker/speaker/add_voice_to_user",
+        form,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
       // Si el backend devuelve nuevos tokens, actualizarlos para evitar 401 posteriores
       const tokenData = (tokenResp as any)?.data;
       if (tokenData?.access_token) {
@@ -490,17 +522,21 @@ export function useConfiguracion() {
       setVoiceConfirmed(false);
       setVoiceBlob(null);
       setIsRecording(false);
-      console.log("[handleUploadVoiceToUser] éxito")
+      console.log("[handleUploadVoiceToUser] éxito");
     } catch (e: any) {
-      const status = e?.response?.status
-      const message = e?.response?.data?.detail || e?.message || "Error al subir voz";
+      const status = e?.response?.status;
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al subir voz";
       if (status === 409) {
-        alert("La voz proporcionada ya está registrada por otro usuario.")
-        setStatusMessage("⚠️ La voz ya está registrada por otro usuario.")
-        console.warn("[handleUploadVoiceToUser] 409 conflict", e?.response?.data)
-        return
+        alert("La voz proporcionada ya está registrada por otro usuario.");
+        setStatusMessage("⚠️ La voz ya está registrada por otro usuario.");
+        console.warn(
+          "[handleUploadVoiceToUser] 409 conflict",
+          e?.response?.data
+        );
+        return;
       }
-      console.error("[handleUploadVoiceToUser] error", e)
+      console.error("[handleUploadVoiceToUser] error", e);
       alert(message);
     }
   };
@@ -520,7 +556,8 @@ export function useConfiguracion() {
       setChangeFaceModalOpen(false);
       setFaceDetected(false);
     } catch (e: any) {
-      const message = e?.response?.data?.detail || e?.message || "Error al registrar rostro";
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al registrar rostro";
       alert(message);
     }
   };
@@ -533,24 +570,30 @@ export function useConfiguracion() {
 
   const handleVerifyVoicePassword = async () => {
     try {
-      await axiosInstance.post("/auth/auth/verify-password", { current_password: voicePassword });
+      await axiosInstance.post("/auth/auth/verify-password", {
+        current_password: voicePassword,
+      });
       setVoicePasswordVerified(true);
       setStatusMessage("🔐 Contraseña verificada. Puedes agregar tu voz.");
     } catch (e: any) {
       setVoicePasswordVerified(false);
-      const message = e?.response?.data?.detail || e?.message || "Contraseña incorrecta";
+      const message =
+        e?.response?.data?.detail || e?.message || "Contraseña incorrecta";
       alert(message);
     }
   };
 
   const handleVerifyFacePassword = async () => {
     try {
-      await axiosInstance.post("/auth/auth/verify-password", { current_password: facePassword });
+      await axiosInstance.post("/auth/auth/verify-password", {
+        current_password: facePassword,
+      });
       setFacePasswordVerified(true);
       setStatusMessage("🔐 Contraseña verificada. Puedes agregar tu rostro.");
     } catch (e: any) {
       setFacePasswordVerified(false);
-      const message = e?.response?.data?.detail || e?.message || "Contraseña incorrecta";
+      const message =
+        e?.response?.data?.detail || e?.message || "Contraseña incorrecta";
       alert(message);
     }
   };
@@ -575,10 +618,11 @@ export function useConfiguracion() {
         const isOwnerForNewUser = newMember.isAdmin;
         if (isOwnerForNewUser) {
           // Registrar propietario y refrescar lista de propietarios
-          await axiosInstance.post(
-            "/auth/auth/register-owner",
-            { username: newMember.username, password: newMember.password, is_owner: true }
-          );
+          await axiosInstance.post("/auth/auth/register-owner", {
+            username: newMember.username,
+            password: newMember.password,
+            is_owner: true,
+          });
           await refreshOwners();
         } else {
           // Registrar usuario normal y refrescar miembros desde la BD
@@ -593,9 +637,17 @@ export function useConfiguracion() {
         setCurrentStep(1);
         setVoiceConfirmed(false);
         setFaceDetected(false);
-        setNewMember({ username: "", password: "", confirmPassword: "", isAdmin: false });
+        setNewMember({
+          username: "",
+          password: "",
+          confirmPassword: "",
+          isAdmin: false,
+        });
       } catch (e: any) {
-        const message = e?.response?.data?.detail || e?.message || "Error al registrar usuario";
+        const message =
+          e?.response?.data?.detail ||
+          e?.message ||
+          "Error al registrar usuario";
         alert(message);
       } finally {
         setIsRegisteringMember(false);

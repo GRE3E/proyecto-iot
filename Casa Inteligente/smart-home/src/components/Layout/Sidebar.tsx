@@ -71,7 +71,7 @@ export default function HamburgerMenu({
       {/* Botón flotante MOBILE - TOP LEFT */}
       {!isSidebarOpen && (
         <div
-          className="md:hidden fixed top-2 left-5 z-[90]"
+          className="md:hidden fixed top-6 left-5 z-[90]"
         >
           <button
             onClick={() => setIsSidebarOpen(true)}

@@ -52,12 +52,12 @@ export default function PageHeader({
     <div
       className={`fixed md:relative top-0 left-0 right-0 z-50 transition-transform duration-200 ease-out backdrop-blur-sm border-b md:bg-transparent md:border-0 md:backdrop-blur-0 ${borderColor}`}
       style={{
-        transform: "translateY(0px)",
+        transform: isMobile ? "translateY(8px)" : "translateY(0px)",
       }}
     >
       <div className={`${colors.headerBg} md:bg-transparent md:border-0`}></div>
       {isMobile && (
-        <div className="flex items-center justify-between gap-3 h-17 px-5 pt-1 pb-2 md:pt-0 relative">
+        <div className="flex items-center justify-between gap-3 h-17 px-5 pt-6 pb-4 md:pt-0 relative">
           <div className="w-12 h-12 flex-shrink-0" />
 
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -90,7 +90,7 @@ export default function PageHeader({
         </div>
       )}
     </div>
-    <div className="md:hidden h-2"/>
+    <div className="md:hidden h-4"/>
     </>
   )
 }

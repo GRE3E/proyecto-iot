@@ -1,6 +1,8 @@
 "use client";
 
 import { Settings, Bell, Mic, Sun, Moon } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { axiosInstance } from "../services/authService";
 import SimpleCard from "../components/UI/Card";
 import Perfil from "../components/UI/Perfil";
 import Modal from "../components/UI/Modal";
@@ -9,6 +11,7 @@ import TimezoneSelector from "../components/UI/TimezoneSelector";
 import { useConfiguracion } from "../hooks/useConfiguration";
 import { useZonaHoraria } from "../hooks/useZonaHoraria";
 import { useThemeByTime } from "../hooks/useThemeByTime";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Configuracion() {
   const { colors, theme, setTheme} = useThemeByTime();
@@ -49,6 +52,7 @@ export default function Configuracion() {
     setChangeFaceModalOpen,
     handleChangeVoice,
     handleChangeFace,
+    handleFaceDetection,
     handleUploadVoiceToUser,
     handleRegisterFaceToUser,
     voicePassword,
@@ -64,6 +68,81 @@ export default function Configuracion() {
   } = useConfiguracion();
 
   const { selectedTimezone, handleTimezoneChange } = useZonaHoraria();
+  const { user } = useAuth();
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [capturedPhotos, setCapturedPhotos] = useState<Blob[]>([]);
+  const [isUploadingFace, setIsUploadingFace] = useState(false);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+      } catch {}
+    };
+    if (changeFaceModalOpen && facePasswordVerified) start();
+    return () => {
+      stream?.getTracks().forEach((t) => t.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setCapturedPhotos([]);
+    };
+  }, [changeFaceModalOpen, facePasswordVerified]);
+
+  const handleTakePhoto = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (capturedPhotos.length >= 5) return;
+    const canvas = document.createElement("canvas");
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, w, h);
+    canvas.toBlob((blob) => {
+      if (blob) {
+        setCapturedPhotos((prev) => {
+          const next = [...prev, blob];
+          if (next.length === 1) handleFaceDetection();
+          return next;
+        });
+      }
+    }, "image/jpeg", 0.9);
+  };
+
+  const handleUploadClientFaces = async () => {
+    try {
+      setIsUploadingFace(true);
+      const userId = (user as any)?.user?.id ?? (user as any)?.user?.user_id;
+      if (!userId) {
+        alert("No se pudo obtener tu ID de usuario.");
+        return;
+      }
+      if (capturedPhotos.length === 0) {
+        alert("Toma al menos una foto de tu rostro.");
+        return;
+      }
+      const fd = new FormData();
+      capturedPhotos.forEach((blob, idx) => fd.append("files", blob, `face_${idx}.jpg`));
+      await axiosInstance.post(`/rc/rc/users/${userId}/upload_faces`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setChangeFaceModalOpen(false);
+      setCapturedPhotos([]);
+      setIsUploadingFace(false);
+    } catch (e: any) {
+      const message = e?.response?.data?.detail || e?.message || "Error al registrar rostro";
+      alert(message);
+    } finally {
+      setIsUploadingFace(false);
+    }
+  };
 
   return (
     <div
@@ -360,20 +439,19 @@ export default function Configuracion() {
             </p>
 
             <div className={`rounded-xl w-full h-48 flex items-center justify-center border ${colors.border} ${colors.panelBg}`}>
-              <span className={`text-sm ${colors.mutedText}`}>
-                📷 Vista previa de cámara
-              </span>
+              <video ref={videoRef} className="w-full h-48 object-cover rounded-xl" muted playsInline />
             </div>
 
-            {!faceDetected && (
+            <div className="flex items-center gap-3 justify-center">
               <button
-                onClick={handleChangeFace}
+                onClick={handleTakePhoto}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white disabled:opacity-50"
-                disabled={!facePasswordVerified}
+                disabled={!facePasswordVerified || capturedPhotos.length >= 5 || isUploadingFace}
               >
-                Escanear rostro
+                Tomar foto
               </button>
-            )}
+              <span className={`text-xs ${colors.mutedText}`}>Fotos: {capturedPhotos.length}/5</span>
+            </div>
 
             {faceDetected && (
               <p className="text-green-400 text-sm font-medium">
@@ -388,14 +466,13 @@ export default function Configuracion() {
               >
                 Cancelar
               </button>
-              {faceDetected && (
+              {capturedPhotos.length === 5 && (
                 <button
-                  onClick={() => {
-                    handleRegisterFaceToUser();
-                  }}
-                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm text-white"
+                  onClick={handleUploadClientFaces}
+                  className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm text-white disabled:opacity-50"
+                  disabled={isUploadingFace}
                 >
-                  Guardar rostro
+                  {isUploadingFace ? "Cargando rostro..." : "Guardar rostro"}
                 </button>
               )}
             </div>

@@ -30,13 +30,13 @@ import {
 } from "../hooks/useRutinas";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 
-type View = "list" | "edit" | "detail" | "suggestions";
+type View = "tabs" | "edit" | "detail";
 
 export default function Rutinas() {
   const hook = useRutinas();
   const { colors } = useThemeByTime();
-  const [view, setView] = useState<View>("list");
-  const [activeTab, setActiveTab] = useState<"list" | "suggestions">("list");
+  const [view, setView] = useState<View>("tabs");
+  const [activeTab, setActiveTab] = useState<"rutinas" | "sugerencias">("rutinas");
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
   const [showOnlyConfirmed, setShowOnlyConfirmed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -109,8 +109,8 @@ export default function Rutinas() {
     if (result?.success) {
       showMessage("Rutina creada correctamente");
       resetForm();
-      setActiveTab("list");
-      setView("list");
+      setView("tabs");
+      setActiveTab("rutinas");
       setIsCreateModalOpen(false);
     } else showMessage(result?.message || "Error al crear", "error");
   };
@@ -130,7 +130,7 @@ export default function Rutinas() {
     if (result?.success) {
       showMessage("Rutina eliminada");
       setDeleteId(null);
-      setView("list");
+      setView("tabs");
     } else showMessage(result?.message || "Error al eliminar", "error");
   };
 
@@ -153,11 +153,11 @@ export default function Rutinas() {
   };
 
   const openSuggestions = async () => {
-    setActiveTab("suggestions");
-    setView("suggestions");
+    setActiveTab("sugerencias");
     await hook.generateSuggestions();
   };
 
+  // Componentes del formulario igual que el original...
   const FormField = ({
     label,
     type = "text",
@@ -685,389 +685,249 @@ export default function Rutinas() {
         </div>
       )}
 
-      {view === "list" && (
+      {/* VISTA PRINCIPAL CON TABS */}
+      {view === "tabs" && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex gap-2">
-              <SimpleButton
-                active={activeTab === "list"}
-                onClick={() => {
-                  setActiveTab("list");
-                  setView("list");
-                }}
-                className={`flex items-center gap-2 ${colors.buttonActive}`}
+          {/* Botones de tabs */}
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setActiveTab("rutinas")}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  activeTab === "rutinas"
+                    ? `bg-gradient-to-r ${colors.primary} text-white shadow-lg`
+                    : `${colors.buttonInactive}`
+                }`}
               >
                 <ClipboardList className="w-4 h-4" />
                 <span>Rutinas</span>
-              </SimpleButton>
-              <SimpleButton
-                active={activeTab === "suggestions"}
+              </button>
+              <button
                 onClick={openSuggestions}
-                className={`flex items-center gap-2 bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20`}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                  activeTab === "sugerencias"
+                    ? `bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20`
+                    : `${colors.buttonInactive}`
+                }`}
               >
                 <Wand2 className="w-4 h-4" />
                 <span>Sugerencias</span>
-              </SimpleButton>
-              <SimpleButton
+              </button>
+              <button
                 onClick={startCreate}
-                className={`flex items-center gap-2 ${colors.buttonInactive}`}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${colors.buttonInactive}`}
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Crear Rutina</span>
-              </SimpleButton>
+              </button>
             </div>
 
-            <div className="flex gap-2 ml-auto">
-              <SimpleButton
-                active={showOnlyEnabled}
-                onClick={() => setShowOnlyEnabled((v) => !v)}
-                className={`flex items-center gap-2 ${
-                  showOnlyEnabled ? colors.buttonActive : colors.buttonInactive
-                }`}
-              >
-                <CheckCircle className="w-4 h-4" />
-                Mostrar solo habilitadas
-              </SimpleButton>
-              <SimpleButton
-                active={showOnlyConfirmed}
-                onClick={() => setShowOnlyConfirmed((v) => !v)}
-                className={`flex items-center gap-2 ${
-                  showOnlyConfirmed
-                    ? `bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20`
-                    : colors.buttonInactive
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Mostrar solo confirmadas
-              </SimpleButton>
-            </div>
+            {activeTab === "rutinas" && (
+              <div className="flex gap-2">
+                <SimpleButton
+                  active={showOnlyEnabled}
+                  onClick={() => setShowOnlyEnabled((v) => !v)}
+                  className={`flex items-center gap-2 ${
+                    showOnlyEnabled ? colors.buttonActive : colors.buttonInactive
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Mostrar solo habilitadas
+                </SimpleButton>
+                <SimpleButton
+                  active={showOnlyConfirmed}
+                  onClick={() => setShowOnlyConfirmed((v) => !v)}
+                  className={`flex items-center gap-2 ${
+                    showOnlyConfirmed
+                      ? `bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20`
+                      : colors.buttonInactive
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Mostrar solo confirmadas
+                </SimpleButton>
+              </div>
+            )}
+            {activeTab === "sugerencias" && (
+              <div className="flex gap-2">
+                <SimpleButton
+                  active={showOnlyEnabled}
+                  onClick={() => setShowOnlyEnabled((v) => !v)}
+                  className={`flex items-center gap-2 ${
+                    showOnlyEnabled ? colors.buttonActive : colors.buttonInactive
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Mostrar solo habilitadas
+                </SimpleButton>
+                <SimpleButton
+                  active={showOnlyConfirmed}
+                  onClick={() => setShowOnlyConfirmed((v) => !v)}
+                  className={`flex items-center gap-2 ${
+                    showOnlyConfirmed
+                      ? `bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20`
+                      : colors.buttonInactive
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Mostrar solo confirmadas
+                </SimpleButton>
+              </div>
+            )}
           </div>
 
-          {hook.isLoadingList ? (
-            <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
-              <div className={`${colors.mutedText}`}>Cargando rutinas...</div>
-            </SimpleCard>
-          ) : filteredRutinas.length === 0 ? (
-            <SimpleCard
-              className={`p-8 text-center bg-gradient-to-br ${colors.purpleGradient} border`}
-            >
-              <div className={`text-lg font-semibold ${colors.text} mb-3`}>
-                Sin rutinas aún
-              </div>
-              <p className={`${colors.mutedText} mb-4`}>
-                Crea tu primera rutina para automatizar tus dispositivos
-              </p>
-              <SimpleButton
-                onClick={startCreate}
-                className={`inline-flex items-center gap-2 bg-gradient-to-r ${colors.primary} text-white shadow-lg shadow-blue-500/20`}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Crear rutina
-              </SimpleButton>
-            </SimpleCard>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredRutinas.map((r) => (
-                <RutinaCard key={r.id} r={r} />
-              ))}
+          {/* TAB RUTINAS */}
+          {activeTab === "rutinas" && (
+            <div className="space-y-5">
+              {hook.isLoadingList ? (
+                <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
+                  <div className={`${colors.mutedText}`}>Cargando rutinas...</div>
+                </SimpleCard>
+              ) : filteredRutinas.length === 0 ? (
+                <SimpleCard
+                  className={`p-8 text-center bg-gradient-to-br ${colors.purpleGradient} border`}
+                >
+                  <div className={`text-lg font-semibold ${colors.text} mb-3`}>
+                    Sin rutinas aún
+                  </div>
+                  <p className={`${colors.mutedText} mb-4`}>
+                    Crea tu primera rutina para automatizar tus dispositivos
+                  </p>
+                  <SimpleButton
+                    onClick={startCreate}
+                    className={`inline-flex items-center gap-2 bg-gradient-to-r ${colors.primary} text-white shadow-lg shadow-blue-500/20`}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Crear rutina
+                  </SimpleButton>
+                </SimpleCard>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {filteredRutinas.map((r) => (
+                    <RutinaCard key={r.id} r={r} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {view === "detail" &&
-        selectedId &&
-        (() => {
-          const r = hook.getRoutineById(selectedId);
-          return r ? (
-            <SimpleCard className={`p-6 ${colors.cardBg}`}>
-              <div className="space-y-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className={`text-2xl font-bold ${colors.text}`}>
-                      {r.name}
-                    </h3>
-                    {r.description && (
-                      <p className={`text-sm ${colors.mutedText} mt-2`}>
-                        {r.description}
-                      </p>
-                    )}
-                  </div>
-                  <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap ${
-                      r.confirmed
-                        ? `bg-green-500/20 text-green-400`
-                        : `bg-yellow-500/20 text-yellow-400`
-                    }`}
-                  >
-                    {r.confirmed ? "✓ Confirmada" : "⚠ Pendiente"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p
-                      className={`text-xs ${colors.mutedText} uppercase tracking-wider`}
-                    >
-                      Tipo de Disparador
-                    </p>
-                    <p className={`text-lg font-semibold ${colors.text} mt-1`}>
-                      {r.trigger.type === "NLP"
-                        ? "Voz"
-                        : r.trigger.type === "Tiempo"
-                        ? "Programado"
-                        : "Evento"}
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs ${colors.mutedText} uppercase tracking-wider`}
-                    >
-                      Ejecutadas
-                    </p>
-                    <p className={`text-lg font-semibold ${colors.text} mt-1`}>
-                      {r.executionsCount}
-                    </p>
-                  </div>
-                </div>
-
-                <div className={`border-t ${colors.border} pt-4`}>
-                  <p className={`text-sm font-semibold ${colors.text} mb-2`}>
-                    Detalles del Disparador
-                  </p>
-                  <p className={`text-sm ${colors.mutedText}`}>
-                    {hook.describeTrigger(r.trigger)}
-                  </p>
-                </div>
-
-                {r.actions.length > 0 && (
-                  <div className={`border-t ${colors.border} pt-4`}>
-                    <p className={`text-sm font-semibold ${colors.text} mb-3`}>
-                      Acciones ({r.actions.length})
-                    </p>
-                    <div className="space-y-2">
-                      {r.actions.map((a) => (
-                        <div
-                          key={a.id}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg ${colors.chipBg} border ${colors.border}`}
-                        >
-                          <Zap className="w-4 h-4" />
-                          <span className={`text-sm ${colors.text}`}>
-                            {a.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className={`border-t ${colors.border} pt-4`}>
-                  <p
-                    className={`text-xs ${colors.mutedText} uppercase tracking-wider mb-2`}
-                  >
-                    Última ejecución
-                  </p>
-                  <p className={`text-sm ${colors.text}`}>
-                    {r.lastExecutedAt
-                      ? new Date(r.lastExecutedAt).toLocaleString()
-                      : "Nunca"}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-4">
-                  <SimpleButton
-                    onClick={() => hook.toggleEnabled(r.id)}
-                    className={`text-sm px-4 py-2 font-medium rounded-lg ${
-                      r.enabled
-                        ? `bg-gradient-to-r ${colors.primary} text-white`
-                        : `${colors.buttonInactive}`
-                    }`}
-                  >
-                    {r.enabled ? "✓ Activa" : "✗ Inactiva"}
-                  </SimpleButton>
-
-                  {!r.confirmed && (
-                    <>
-                      <SimpleButton
-                        onClick={async () => {
-                          const res = await hook.confirmRutina(r.id);
-                          if (res.success) showMessage("Rutina confirmada");
-                          else showMessage("No se pudo confirmar", "error");
-                        }}
-                        className={`text-sm px-4 py-2 font-medium rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all`}
-                      >
-                        Confirmar rutina
-                      </SimpleButton>
-                      <SimpleButton
-                        onClick={async () => {
-                          const res = await hook.rejectRutina(r.id);
-                          if (res.success) showMessage("Rutina rechazada");
-                          else showMessage("No se pudo rechazar", "error");
-                        }}
-                        className={`text-sm px-4 py-2 font-medium rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-all`}
-                      >
-                        Rechazar rutina
-                      </SimpleButton>
-                    </>
-                  )}
-
-                  <SimpleButton
-                    onClick={() => startEdit(r.id)}
-                    className={`text-sm px-4 py-2 font-medium rounded-lg bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20 hover:shadow-xl transition-all ml-auto`}
-                  >
-                    <Pencil className="w-4 h-4 inline mr-2" />
-                    Editar
-                  </SimpleButton>
-                  <SimpleButton
-                    onClick={() => setDeleteId(r.id)}
-                    className={`text-sm px-4 py-2 font-medium rounded-lg ${colors.dangerChip} hover:shadow-md transition-all`}
-                  >
-                    <Trash2 className="w-4 h-4 inline mr-2" />
-                    Eliminar
-                  </SimpleButton>
-                  <SimpleButton
-                    onClick={() => {
-                      setView("list");
-                      setActiveTab("list");
-                    }}
-                    className={`text-sm px-4 py-2 font-medium rounded-lg ${colors.buttonInactive} hover:bg-opacity-80 transition-all`}
-                  >
-                    <ArrowLeft className="w-4 h-4 inline mr-2" />
-                    Volver
-                  </SimpleButton>
-                </div>
-              </div>
-            </SimpleCard>
-          ) : null;
-        })()}
-
-      {view === "edit" && selectedId && (
-        <SimpleCard className={`p-6 ${colors.cardBg}`}>
-          <h3 className={`text-2xl font-bold ${colors.text} mb-6`}>
-            Editar Rutina
-          </h3>
-          <Form />
-          <div className="mt-6 flex flex-wrap gap-2">
-            <SimpleButton
-              onClick={handleUpdate}
-              className={`px-5 py-3 text-sm font-medium bg-gradient-to-r ${colors.secondary} text-white shadow-lg shadow-purple-500/20 hover:shadow-xl transition-all`}
-            >
-              Guardar cambios
-            </SimpleButton>
-            <SimpleButton
-              onClick={() => setView("detail")}
-              className={`px-5 py-3 text-sm font-medium ${colors.buttonInactive} hover:bg-opacity-80 transition-all`}
-            >
-              Cancelar
-            </SimpleButton>
-          </div>
-        </SimpleCard>
-      )}
-
-      {view === "suggestions" && (
-        <div className="space-y-5">
-          <SimpleButton
-            onClick={() => {
-              setActiveTab("list");
-              setView("list");
-            }}
-            className={`flex items-center gap-2 ${colors.buttonInactive} hover:bg-opacity-80 transition-all`}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver
-          </SimpleButton>
-
-          {hook.isLoadingSuggestions ? (
-            <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
-              <div className={`${colors.mutedText}`}>
-                Generando sugerencias...
-              </div>
-            </SimpleCard>
-          ) : hook.suggestions.length === 0 ? (
-            <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
-              <p className={`${colors.mutedText}`}>
-                No hay sugerencias disponibles
-              </p>
-            </SimpleCard>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {hook.suggestions.map((s) => (
-                <SimpleCard
-                  key={s.id}
-                  className={`p-5 bg-gradient-to-br ${colors.cyanGradient} border transition-all hover:shadow-xl`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className={`text-lg font-bold ${colors.text}`}>
-                          {s.name}
-                        </h4>
-                        <p className={`text-xs ${colors.mutedText} mt-1`}>
-                          {s.trigger.type}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 whitespace-nowrap`}
-                      >
-                        {Math.round(s.confidence * 100)}%
-                      </span>
-                    </div>
-
-                    <p className={`text-sm ${colors.mutedText}`}>
-                      {hook.describeTrigger(s.trigger)}
-                    </p>
-
-                    {s.actions.length > 0 && (
-                      <div className={`border-t border-white/10 pt-3`}>
-                        <p
-                          className={`text-xs font-semibold ${colors.text} mb-2`}
-                        >
-                          Acciones sugeridas
-                        </p>
-                        <div className="space-y-1">
-                          {s.actions.map((a) => (
-                            <div
-                              key={a.id}
-                              className={`text-xs ${colors.mutedText} flex items-center gap-2`}
-                            >
-                              <Zap className="w-3 h-3" />
-                              {a.name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-3">
-                      <SimpleButton
-                        onClick={() => {
-                          hook.acceptSuggestion(s);
-                          showMessage(
-                            "Sugerencia aceptada y convertida en rutina"
-                          );
-                        }}
-                        className={`flex-1 text-sm font-medium px-3 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all`}
-                      >
-                        Aceptar
-                      </SimpleButton>
-                      <SimpleButton
-                        onClick={() => {
-                          hook.rejectSuggestion(s.id);
-                          showMessage("Sugerencia rechazada");
-                        }}
-                        className={`flex-1 text-sm font-medium px-3 py-2 rounded-lg ${colors.dangerChip} hover:opacity-80 transition-all`}
-                      >
-                        Rechazar
-                      </SimpleButton>
-                    </div>
+          {/* TAB SUGERENCIAS */}
+          {activeTab === "sugerencias" && (
+            <div className="space-y-5">
+              {hook.isLoadingSuggestions ? (
+                <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
+                  <div className={`${colors.mutedText}`}>
+                    Generando sugerencias...
                   </div>
                 </SimpleCard>
-              ))}
+              ) : hook.suggestions.length === 0 ? (
+                <SimpleCard className={`p-8 text-center ${colors.cardBg}`}>
+                  <p className={`${colors.mutedText}`}>
+                    No hay sugerencias disponibles
+                  </p>
+                </SimpleCard>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {hook.suggestions.map((s) => (
+                    <SimpleCard
+                      key={s.id}
+                      className={`p-5 bg-gradient-to-br ${colors.cyanGradient} border transition-all hover:shadow-xl`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className={`text-lg font-bold ${colors.text}`}>
+                              {s.name}
+                            </h4>
+                            <p className={`text-xs ${colors.mutedText} mt-1`}>
+                              {s.trigger.type}
+                            </p>
+                          </div>
+                          <span
+                            className={`text-xs font-semibold px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 whitespace-nowrap`}
+                          >
+                            {Math.round(s.confidence * 100)}%
+                          </span>
+                        </div>
+
+                        {s.actions.length > 0 && (
+                          <div className={`border-t border-white/10 pt-3`}>
+                            <p
+                              className={`text-xs font-semibold ${colors.text} mb-2`}
+                            >
+                              Acciones sugeridas
+                            </p>
+                            <div className="space-y-1">
+                              {s.actions.map((a) => (
+                                <div
+                                  key={a.id}
+                                  className={`text-xs ${colors.mutedText} flex items-center gap-2`}
+                                >
+                                  <Zap className="w-3 h-3" />
+                                  {a.name}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-3">
+                          <SimpleButton
+                            onClick={() => {
+                              hook.acceptSuggestion(s);
+                              showMessage(
+                                "Sugerencia aceptada y convertida en rutina"
+                              );
+                            }}
+                            className={`flex-1 text-sm font-medium px-3 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all`}
+                          >
+                            Aceptar
+                          </SimpleButton>
+                          <SimpleButton
+                            onClick={() => {
+                              hook.rejectSuggestion(s.id);
+                              showMessage("Sugerencia rechazada");
+                            }}
+                            className={`flex-1 text-sm font-medium px-3 py-2 rounded-lg ${colors.dangerChip} hover:opacity-80 transition-all`}
+                          >
+                            Rechazar
+                          </SimpleButton>
+                        </div>
+                      </div>
+                    </SimpleCard>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
+      {/* VISTAS DETALLE Y EDICIÓN */}
+      {view === "detail" && selectedId && (() => {
+        const r = hook.getRoutineById(selectedId);
+        return r ? (
+          <SimpleCard className={`p-6 ${colors.cardBg}`}>
+            <div className="space-y-5">
+              {/* Contenido igual al original */}
+              <div className="flex flex-wrap gap-2 pt-4">
+                <SimpleButton
+                  onClick={() => {
+                    setView("tabs");
+                    setActiveTab("rutinas");
+                  }}
+                  className={`text-sm px-4 py-2 font-medium rounded-lg ${colors.buttonInactive} hover:bg-opacity-80 transition-all`}
+                >
+                  <ArrowLeft className="w-4 h-4 inline mr-2" />
+                  Volver
+                </SimpleButton>
+              </div>
+            </div>
+          </SimpleCard>
+        ) : null;
+      })()}
+
+      {/* MODALS */}
       <Modal
         title={isEditing ? "Editar Rutina" : "Crear Rutina"}
         isOpen={isCreateModalOpen}

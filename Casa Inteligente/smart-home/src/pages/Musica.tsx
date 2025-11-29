@@ -175,18 +175,18 @@ export default function MusicaPage() {
         </div>
         {/* Reproductor Principal */}
         <div className="lg:col-span-2">
-          <SimpleCard className={`p-10 ${colors.cardBg}`}>
+          <SimpleCard className={`p-4 sm:p-6 md:p-10 ${colors.cardBg}`}>
             {estado.cancionActual ? (
               <div className="space-y-8">
                 {/* Visualizador de Audio */}
                 <div
-                  className={`w-full h-64 rounded-3xl overflow-hidden flex items-center justify-center group backdrop-blur-sm border transition-all border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20`}
+                  className={`w-full h-40 sm:h-56 md:h-64 lg:h-72 rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden flex items-center justify-center group backdrop-blur-sm border transition-all border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20`}
                 >
                   {estado.cancionActual.thumbnail ? (
                     <img
                       src={estado.cancionActual.thumbnail}
                       alt="Miniatura de la canción"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
                     />
                   ) : estado.estaReproduciendo ? (
                     <div className="flex items-center justify-center gap-2 h-full px-8">
@@ -218,11 +218,11 @@ export default function MusicaPage() {
 
                 {/* Información de Canción */}
                 <div className="space-y-4">
-                  <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 tracking-tight leading-tight">
+                  <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 tracking-tight leading-tight">
                     {estado.cancionActual.titulo}
                   </h2>
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/60" />
                       <div>
@@ -254,7 +254,31 @@ export default function MusicaPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="w-full sm:w-auto flex items-center gap-2 justify-between sm:justify-end sm:ml-auto">
+                      <div className="md:hidden flex items-center gap-2">
+                        <Volume2 className="text-purple-400" size={18} />
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={estado.volumen}
+                          onChange={(e) =>
+                            cambiarVolumen(Number(e.target.value))
+                          }
+                          className="w-32 h-2 bg-gradient-to-r from-gray-700 to-gray-800 rounded-full cursor-pointer appearance-none accent-purple-500 shadow-inner border border-purple-500/10 transition-all"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(to right, rgb(168, 85, 247), rgb(236, 72, 153), rgb(168, 85, 247))",
+                            backgroundSize: `${estado.volumen}% 100%`,
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "0 0",
+                          }}
+                          aria-label="Control de volumen móvil"
+                        />
+                        <span className="text-xs font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent w-8 text-center">
+                          {estado.volumen}
+                        </span>
+                      </div>
                       <button
                         onClick={handleDetenerCancion}
                         disabled={
@@ -265,37 +289,6 @@ export default function MusicaPage() {
                       >
                         <Square size={24} />
                       </button>
-                      <div className="md:hidden flex flex-col items-center gap-1">
-                        <div className="relative h-20 w-2 flex items-center justify-center rounded-full overflow-hidden bg-gradient-to-b from-gray-700 to-gray-800 border border-purple-500/20 shadow-inner">
-                          <div
-                            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-pink-500 via-purple-500 to-purple-400 rounded-full shadow-lg shadow-purple-500/50 transition-all"
-                            style={{
-                              height: `${estado.volumen}%`,
-                            }}
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={estado.volumen}
-                          onChange={(e) =>
-                            cambiarVolumen(Number(e.target.value))
-                          }
-                          className="w-2 h-20 rounded-full cursor-pointer appearance-none accent-purple-500 transition-all sr-only"
-                          style={{
-                            writingMode: "bt-lr" as any,
-                            WebkitAppearance: "slider-vertical",
-                          }}
-                          aria-label="Control de volumen vertical"
-                        />
-                        <div className="flex flex-col items-center gap-0.5">
-                          <Volume2 className="text-purple-400" size={16} />
-                          <span className="text-xs font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent w-6 text-center">
-                            {estado.volumen}
-                          </span>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -612,7 +605,7 @@ export default function MusicaPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute right-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         {reproduciendoHistorialId === cancion.id ? (
                           <div className="w-8 h-8 rounded-full bg-purple-500/30 flex items-center justify-center">
                             <Loader

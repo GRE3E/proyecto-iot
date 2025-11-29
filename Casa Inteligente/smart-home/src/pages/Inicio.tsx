@@ -391,7 +391,7 @@ export default function Inicio({
               { label: "Actual", value: energyUsage },
               { label: "Promedio", value: avgEnergy },
               { label: "Máximo", value: Math.round(maxEnergy) },
-              { label: "Mínimo", value: Math.round(minEnergy) },
+              { label: "Mí­nimo", value: Math.round(minEnergy) },
             ].map((item) => (
               <div
                 key={item.label}
@@ -440,10 +440,10 @@ export default function Inicio({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
-              { label: "Actual", value: temperature, unit: "°C" },
-              { label: "Promedio", value: avgTemp, unit: "°C" },
-              { label: "Máximo", value: maxTemp, unit: "°C" },
-              { label: "Mínimo", value: minTemp, unit: "°C" },
+              { label: "Actual", value: temperature, unit: "Â°C" },
+              { label: "Promedio", value: avgTemp, unit: "Â°C" },
+              { label: "MÃ¡ximo", value: maxTemp, unit: "Â°C" },
+              { label: "MÃ­nimo", value: minTemp, unit: "Â°C" },
             ].map((item) => (
               <div
                 key={item.label}
@@ -494,8 +494,8 @@ export default function Inicio({
             {[
               { label: "Actual", value: humidity, unit: "%" },
               { label: "Promedio", value: avgHumidity, unit: "%" },
-              { label: "Máximo", value: 80, unit: "%" },
-              { label: "Mínimo", value: 20, unit: "%" },
+              { label: "MÃ¡ximo", value: 80, unit: "%" },
+              { label: "MÃ­nimo", value: 20, unit: "%" },
             ].map((item) => (
               <div
                 key={item.label}
@@ -584,7 +584,7 @@ export default function Inicio({
             ))
           ) : (
             <p className={`text-sm ${colors.mutedText}`}>
-              No hay dispositivos en esta categoría.
+              No hay dispositivos en esta categorí­a.
             </p>
           )}
         </div>
@@ -598,7 +598,7 @@ export default function Inicio({
     >
       <PageHeader
         title="Bienvenido"
-        icon={<Home className="w-8 md:w-10 h-8 md:h-10 text-white" />}
+        icon={<Home className="w-8 md:w-10 h-8 md:w-10 text-white" />}
       />
       <AnimatedClockWidget temperature={temperature} />
 
@@ -609,10 +609,10 @@ export default function Inicio({
           Resumen del Sistema
         </h2>
 
-        <div className="lg:hidden grid grid-cols-2 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:hidden gap-2 sm:gap-3 mb-5">
           <NavButton
             type="energy"
-            label="Energía"
+            label="Energí­a"
             icon={Zap}
             value={energyUsage}
             unit=" kWh"
@@ -639,29 +639,29 @@ export default function Inicio({
           />
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          <div className="flex-1">
+        <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+          <div className="w-full lg:flex-1">
             {expandedCard === "energy" && renderSection("energy")}
             {expandedCard === "temp" && renderSection("temp")}
             {expandedCard === "humidity" && renderSection("humidity")}
             {expandedCard === "devices" && renderSection("devices")}
           </div>
 
-          <div className="hidden lg:block w-full lg:w-80 space-y-4">
+          <div className="hidden lg:block w-full lg:w-80 flex-shrink-0 space-y-4">
             {(["energy", "temp", "humidity", "devices"] as const).map(
               (type) => {
                 const sectionTheme = getSectionTheme(type);
                 const isActive = expandedCard === type;
                 const config = {
                   energy: {
-                    label: "Energía",
+                    label: "EnergÃ­a",
                     icon: Zap,
                     value: `${energyUsage} kWh usados`,
                   },
                   temp: {
                     label: "Temperatura",
                     icon: Thermometer,
-                    value: `${temperature}°C actuales`,
+                    value: `${temperature}Â°C actuales`,
                   },
                   humidity: {
                     label: "Humedad",

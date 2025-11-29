@@ -323,6 +323,45 @@ class AuthService:
         await self.db.refresh(user)
         return {"id": user.id, "username": user.nombre}
 
+    async def update_user_role(self, username: str, is_owner: bool) -> dict:
+        result = await self.db.execute(select(User).filter(User.nombre == username))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+        user.is_owner = bool(is_owner)
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return {"id": user.id, "username": user.nombre, "is_owner": user.is_owner}
+
+    async def set_user_password_by_username(self, username: str, new_password: str) -> dict:
+        result = await self.db.execute(select(User).filter(User.nombre == username))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+        truncated_password_bytes = new_password.encode('utf-8')[:72]
+        hashed_password = pwd_context.hash(truncated_password_bytes)
+        user.hashed_password = hashed_password
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return {"id": user.id, "username": user.nombre}
+
+    async def update_username_by_username(self, username: str, new_username: str) -> dict:
+        existing = await self.db.execute(select(User).filter(User.nombre == username))
+        user = existing.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+        conflict = await self.db.execute(select(User).filter(User.nombre == new_username))
+        other = conflict.scalar_one_or_none()
+        if other and other.id != user.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya está en uso")
+        user.nombre = new_username
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return {"id": user.id, "username": user.nombre}
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
     logger.debug("Intentando obtener usuario actual desde el token.")

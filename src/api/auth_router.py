@@ -8,7 +8,7 @@ from src.db.models import User
 from .auth_schemas import (
     UserRegister, TokenRefresh, OwnerRegister,
     UpdateUsernameRequest, UpdatePasswordRequest, VerifyPasswordRequest,
-    MemberSummary, UserDeleteRequest,
+    MemberSummary, UserDeleteRequest, UpdateMemberRoleRequest,
 )
 from src.auth.voice_auth_recovery import voice_password_recovery
 from src.auth.face_auth_recovery import face_password_recovery
@@ -176,6 +176,47 @@ async def update_password(payload: UpdatePasswordRequest, current_user: User = D
     except Exception as e:
         logger.error(f"Error al actualizar contraseña: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al actualizar contraseña")
+
+@router.post("/update-member-role", dependencies=[Depends(get_current_user)])
+async def update_member_role(payload: UpdateMemberRoleRequest, current_user: User = Depends(get_current_user)):
+    try:
+        if not current_user.is_owner:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo los propietarios pueden actualizar roles")
+        async with get_db() as db:
+            auth_service = AuthService(db)
+            result = None
+            target_username = payload.username
+            prev_user = await AuthService.get_user_by_name(db, payload.username)
+            if payload.new_username and prev_user:
+                if (payload.new_username or "").strip() != (prev_user.nombre or "").strip():
+                    result = await auth_service.update_username_by_username(payload.username, payload.new_username)
+                    logger.info(f"Usuario {payload.username} renombrado a {payload.new_username} por {current_user.nombre}")
+                    target_username = payload.new_username
+                else:
+                    target_username = prev_user.nombre
+            user = await AuthService.get_user_by_name(db, target_username)
+            if not user:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+            desired_owner = bool(payload.make_owner)
+            current_owner = bool(user.is_owner)
+            if desired_owner != current_owner:
+                result = await auth_service.update_user_role(target_username, desired_owner)
+                if desired_owner:
+                    logger.info(f"Usuario {target_username} promovido a propietario por {current_user.nombre}")
+                else:
+                    logger.info(f"Usuario {target_username} marcado como no propietario por {current_user.nombre}")
+            else:
+                if result is None:
+                    result = {"id": user.id, "username": user.nombre, "is_owner": user.is_owner}
+            if payload.new_password:
+                await auth_service.set_user_password_by_username(target_username, payload.new_password)
+                logger.info(f"Contraseña de {target_username} actualizada por {current_user.nombre}")
+        return {"message": "Actualización realizada", "user": result}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error al actualizar rol de miembro: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al actualizar rol")
 
 @router.post("/voice-password-recovery", status_code=status.HTTP_200_OK)
 async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), new_password: str = Form(...)):

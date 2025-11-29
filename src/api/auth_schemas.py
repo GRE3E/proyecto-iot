@@ -51,4 +51,10 @@ class VerifyPasswordRequest(BaseModel):
 
 class UserDeleteRequest(BaseModel):
     username: str
+
+class UpdateMemberRoleRequest(BaseModel):
+    username: str
+    make_owner: bool
+    new_password: str | None = None
+    new_username: str | None = None
     

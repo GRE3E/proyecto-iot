@@ -1,7 +1,7 @@
+import json
 from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
 import logging
 import asyncio
-import json
 from typing import Set
 from starlette.responses import JSONResponse
 from src.api.music_schemas import (
@@ -56,7 +56,7 @@ async def play_music(request: MusicPlayRequest, current_user: User = Depends(get
     if utils._music_manager is None:
         raise HTTPException(status_code=503, detail="El módulo de música está fuera de línea")
     try:
-        result = await utils._music_manager.play(request.query)
+        result = await utils._music_manager.play(request.query, current_user.id, current_user.nombre)
         response_obj = MusicPlayResponse(**result)
         async with get_db() as db:
             audio_info = utils._music_manager.get_current_track()
@@ -83,17 +83,7 @@ async def play_music(request: MusicPlayRequest, current_user: User = Depends(get
         except Exception as e:
             logger.warning(f"No se pudo anotar metadata de la última agregada: {e}")
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "playing",
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -111,17 +101,7 @@ async def pause_music():
         async with get_db() as db:
             await utils._save_api_log("/music/pause", {}, response_obj.dict(), db)
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "paused",
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -139,17 +119,7 @@ async def resume_music():
         async with get_db() as db:
             await utils._save_api_log("/music/resume", {}, response_obj.dict(), db)
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "playing",
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -167,17 +137,7 @@ async def stop_music():
         async with get_db() as db:
             await utils._save_api_log("/music/stop", {}, response_obj.dict(), db)
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "stopped",
-            "current_track": None,
-            "queue": [],
-            "last_added": None,
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -209,18 +169,7 @@ async def set_volume(request: MusicVolumeSetRequest):
         async with get_db() as db:
             await utils._save_api_log("/music/volume", request.dict(), response_obj.dict(), db)
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "volume_changed",
-            "volume": request.volume,
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -293,18 +242,7 @@ async def update_config(request: MusicConfigUpdateRequest):
         async with get_db() as db:
             await utils._save_api_log("/music/config", request.dict(exclude_none=True), response_obj.dict(), db)
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": "config_updated",
-            "config": data['music'],
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return response_obj
     except Exception as e:
@@ -348,16 +286,7 @@ async def now_playing():
                     ]
             except Exception:
                 pass
-            msg = {
-                "type": "music_update",
-                "status": data["status"],
-                "current_track": utils._music_manager.get_current_track(),
-                "queue": utils._music_manager.get_queue(),
-                "last_added": utils._music_manager.get_last_added(),
-                "history": data["history"]
-            }
-            await broadcast(msg)
-            await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
             return MusicNowPlayingResponse(**data)
         async with get_db() as db:
             result = await db.execute(
@@ -414,17 +343,7 @@ async def now_playing():
         except Exception:
             pass
         
-        # Enviar actualización por WebSocket
-        msg = {
-            "type": "music_update",
-            "status": data["status"],
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": data["history"]
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
 
         return MusicNowPlayingResponse(**data)
     except Exception as e:
@@ -439,16 +358,7 @@ async def previous_track():
         result = await utils._music_manager.previous()
         response_obj = MusicActionResponse(**result)
         
-        msg = {
-            "type": "music_update",
-            "status": "playing",
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/previous: {e}", exc_info=True)
@@ -462,16 +372,7 @@ async def next_track():
         result = await utils._music_manager.next()
         response_obj = MusicActionResponse(**result)
         
-        msg = {
-            "type": "music_update",
-            "status": response_obj.status,
-            "current_track": utils._music_manager.get_current_track(),
-            "queue": utils._music_manager.get_queue(),
-            "last_added": utils._music_manager.get_last_added(),
-            "history": await _get_last_history()
-        }
-        await broadcast(msg)
-        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/next: {e}", exc_info=True)

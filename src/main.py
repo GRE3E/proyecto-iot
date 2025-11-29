@@ -4,9 +4,10 @@ import asyncio
 import logging
 import warnings
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
+
 from src.utils.error_handler import ErrorHandler
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router
 from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
 from src.api.utils import (
@@ -25,8 +26,10 @@ CONFIG_PATH = "src/ai/config/config.json"
 
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, RC_DIR)
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
 load_dotenv()
 setup_logging()
 
@@ -34,21 +37,31 @@ if os.name == 'nt':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 logger = logging.getLogger("MainApp")
+
 app = FastAPI(title="Casa Inteligente API")
 
-origins = [
-    "*"
-]
+@app.middleware("http")
+async def dynamic_cors(request: Request, call_next):
+    response: Response = await call_next(request)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    origin = request.headers.get("origin")
 
-# La creación del usuario por defecto se invoca explícitamente tras crear las tablas
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = origin or "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Vary"] = "Origin"
+
+    return response
 
 @app.on_event("startup")
 @ErrorHandler.handle_async_exceptions
@@ -60,17 +73,17 @@ async def startup_event() -> None:
     logger.info(f"Configuración cargada: {config}")
 
     await create_all_tables()
-    # Crear usuario owner por defecto tras crear la BD/tables en el primer arranque
     await init_default_owner_startup()
 
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
     await initialize_all_modules(config_manager=config_manager, ollama_host=ollama_host)
 
     app.state.mqtt_client = _mqtt_client
     app.state.iot_data = {}
 
     if _hotword_module and not _hotword_module.is_online():
-        logger.warning("HotwordDetector no está en línea. Verifique PICOVOICE_ACCESS_KEY o HOTWORD_PATH.")
+        logger.warning("HotwordDetector no está en línea. Verifique configuración.")
 
     logger.info("Aplicación iniciada correctamente")
 

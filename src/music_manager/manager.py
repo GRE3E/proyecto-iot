@@ -412,7 +412,7 @@ class MusicManager:
             logger.error(f"Error inicializando mpv: {e}")
             raise MusicManagerError(f"Error inicializando backend: {str(e)}")
     
-    async def play(self, query: str) -> Dict[str, Any]:
+    async def play(self, query: str, user_id: int, username: str) -> Dict[str, Any]:
         """
         Reproduce audio desde YouTube dado un término de búsqueda.
         
@@ -438,6 +438,8 @@ class MusicManager:
                     logger.info(f"Añadiendo a la cola: {query}")
                     audio_info = await self._extractor.extract_audio(query)
                     audio_info['query'] = query
+                    audio_info['started_by'] = {'user_id': user_id, 'username': username}
+                    audio_info['started_at'] = datetime.now().isoformat()
                     with self._queue_lock:
                         self._queue.append(audio_info)
                     self._last_added = audio_info
@@ -459,6 +461,8 @@ class MusicManager:
                 logger.info("Extrayendo información del audio...")
                 audio_info = await self._extractor.extract_audio(query)
                 audio_info['query'] = query
+                audio_info['started_by'] = {'user_id': user_id, 'username': username}
+                audio_info['started_at'] = datetime.now().isoformat()
                 
                 # Reproducir el audio sin bloquear el event loop
                 logger.info(f"Reproduciendo: {audio_info['title']}")

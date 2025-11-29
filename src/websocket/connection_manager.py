@@ -1,3 +1,4 @@
+import json
 from typing import List
 from fastapi import WebSocket
 import logging
@@ -22,7 +23,12 @@ class ConnectionManager:
         logger.debug(f"Mensaje personal enviado a {websocket.client}: {message}")
 
     async def broadcast(self, message: str):
-        logger.info(f"Broadcast de mensaje: {message}")
+        try:
+            msg_json = json.loads(message)
+            msg_type = msg_json.get("type", "unknown")
+            logger.debug(f"Broadcast de mensaje de tipo: {msg_type}")
+        except json.JSONDecodeError:
+            logger.debug(f"Broadcast de mensaje (no JSON): {message[:100]}...") # Log first 100 chars if not JSON
         for connection in self.active_connections:
             await connection.send_text(message)
 

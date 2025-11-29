@@ -16,14 +16,14 @@
     "control_musica"
   ],
   "modules": {
-    "nlp": false,
-    "stt": false,
+    "nlp": true,
+    "stt": true,
     "speaker": true,
-    "hotword": false,
-    "mqtt": false,
-    "tts": false,
+    "hotword": true,
+    "mqtt": true,
+    "tts": true,
     "face_recognition": true,
-    "music_manager": false
+    "music_manager": true
   },
   "memory_size": 50,
   "timezone": "America/Lima",

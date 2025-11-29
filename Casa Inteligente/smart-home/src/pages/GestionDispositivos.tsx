@@ -93,16 +93,6 @@ export default function GestionDispositivos() {
             />
           )}
         </button>
-        <button
-          onClick={() => setActiveTab("energia")}
-          role="tab"
-          aria-selected={activeTab === "energia"}
-          className={`min-h-[52px] sm:min-h-[48px] px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 font-medium transition-colors duration-300 flex items-center justify-center sm:justify-start gap-2 text-sm sm:text-base md:text-lg relative ${
-            activeTab === "energia"
-              ? colors.text
-              : `${colors.mutedText} ${colors.buttonHover}`
-          }`}
-        ></button>
       </div>
 
       <div className="space-y-5 sm:space-y-6 md:space-y-7 mt-4 sm:mt-5 md:mt-6">

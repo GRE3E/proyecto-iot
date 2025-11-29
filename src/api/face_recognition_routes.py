@@ -76,6 +76,22 @@ async def delete_user(user_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@face_recognition_router.post("/users/{user_id}/upload_faces", response_model=ResponseModel)
+async def upload_faces_to_user(user_id: int, files: List[UploadFile] = File(...)):
+    """
+    Registra el reconocimiento facial subiendo fotos desde el cliente.
+    """
+    try:
+        result = await face_core.register_face_from_uploads(user_id, files)
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.message)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @face_recognition_router.post("/recognize", response_model=RecognitionResponse)
 async def recognize_face(
     source: str = Query(default="camera", regex="^(camera|[^/]+)$"),

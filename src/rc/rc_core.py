@@ -1,6 +1,9 @@
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
+from datetime import datetime
+import numpy as np
+import cv2
 from sqlalchemy import select, delete
 from src.db.database import get_db
 from src.api.face_recognition_schemas import AuthResponse, ResponseModel
@@ -83,6 +86,48 @@ class FaceRecognitionCore:
 
         except Exception as e:
             logger.error(f"Error al registrar rostro para usuario existente: {e}")
+            return ResponseModel(success=False, message=f"Error al registrar rostro: {str(e)}")
+
+    async def register_face_from_uploads(self, user_id: int, uploads: List[Any]) -> ResponseModel:
+        try:
+            async with get_db() as db:
+                result = await db.execute(select(User).filter(User.id == user_id))
+                user = result.scalars().first()
+                if not user:
+                    return ResponseModel(success=False, message=f"Usuario con ID {user_id} no encontrado")
+                user_name = user.nombre
+
+            user_dir = self.capture._ensure_user_dir(user_name)
+            saved = 0
+            for up in uploads:
+                try:
+                    content = await up.read()
+                    data = np.frombuffer(content, np.uint8)
+                    img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+                    if img is None:
+                        continue
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    img_path = user_dir / f"{user_name}_{timestamp}.jpg"
+                    cv2.imwrite(str(img_path), img)
+                    async with get_db() as db:
+                        face_record = Face(user_id=user.id, image_data=content)
+                        db.add(face_record)
+                        await db.commit()
+                    saved += 1
+                except Exception as e:
+                    logger.warning(f"Error guardando imagen subida: {e}")
+                    continue
+
+            if saved == 0:
+                return ResponseModel(success=False, message="No se pudieron procesar las imágenes subidas")
+
+            encoding_generated = await self.encoder.generate_encodings(user_name)
+            if encoding_generated:
+                return ResponseModel(success=True, message=f"Encodings faciales generados exitosamente para el usuario {user_name}")
+            else:
+                return ResponseModel(success=False, message="No se pudieron generar encodings faciales válidos")
+        except Exception as e:
+            logger.error(f"Error en registro de rostro desde uploads: {e}")
             return ResponseModel(success=False, message=f"Error al registrar rostro: {str(e)}")
 
     async def delete_user(self, user_name: str) -> Dict[str, Any]:

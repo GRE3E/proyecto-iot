@@ -15,6 +15,7 @@ from src.api.auth_router import router as auth_router
 from src.api.websocket_routes import websocket_router
 from src.api.notifications_routes import notifications_router
 from src.api.weather_routes import weather_router
+from src.api.sound_processor_routes import sound_processor_router
 from src.api import utils
 from src.auth.auth_service import get_current_user
 from src.auth.device_auth import get_device_api_key
@@ -37,6 +38,7 @@ router.include_router(websocket_router, prefix="", tags=["websocket"])
 router.include_router(notifications_router, tags=["notifications"], dependencies=[Depends(get_current_user)])
 router.include_router(music_router, prefix="/music", tags=["music"], dependencies=[Depends(get_current_user)])
 router.include_router(weather_router, tags=["weather"])
+router.include_router(sound_processor_router, prefix="/sound_processor", tags=["sound_processor"], dependencies=[Depends(get_current_user)])
 
 @router.get("/status", response_model=StatusResponse)
 async def get_status():

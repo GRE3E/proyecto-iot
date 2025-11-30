@@ -8,6 +8,8 @@ import warnings
 import logging
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
+from src.ai.sound_processor.noise_suppressor import suppress_noise
+import os
 
 warnings.filterwarnings("ignore", message=".*flash attention.*")
 
@@ -94,7 +96,12 @@ class STTModule:
             Optional[str]: El texto transcrito si la operación fue exitosa, None en caso de error.
         """
         try:
-            audio, sr = sf.read(audio_path)
+            denoised_audio_path = suppress_noise(audio_path)
+            if denoised_audio_path is None:
+                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
+                return None
+
+            audio, sr = sf.read(denoised_audio_path)
             if sr != whisper.audio.SAMPLE_RATE:
                 logger.warning(f"La frecuencia de muestreo del audio es {sr} Hz, se esperaba {whisper.audio.SAMPLE_RATE} Hz. Remuestreando audio.")
                 audio = resampy.resample(audio, sr, whisper.audio.SAMPLE_RATE)
@@ -113,6 +120,10 @@ class STTModule:
         except Exception as e:
             logger.error(f"Error durante la transcripción del audio '{audio_path}': {e}")
             return None
+        finally:
+            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
+                os.remove(denoised_audio_path)
+                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
 
     def transcribe_audio(self, audio_path: str):
         """

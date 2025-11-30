@@ -9,6 +9,8 @@ import logging
 import asyncio
 import torch
 from sqlalchemy import select
+from src.ai.sound_processor.noise_suppressor import suppress_noise
+import os
 
 logger = logging.getLogger("SpeakerRecognitionModule")
 
@@ -61,7 +63,11 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         Lógica síncrona para registrar un hablante.
         """
         try:
-            wav = preprocess_wav(audio_path)
+            denoised_audio_path = suppress_noise(audio_path)
+            if denoised_audio_path is None:
+                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
+                return None
+            wav = preprocess_wav(denoised_audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
             new_embedding_str = json.dumps(new_embedding.tolist())
             logger.debug(f"Nuevo embedding generado para {name}: {new_embedding_str}")
@@ -94,6 +100,10 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         except Exception as e:
             logger.error(f"Error al registrar hablante: {e}")
             return None
+        finally:
+            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
+                os.remove(denoised_audio_path)
+                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
 
     async def register_speaker(self, name: str, audio_path: str, is_owner: bool = False) -> Optional[str]:
         """
@@ -110,7 +120,11 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
         logger.info(f"Actualizando voz para el usuario ID: {user_id}")
         try:
-            wav = preprocess_wav(audio_path)
+            denoised_audio_path = suppress_noise(audio_path)
+            if denoised_audio_path is None:
+                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
+                return None
+            wav = preprocess_wav(denoised_audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
             new_embedding_str = json.dumps(new_embedding.tolist())
             logger.debug(f"Nuevo embedding generado para el usuario ID {user_id}: {new_embedding_str}")
@@ -141,6 +155,10 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         except Exception as e:
             logger.error(f"Error al actualizar la voz del hablante para el usuario ID {user_id}: {e}")
             return None
+        finally:
+            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
+                os.remove(denoised_audio_path)
+                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
 
     async def _identify_speaker_sync(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
         """
@@ -152,11 +170,19 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             return None, None
         
         try:
-            wav = preprocess_wav(audio_path)
+            denoised_audio_path = suppress_noise(audio_path)
+            if denoised_audio_path is None:
+                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
+                return None
+            wav = preprocess_wav(denoised_audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
         except Exception as e:
             logger.error(f"Error al generar embedding para el audio: {e}")
             return None, None
+        finally:
+            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
+                os.remove(denoised_audio_path)
+                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
 
         if not self._registered_users:
             logger.info("No se encontraron usuarios registrados. Devolviendo solo el embedding generado.")
@@ -204,8 +230,16 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         return self._executor.submit(asyncio.run, self._identify_speaker_sync(audio_path))
 
     async def register_speaker_multi(self, name: str, audio_paths: List[str], is_owner: bool = False) -> Optional[str]:
+        denoised_audio_paths = []
         try:
-            wavs = [preprocess_wav(p) for p in audio_paths]
+            for path in audio_paths:
+                denoised_path = suppress_noise(path)
+                if denoised_path is None:
+                    logger.error(f"No se pudo suprimir el ruido del audio: {path}")
+                    return None
+                denoised_audio_paths.append(denoised_path)
+
+            wavs = [preprocess_wav(p) for p in denoised_audio_paths]
             if hasattr(self._encoder, "embed_speaker"):
                 new_embedding = self._encoder.embed_speaker(wavs)
             else:
@@ -226,12 +260,26 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     if distance < self.registration_threshold:
                         return None
                 return new_embedding_str
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error en register_speaker_multi: {e}")
             return None
+        finally:
+            for dp in denoised_audio_paths:
+                if os.path.exists(dp):
+                    os.remove(dp)
+                    logger.debug(f"Archivo temporal eliminado: {dp}")
 
     async def update_speaker_voice_multi(self, user_id: int, audio_paths: List[str]) -> Optional[str]:
+        denoised_audio_paths = []
         try:
-            wavs = [preprocess_wav(p) for p in audio_paths]
+            for path in audio_paths:
+                denoised_path = suppress_noise(path)
+                if denoised_path is None:
+                    logger.error(f"No se pudo suprimir el ruido del audio: {path}")
+                    return None
+                denoised_audio_paths.append(denoised_path)
+
+            wavs = [preprocess_wav(p) for p in denoised_audio_paths]
             if hasattr(self._encoder, "embed_speaker"):
                 new_embedding = self._encoder.embed_speaker(wavs)
             else:
@@ -251,6 +299,12 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     if distance < self.registration_threshold:
                         return None
                 return new_embedding_str
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error en update_speaker_voice_multi: {e}")
             return None
+        finally:
+            for dp in denoised_audio_paths:
+                if os.path.exists(dp):
+                    os.remove(dp)
+                    logger.debug(f"Archivo temporal eliminado: {dp}")
         

@@ -18,6 +18,7 @@ pydub==0.25.1
 resemblyzer
 TTS==0.22.0
 openai-whisper
+noisereduce
 
 # ====== IA / DEEP LEARNING / MODELOS ======
 torch==2.1.2

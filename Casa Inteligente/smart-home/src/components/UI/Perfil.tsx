@@ -1,30 +1,30 @@
-"use client"
-import { User, Trash2, Edit, Power, UserPlus } from "lucide-react"
-import { useState, useMemo } from "react"
-import { useThemeByTime } from "../../hooks/useThemeByTime"
-import Modal from "../UI/Modal"
-import { axiosInstance } from "../../services/authService"
+"use client";
+import { User, Trash2, Edit, Power, UserPlus } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useThemeByTime } from "../../hooks/useThemeByTime";
+import Modal from "../UI/Modal";
+import { axiosInstance } from "../../services/authService";
 
 export interface FamilyMember {
-  id: string
-  name: string
-  role: "Administrador" | "Familiar"
+  id: string;
+  name: string;
+  role: "Administrador" | "Familiar";
   privileges: {
-    controlDevices: boolean
-    viewCamera: boolean
-  }
+    controlDevices: boolean;
+    viewCamera: boolean;
+  };
 }
 
 interface PerfilProps {
-  name: string
-  setName: (value: string) => void
-  role: "Propietario" | "Familiar"
-  members: FamilyMember[]
-  setMembers: (value: FamilyMember[]) => void
-  isOwnerFixed?: boolean
-  onEditProfile: () => void
-  onAddMember?: () => void
-  owners?: string[]
+  name: string;
+  setName: (value: string) => void;
+  role: "Propietario" | "Familiar";
+  members: FamilyMember[];
+  setMembers: (value: FamilyMember[]) => void;
+  isOwnerFixed?: boolean;
+  onEditProfile: () => void;
+  onAddMember?: () => void;
+  owners?: string[];
 }
 
 export default function Perfil({
@@ -37,63 +37,74 @@ export default function Perfil({
   onAddMember,
   owners = [],
 }: PerfilProps) {
-  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
-  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(null)
-  const [editPassword, setEditPassword] = useState<string>("")
-  const { colors } = useThemeByTime()
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<FamilyMember | null>(
+    null
+  );
+  const [editPassword, setEditPassword] = useState<string>("");
+  const { colors } = useThemeByTime();
 
   // Separar administradores y familiares
   const admins = useMemo(() => {
-    return members.filter(m => m.role === "Administrador")
-  }, [members])
+    return members.filter((m) => m.role === "Administrador");
+  }, [members]);
 
   const familiares = useMemo(() => {
-    return members.filter(m => m.role === "Familiar")
-  }, [members])
+    return members.filter((m) => m.role === "Familiar");
+  }, [members]);
 
   const deleteMember = (id: string) => {
-    const target = members.find((m) => m.id === id) || null
-    setMemberToDelete(target)
-  }
+    const target = members.find((m) => m.id === id) || null;
+    setMemberToDelete(target);
+  };
 
   const confirmDelete = async () => {
-    if (!memberToDelete) return
+    if (!memberToDelete) return;
     try {
-      await axiosInstance.delete("/auth/auth/delete-user", { data: { username: memberToDelete.name } })
-      setMembers(members.filter((m) => m.id !== memberToDelete.id))
-      setMemberToDelete(null)
+      await axiosInstance.delete("/auth/auth/delete-user", {
+        data: { username: memberToDelete.name },
+      });
+      setMembers(members.filter((m) => m.id !== memberToDelete.id));
+      setMemberToDelete(null);
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("refreshMembers"))
+        window.dispatchEvent(new Event("refreshMembers"));
       }
     } catch (e: any) {
-      const message = e?.response?.data?.detail || e?.message || "Error al eliminar usuario"
-      alert(message)
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al eliminar usuario";
+      alert(message);
     }
-  }
+  };
 
   const handleSaveEdit = async () => {
-    if (!editingMember) return
+    if (!editingMember) return;
     try {
-      const original = members.find((m) => m.id === editingMember.id)
-      const usernameForApi = original?.name || editingMember.name
-      const proposedName = (editingMember.name || "").trim()
-      const originalNameTrim = (original?.name || "").trim()
-      const newUsernamePayload = proposedName && proposedName !== originalNameTrim ? proposedName : undefined
+      const original = members.find((m) => m.id === editingMember.id);
+      const usernameForApi = original?.name || editingMember.name;
+      const proposedName = (editingMember.name || "").trim();
+      const originalNameTrim = (original?.name || "").trim();
+      const newUsernamePayload =
+        proposedName && proposedName !== originalNameTrim
+          ? proposedName
+          : undefined;
       await axiosInstance.post("/auth/auth/update-member-role", {
         username: usernameForApi,
         make_owner: editingMember.role === "Administrador",
         new_password: editPassword.trim() || undefined,
         new_username: newUsernamePayload,
-      })
-      const updatedMembers = editingMember.role === "Administrador"
-        ? members.filter((m) => m.id !== editingMember.id)
-        : members.map((m) => (m.id === editingMember.id ? editingMember : m))
-      setMembers(updatedMembers)
-      setEditingMember(null)
-      setEditPassword("")
+      });
+      const updatedMembers =
+        editingMember.role === "Administrador"
+          ? members.filter((m) => m.id !== editingMember.id)
+          : members.map((m) => (m.id === editingMember.id ? editingMember : m));
+      setMembers(updatedMembers);
+      setEditingMember(null);
+      setEditPassword("");
       // Solicitar refresco según rol final
       if (typeof window !== "undefined") {
-        const demotedOwner = editingMember.role !== "Administrador" && editingMember.id.startsWith("owner:");
+        const demotedOwner =
+          editingMember.role !== "Administrador" &&
+          editingMember.id.startsWith("owner:");
         if (demotedOwner) {
           window.dispatchEvent(new Event("refreshOwners"));
           window.dispatchEvent(new Event("refreshMembers"));
@@ -104,26 +115,27 @@ export default function Perfil({
         }
       }
     } catch (e: any) {
-      const message = e?.response?.data?.detail || e?.message || "Error al guardar cambios"
-      alert(message)
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al guardar cambios";
+      alert(message);
     }
-  }
+  };
 
   const handleRoleChange = () => {
-    if (!editingMember) return
+    if (!editingMember) return;
     const newRole =
-      editingMember.role === "Administrador" ? "Familiar" : "Administrador"
+      editingMember.role === "Administrador" ? "Familiar" : "Administrador";
     const newPrivileges =
       newRole === "Administrador"
         ? { controlDevices: true, viewCamera: true }
-        : { controlDevices: false, viewCamera: false }
+        : { controlDevices: false, viewCamera: false };
 
     setEditingMember({
       ...editingMember,
       role: newRole,
       privileges: newPrivileges,
-    })
-  }
+    });
+  };
 
   return (
     <div className={`space-y-5 ${colors.text}`}>
@@ -161,7 +173,7 @@ export default function Perfil({
 
       {/* Lista de usuarios - Vista Vertical (Administradores arriba, Familiares abajo) */}
       <div className="space-y-6">
-        {(((owners?.length || 0) + admins.length + familiares.length) === 0) ? (
+        {(owners?.length || 0) + admins.length + familiares.length === 0 ? (
           <p className="text-slate-400 text-sm">No hay usuarios registrados.</p>
         ) : (
           <>
@@ -176,7 +188,10 @@ export default function Perfil({
               {owners && owners.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {owners.map((name) => (
-                    <div key={name} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                    <div
+                      key={name}
+                      className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}
+                    >
                       <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
                         {name.charAt(0).toUpperCase()}
                       </div>
@@ -187,24 +202,31 @@ export default function Perfil({
                   ))}
                 </div>
               )}
-              
+
               {admins.length === 0 ? (
                 <p className="text-slate-400 text-sm"></p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {admins.map((m) => (
-                    <div key={m.id} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                    <div
+                      key={m.id}
+                      className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}
+                    >
                       <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
                         {m.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{m.name}</div>
                       </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingMember(m)}
+                          className="text-blue-400 hover:text-blue-500 transition"
+                          title="Editar miembro"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -217,29 +239,42 @@ export default function Perfil({
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 Familiares ({familiares.length})
               </h4>
-              
+
               {familiares.length === 0 ? (
-                <p className={`text-sm ${colors.mutedText}`}>No hay familiares</p>
+                <p className={`text-sm ${colors.mutedText}`}>
+                  No hay familiares
+                </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {familiares.map((m) => (
-                    <div key={m.id} className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}>
+                    <div
+                      key={m.id}
+                      className={`p-3 rounded-lg border ${colors.cardBg} ${colors.border} ${colors.cardHover} flex items-center gap-3`}
+                    >
                       <div className="w-8 h-8 rounded-full bg-slate-800/40 text-white flex items-center justify-center font-bold text-xs">
                         {m.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{m.name}</div>
                       </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setEditingMember(m)} className="text-blue-400 hover:text-blue-500 transition" title="Editar miembro">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      {role === "Propietario" && (
-                        <button onClick={() => deleteMember(m.id)} className="text-red-400 hover:text-red-600 transition" title="Eliminar miembro">
-                          <Trash2 className="w-4 h-4" />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setEditingMember(m)}
+                          className="text-blue-400 hover:text-blue-500 transition"
+                          title="Editar miembro"
+                        >
+                          <Edit className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
+                        {role === "Propietario" && (
+                          <button
+                            onClick={() => deleteMember(m.id)}
+                            className="text-red-400 hover:text-red-600 transition"
+                            title="Eliminar miembro"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -259,7 +294,9 @@ export default function Perfil({
         >
           <div className="space-y-4">
             <div>
-              <label className={`block text-sm ${colors.mutedText} mb-1`}>Nombre</label>
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
+                Nombre
+              </label>
               <input
                 type="text"
                 value={editingMember.name}
@@ -274,7 +311,9 @@ export default function Perfil({
             </div>
 
             <div>
-              <label className={`block text-sm ${colors.mutedText} mb-1`}>Contraseña</label>
+              <label className={`block text-sm ${colors.mutedText} mb-1`}>
+                Contraseña
+              </label>
               <input
                 type="password"
                 value={editPassword}
@@ -289,7 +328,9 @@ export default function Perfil({
               </label>
               <div className="space-y-3">
                 {/* Administrador */}
-                <div className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}>
+                <div
+                  className={`flex items-center justify-between p-3 ${colors.inputBg} rounded-lg border ${colors.inputBorder}`}
+                >
                   <div className="flex items-center gap-2">
                     <Power className="w-4 h-4 text-blue-400" />
                     <span className="text-sm">Administrador</span>
@@ -347,14 +388,22 @@ export default function Perfil({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium">{memberToDelete.name}</div>
-                <div className={`text-sm ${colors.mutedText}`}>Esta acción no se puede deshacer.</div>
+                <div className={`text-sm ${colors.mutedText}`}>
+                  Esta acción no se puede deshacer.
+                </div>
               </div>
             </div>
             <div className="flex flex-col-reverse md:flex-row justify-end gap-2 md:gap-3">
-              <button onClick={() => setMemberToDelete(null)} className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto">
+              <button
+                onClick={() => setMemberToDelete(null)}
+                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm w-full md:w-auto"
+              >
                 Cancelar
               </button>
-              <button onClick={confirmDelete} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm w-full md:w-auto">
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm w-full md:w-auto"
+              >
                 Eliminar
               </button>
             </div>
@@ -362,5 +411,5 @@ export default function Perfil({
         </Modal>
       )}
     </div>
-  )
+  );
 }

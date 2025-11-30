@@ -18,7 +18,7 @@ export default function MonitoreoSeguridad() {
   ]
 
   return (
-    <div className={`p-2 md:p-4 pt-8 md:pt-3 space-y-6 md:space-y-8 font-inter w-full ${colors.background} ${colors.text}`}>
+    <div className={`p-2 md:p-6 pt-8 md:pt-6 space-y-4 md:space-y-6 font-inter w-full ${colors.background} ${colors.text}`}>
       <PageHeader
         title="Monitoreo y Seguridad"
         icon={<Shield className={`w-8 md:w-10 h-8 md:h-10 ${colors.icon}`} />}
@@ -38,16 +38,16 @@ export default function MonitoreoSeguridad() {
             </div>
             
             <SimpleCard
-              className={`p-5 sm:p-6 mb-8 border transition-all ${
+              className={`p-4 sm:p-5 md:p-6 mb-6 md:mb-8 border transition-all ${
                 systemOn
                   ? `bg-gradient-to-r ${colors.cyanGradient} ${colors.humidityShadow}`
                   : `${colors.cardBg} ${colors.border}`
               }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
                   <Power
-                    className={`w-7 h-7 sm:w-8 sm:h-8 ${
+                    className={`w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 ${
                       systemOn ? colors.cyanIcon : colors.mutedText
                     }`}
                   />
@@ -56,7 +56,7 @@ export default function MonitoreoSeguridad() {
                       Estado del Sistema
                     </p>
                     <p
-                      className={`text-base sm:text-lg font-bold ${
+                      className={`text-sm sm:text-base md:text-lg font-bold ${
                         systemOn ? colors.greenText : colors.mutedText
                       }`}
                     >
@@ -66,19 +66,19 @@ export default function MonitoreoSeguridad() {
                 </div>
                 <button
                   onClick={() => setSystemOn(!systemOn)}
-                  className={`p-2.5 sm:p-3 rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center ${
+                  className={`p-2 sm:p-2.5 md:p-3 rounded-lg shadow-lg transition-all duration-200 flex items-center justify-center ${
                     systemOn
                       ? colors.successChip
                       : colors.dangerChip
                   }`}
                   aria-label={systemOn ? "Apagar sistema" : "Encender sistema"}
                 >
-                  <Power className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+                  <Power className="w-4 h-4 sm:w-4.5 sm:h-4.5 md:w-5 md:h-5" />
                 </button>
               </div>
             </SimpleCard>
 
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:gap-6">
               {cameras.map((camera) => {
                 const isActive = cameraStates[camera.id] && systemOn
 
@@ -93,22 +93,22 @@ export default function MonitoreoSeguridad() {
                   >
                     <div className="flex flex-col h-full">
                       {/* Header de la cámara */}
-                      <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-700/30">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${isActive ? "bg-green-500/20" : "bg-slate-700/30"}`}>
-                            <Camera className={`w-5 h-5 ${isActive ? "text-green-400" : colors.mutedText}`} />
+                      <div className="p-3 sm:p-4 md:p-5 flex items-center justify-between border-b border-slate-700/30">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className={`p-1.5 sm:p-2 rounded-lg ${isActive ? "bg-green-500/20" : "bg-slate-700/30"}`}>
+                            <Camera className={`w-4 sm:w-5 ${isActive ? "text-green-400" : colors.mutedText}`} />
                           </div>
                           <div>
-                            <p className={`text-sm font-medium ${colors.text}`}>{camera.name}</p>
+                            <p className={`text-xs sm:text-sm font-medium ${colors.text}`}>{camera.name}</p>
                             <div className="flex items-center gap-1 mt-0.5">
                               {isActive ? (
                                 <>
-                                  <Wifi className="w-3 h-3 text-green-400" />
+                                  <Wifi className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-green-400" />
                                   <span className="text-xs text-green-400">En línea</span>
                                 </>
                               ) : (
                                 <>
-                                  <WifiOff className="w-3 h-3 text-red-400" />
+                                  <WifiOff className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-red-400" />
                                   <span className="text-xs text-red-400">Desactivada</span>
                                 </>
                               )}
@@ -118,19 +118,19 @@ export default function MonitoreoSeguridad() {
                         <button
                           onClick={() => toggleCamera(camera.id)}
                           disabled={!systemOn}
-                          className={`p-2 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                          className={`p-1.5 sm:p-2 rounded-lg transition-all duration-200 flex items-center justify-center ${
                             isActive
                               ? "bg-green-500/30 text-green-400 hover:bg-green-500/40"
                               : "bg-slate-700/30 text-slate-500 hover:bg-slate-700/50"
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
                           aria-label={`${camera.name}: ${cameraStates[camera.id] ? "desactivar" : "activar"}`}
                         >
-                          <Power className="w-5 h-5" />
+                          <Power className="w-4 sm:w-5" />
                         </button>
                       </div>
 
                       {/* Feed de la cámara */}
-                      <div className="relative w-full h-[28rem] bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
+                      <div className="relative w-full h-48 sm:h-64 md:h-[28rem] bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
                         {/* Imagen de fondo que ocupa todo el espacio */}
                         <img 
                           src={`data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 448'%3E%3Crect fill='%23020617' width='400' height='448'/%3E%3C/svg%3E`}
@@ -173,9 +173,9 @@ export default function MonitoreoSeguridad() {
                       </div>
 
                       {/* Información de ubicación */}
-                      <div className="p-3 sm:p-4 bg-slate-900/50 border-t border-slate-700/30 flex items-center gap-3">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-green-500" : "bg-slate-500"}`} />
-                        <Camera className="w-4 h-4 text-slate-400" />
+                      <div className="p-2 sm:p-3 md:p-4 bg-slate-900/50 border-t border-slate-700/30 flex items-center gap-2 sm:gap-3">
+                        <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${isActive ? "bg-green-500" : "bg-slate-500"}`} />
+                        <Camera className="w-3 sm:w-4 h-3 sm:h-4 text-slate-400" />
                         <span className={`text-xs sm:text-sm font-medium ${colors.mutedText}`}>
                           {camera.name}
                         </span>

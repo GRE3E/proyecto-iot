@@ -20,7 +20,8 @@ export function useGestionDispositivos() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
-  const [energyUsage, setEnergyUsage] = useState<number>(150);
+  const [energyUsage, setEnergyUsage] = useState<number>(0);
+  const [energyHistory, setEnergyHistory] = useState<number[]>([]);
   const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("Todos");
   const [statusFilter, setStatusFilter] = useState<string>("Todos");
 
@@ -53,7 +54,7 @@ export function useGestionDispositivos() {
         const mappedDevices = statesResponse.data.map((item: any) => ({
           id: item.id,
           name: item.device_name.replace(/_/g, " "),
-          power: "60W",
+          power: "",
           on: item.state_json.status === "ON",
           device_type: item.device_type,
           state_json: item.state_json,
@@ -67,7 +68,26 @@ export function useGestionDispositivos() {
     };
 
     loadAllDevices();
+    loadEnergyData();
+
+    const interval = setInterval(() => {
+      loadEnergyData();
+    }, 5000); // Actualizar cada 5 segundos
+
+    return () => clearInterval(interval);
   }, []);
+
+  const loadEnergyData = async () => {
+    try {
+      const response = await axiosInstance.get<number[]>(`/iot/energy`);
+      setEnergyHistory(response.data);
+      if (response.data.length > 0) {
+        setEnergyUsage(response.data[response.data.length - 1]);
+      }
+    } catch (error) {
+      console.error("Error loading energy data:", error);
+    }
+  };
 
   useEffect(() => {
     let currentFilteredDevices = allDevices;
@@ -131,15 +151,6 @@ export function useGestionDispositivos() {
     }
   };
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      setEnergyUsage((v) =>
-        Math.max(100, Math.min(500, Math.round(v + (Math.random() * 10 - 5))))
-      );
-    }, 3000);
-    return () => clearInterval(t);
-  }, []);
-
   return {
     devices,
     setDevices,
@@ -155,5 +166,6 @@ export function useGestionDispositivos() {
     estimatedMonthlyCost,
     estimatedAnnualCost,
     deviceTypes,
+    energyHistory,
   };
 }

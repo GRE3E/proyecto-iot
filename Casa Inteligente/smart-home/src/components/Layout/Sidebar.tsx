@@ -1,9 +1,7 @@
 // Menú Hamburguesa
-"use client"
 import { useEffect, useRef, useState } from "react"
 import { Home, LogOut } from "lucide-react"
-import SimpleButton from "../UI/Button"
-import "../../styles/animations.css"
+import { useThemeByTime } from "../../hooks/useThemeByTime"
 
 interface HamburgerMenuProps {
   isSidebarOpen: boolean
@@ -24,6 +22,7 @@ export default function HamburgerMenu({
   onLogout,
   colors,
 }: HamburgerMenuProps) {
+  const { theme: currentTheme } = useThemeByTime()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const [transitionItem, setTransitionItem] = useState<{ name: string; icon: any } | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -57,12 +56,12 @@ export default function HamburgerMenu({
 
   const handleLogout = () => {
     setIsLoggingOut(true)
-    
-    // Esperar a que termine la animación antes de hacer logout
+
+    // Timeout ajustado: fondo (0.3s) + animación puerta (1.8s) = 2.1s total
     setTimeout(() => {
       onLogout()
       setIsLoggingOut(false)
-    }, 3000) // 2.8s de puertas + pequeño margen
+    }, 2100)
   }
 
   return (
@@ -77,50 +76,85 @@ export default function HamburgerMenu({
         </div>
       )}
 
-      {/* 🚪 ANIMACIÓN DE CIERRE DE SESIÓN - PUERTAS */}
+      {/* 🚪 ANIMACIÓN DE CIERRE DE SESIÓN - PUERTAS CON DISEÑO DE LOGIN */}
       {isLoggingOut && (
-        <div className="fixed inset-0 z-[150] pointer-events-none" style={{ perspective: "1200px" }}>
-          {/* Puerta Izquierda */}
+        <div 
+          className="fixed inset-0 z-[150] overflow-hidden"
+          style={{
+            background: currentTheme === "light"
+              ? "linear-gradient(180deg, rgba(240,244,250,0.95) 0%, rgba(230,236,245,0.95) 100%)"
+              : "linear-gradient(180deg, rgba(8,12,24,0.95) 0%, rgba(6,10,20,0.95) 100%)",
+          }}
+        >
+          {/* Fondo con blur - cambia según tema - MÁS RÁPIDO */}
           <div
-            className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-r-4 border-cyan-500/30 animate-door-close-left"
+            className="absolute inset-0"
             style={{
-              transformStyle: "preserve-3d",
-              boxShadow: "inset -20px 0 60px rgba(0,0,0,0.8), 4px 0 20px rgba(6,182,212,0.3)"
+              background: currentTheme === "light"
+                ? "linear-gradient(180deg, rgba(240,244,250,0.95) 0%, rgba(230,236,245,0.95) 100%)"
+                : "linear-gradient(180deg, rgba(8,12,24,0.95) 0%, rgba(6,10,20,0.95) 100%)",
+              filter: "blur(14px)",
+              opacity: 0.9,
+              transform: "scale(1.02)",
+              animation: "fadeOut 0.2s ease-out forwards",
             }}
-          >
-            {/* Detalles de la puerta izquierda */}
-            <div className="absolute top-1/2 right-8 -translate-y-1/2 w-4 h-20 bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-lg shadow-cyan-500/50" />
-            <div className="absolute top-1/4 right-1/4 w-32 h-48 border-2 border-cyan-500/20 rounded-lg" />
-            <div className="absolute bottom-1/4 right-1/3 w-24 h-32 border-2 border-cyan-500/20 rounded-lg" />
+          />
+
+          {/* Luz central que se desvanece - cambia según tema - MÁS RÁPIDA */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div
+              style={{
+                width: 260,
+                height: 420,
+                background: currentTheme === "light"
+                  ? "linear-gradient(180deg, rgba(100,150,255,0.4), rgba(60,120,255,0.3))"
+                  : "linear-gradient(180deg, rgba(165,180,252,0.95), rgba(139,92,246,0.9))",
+                filter: "blur(100px)",
+                opacity: 0.65,
+                borderRadius: 999,
+                animation: "fadeOut 0.2s ease-out forwards",
+              }}
+            />
           </div>
 
-          {/* Puerta Derecha */}
-          <div
-            className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-slate-900 via-slate-800 to-slate-900 border-l-4 border-cyan-500/30 animate-door-close-right"
-            style={{
-              transformStyle: "preserve-3d",
-              boxShadow: "inset 20px 0 60px rgba(0,0,0,0.8), -4px 0 20px rgba(6,182,212,0.3)"
-            }}
-          >
-            {/* Detalles de la puerta derecha */}
-            <div className="absolute top-1/2 left-8 -translate-y-1/2 w-4 h-20 bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-lg shadow-cyan-500/50" />
-            <div className="absolute top-1/4 left-1/4 w-32 h-48 border-2 border-cyan-500/20 rounded-lg" />
-            <div className="absolute bottom-1/4 left-1/3 w-24 h-32 border-2 border-cyan-500/20 rounded-lg" />
-          </div>
+          {/* Puertas que se cierran - SIEMPRE OSCURAS */}
+          <div className="absolute inset-0" style={{ perspective: "2000px" }}>
+            {/* Puerta Izquierda - SE CIERRA */}
+            <div
+              className="absolute left-0 top-0 w-1/2 h-full origin-left animate-door-close-left"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#071022] via-[#0d1424] to-[#0f1b37] shadow-[inset_-60px_0_120px_rgba(0,120,255,0.12)]" />
+              <div className="absolute right-[6%] top-1/2 -translate-y-1/2 w-[10px] h-[60px] rounded-full bg-gradient-to-b from-gray-200 to-gray-500" />
+            </div>
 
-          {/* Luz que se desvanece */}
-          <div className="absolute inset-0 flex items-center justify-center animate-light-fadeout">
-            <div className="w-96 h-96 bg-gradient-radial from-cyan-400/40 via-cyan-500/20 to-transparent rounded-full blur-3xl" />
-          </div>
-
-          {/* Texto de cierre de sesión */}
-          <div className="absolute inset-0 flex items-center justify-center animate-light-fadeout">
-            <div className="text-center">
-              <LogOut className="w-16 h-16 text-cyan-400 mx-auto mb-4 animate-pulse" />
-              <h2 className="text-3xl font-bold text-white mb-2">Cerrando sesión</h2>
-              <p className="text-cyan-300 text-lg">Hasta pronto...</p>
+            {/* Puerta Derecha - SE CIERRA */}
+            <div
+              className="absolute right-0 top-0 w-1/2 h-full origin-right animate-door-close-right"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-l from-[#071022] via-[#0d1424] to-[#0f1b37] shadow-[inset_60px_0_120px_rgba(130,60,255,0.08)]" />
+              <div className="absolute left-[6%] top-1/2 -translate-y-1/2 w-[10px] h-[60px] rounded-full bg-gradient-to-b from-gray-200 to-gray-500" />
             </div>
           </div>
+
+          {/* Luz vertical central */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div
+              style={{
+                width: 10,
+                height: "75%",
+                background: currentTheme === "light"
+                  ? "linear-gradient(180deg, rgba(100,150,255,0.95), rgba(60,120,255,0.9))"
+                  : "linear-gradient(180deg, rgba(165,180,252,0.95), rgba(139,92,246,0.9))",
+                filter: "blur(24px)",
+                opacity: 0.85,
+                animation: "fadeOut 1.2s ease-out forwards",
+              }}
+            />
+          </div>
+
+
         </div>
       )}
 
@@ -206,11 +240,10 @@ export default function HamburgerMenu({
             const isActive = selectedMenu === menu.name
 
             return (
-              <SimpleButton
+              <button
                 key={menu.name}
                 onClick={() => handleSelect(menu)}
                 disabled={isLoggingOut}
-                active={isActive}
                 className={`flex items-center ${
                   isSidebarOpen ? "justify-start px-5" : "justify-center"
                 } gap-3 text-sm font-medium py-2 rounded-xl w-11/12 transition-all duration-300 overflow-hidden ${
@@ -219,14 +252,14 @@ export default function HamburgerMenu({
               >
                 <IconComponent className="w-6 h-6 shrink-0" />
                 {isSidebarOpen && <span className="truncate">{menu.name}</span>}
-              </SimpleButton>
+              </button>
             )
           })}
         </nav>
 
         {/* === Logout === */}
         <div className="w-full flex flex-col items-center">
-          <SimpleButton
+          <button
             onClick={handleLogout}
             disabled={isLoggingOut}
             className="flex items-center gap-3 w-11/12 justify-center px-3 py-2 rounded-xl
@@ -235,7 +268,7 @@ export default function HamburgerMenu({
           >
             <LogOut className="w-5 h-5 shrink-0" />
             {isSidebarOpen && <span className="truncate">{isLoggingOut ? "Cerrando..." : "Cerrar sesión"}</span>}
-          </SimpleButton>
+          </button>
         </div>
       </aside>
     </>

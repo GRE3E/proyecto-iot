@@ -3,95 +3,418 @@
    ============================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&family=Exo+2:wght@300;600&display=swap');
 
-@keyframes slideIn { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes float { 0%,100%{transform: translateY(0)} 50%{transform: translateY(-12px)} }
-@keyframes shimmer { 0% { background-position: -200% 0%; } 100% { background-position: 200% 0%; } }
-@keyframes floatSlow { 0%,100%{transform: translate(0,0) rotate(0deg);opacity:0.15} 25%{transform: translate(80px,-120px) rotate(45deg);} 50%{transform: translate(-60px,-80px) rotate(90deg);} 75%{transform: translate(100px,60px) rotate(135deg);} }
-@keyframes particleRise { 0%{transform:translateY(100vh);opacity:0} 10%{opacity:0.6} 90%{opacity:0.6} 100%{transform:translateY(-100vh);opacity:0} }
+/* Animaciones base mejoradas */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-.animate-slideIn { animation: slideIn 1s ease-out; }
-.animate-float { animation: float 4s ease-in-out infinite; }
-.animate-shimmer { animation: shimmer 3s linear infinite; background-size: 200% 100%; }
-.animate-float-slow { animation: floatSlow 30s infinite ease-in-out; }
-.animate-particle-rise { animation: particleRise 25s infinite; }
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.15;
+  }
+  25% {
+    transform: translate(80px, -120px) rotate(45deg);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate(-60px, -80px) rotate(90deg);
+    opacity: 0.25;
+  }
+  75% {
+    transform: translate(100px, 60px) rotate(135deg);
+    opacity: 0.2;
+  }
+}
+
+@keyframes particleRise {
+  0% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 1s ease-out;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 3s linear infinite;
+  background-size: 200% 100%;
+}
+
+.animate-float-slow {
+  animation: floatSlow 30s infinite ease-in-out;
+}
+
+.animate-particle-rise {
+  animation: particleRise 25s infinite;
+}
 
 /* ============================================================
    🚪 ANIMACIONES DE PUERTAS (APERTURA Y CIERRE)
    ============================================================ */
+
+/* Apertura de puertas - Modo Oscuro/Claro */
 @keyframes doorOpenLeft {
-  0% { transform: rotateY(0deg); }
-  55% { transform: rotateY(-70deg); }
-  100% { transform: rotateY(-105deg); }
-}
-@keyframes doorOpenRight {
-  0% { transform: rotateY(0deg); }
-  55% { transform: rotateY(70deg); }
-  100% { transform: rotateY(105deg); }
+  0% {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+  55% {
+    transform: rotateY(-70deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotateY(-105deg);
+    opacity: 0.9;
+  }
 }
 
-@keyframes doorCloseLeft {
-  0% { transform: rotateY(-105deg); }
-  45% { transform: rotateY(-70deg); }
-  100% { transform: rotateY(0deg); }
+@keyframes doorOpenRight {
+  0% {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+  55% {
+    transform: rotateY(70deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotateY(105deg);
+    opacity: 0.9;
+  }
 }
+
+/* Cierre de puertas - Modo Oscuro/Claro (más rápido) */
+@keyframes doorCloseLeft {
+  0% {
+    transform: rotateY(-105deg);
+    opacity: 0.9;
+  }
+  45% {
+    transform: rotateY(-70deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+}
+
 @keyframes doorCloseRight {
-  0% { transform: rotateY(105deg); }
-  45% { transform: rotateY(70deg); }
-  100% { transform: rotateY(0deg); }
+  0% {
+    transform: rotateY(105deg);
+    opacity: 0.9;
+  }
+  45% {
+    transform: rotateY(70deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+}
+
+/* Clases de animación de puertas */
+.animate-door-open-left {
+  animation: doorOpenLeft 3.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: left;
+}
+
+.animate-door-open-right {
+  animation: doorOpenRight 3.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: right;
+}
+
+.animate-door-close-left {
+  animation: doorCloseLeft 1.8s cubic-bezier(0.64, 0, 0.78, 0) forwards;
+  transform-origin: left;
+}
+
+.animate-door-close-right {
+  animation: doorCloseRight 1.8s cubic-bezier(0.64, 0, 0.78, 0) forwards;
+  transform-origin: right;
 }
 
 /* ============================================================
    💡 ANIMACIONES DE LUZ (REVEAL Y FADE OUT)
    ============================================================ */
+
+/* Pulso de luz adaptativo */
 @keyframes lightPulse {
-  0%,100% { opacity: 0.35; filter: blur(12px); transform: scaleY(1); }
-  50% { opacity: 1; filter: blur(30px); transform: scaleY(1.02); }
+  0%, 100% {
+    opacity: 0.35;
+    filter: blur(12px);
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    filter: blur(30px);
+    transform: scaleY(1.02);
+  }
 }
+
+/* Revelación de luz con efecto dramático */
 @keyframes lightReveal {
-  0% { opacity: 0; transform: scale(0.6); }
-  60% { opacity: 0.85; transform: scale(1.05); }
-  100% { opacity: 0; transform: scale(1.4); }
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: blur(20px);
+  }
+  60% {
+    opacity: 0.85;
+    transform: scale(1.05);
+    filter: blur(40px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+    filter: blur(60px);
+  }
 }
 
+/* Desvanecimiento de luz mejorado */
 @keyframes lightFadeOut {
-  0% { opacity: 1; filter: blur(30px); transform: scale(1); }
-  100% { opacity: 0; filter: blur(5px); transform: scale(0.7); }
+  0% {
+    opacity: 1;
+    filter: blur(30px);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    filter: blur(20px);
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(5px);
+    transform: scale(0.7);
+  }
 }
 
-.animate-door-open-left { animation: doorOpenLeft 3.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; transform-origin: left; }
-.animate-door-open-right { animation: doorOpenRight 3.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; transform-origin: right; }
-.animate-door-close-left { animation: doorCloseLeft 2.8s cubic-bezier(0.64, 0, 0.78, 0) forwards; transform-origin: left; }
-.animate-door-close-right { animation: doorCloseRight 2.8s cubic-bezier(0.64, 0, 0.78, 0) forwards; transform-origin: right; }
-.animate-light-pulse { animation: lightPulse 3s ease-in-out infinite; }
-.animate-light-reveal { animation: lightReveal 2.6s ease-in-out forwards; }
-.animate-light-fadeout { animation: lightFadeOut 1.5s ease-out forwards; }
+/* Resplandor suave para modo claro */
+@keyframes lightGlowSoft {
+  0%, 100% {
+    opacity: 0.4;
+    filter: blur(25px);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    filter: blur(35px);
+    transform: scale(1.1);
+  }
+}
 
-.login-overlay { position: relative; z-index: 30; }
+/* Clases de animación de luz */
+.animate-light-pulse {
+  animation: lightPulse 3s ease-in-out infinite;
+}
+
+.animate-light-reveal {
+  animation: lightReveal 2.6s ease-in-out forwards;
+}
+
+.animate-light-fadeout {
+  animation: lightFadeOut 1.5s ease-out forwards;
+}
+
+.animate-light-glow-soft {
+  animation: lightGlowSoft 4s ease-in-out infinite;
+}
 
 /* ============================================================
-   🍔 ANIMACIONES MENÚ HAMBURGUESA
+   🔘 ANIMACIONES MENÚ HAMBURGUESA
    ============================================================ */
+
+/* Aparición rápida */
 @keyframes fadeInFast {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
+
 .animate-fadeInFast {
   animation: fadeInFast 0.2s ease forwards;
 }
 
+/* Efecto pop mejorado */
 @keyframes popInFast {
-  0% { transform: scale(0.6); opacity: 0; }
-  70% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); }
-}
-.animate-popInFast {
-  animation: popInFast 0.5s ease;
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
-@keyframes bounceGlowFast {
-  0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 0px cyan); }
-  50% { transform: translateY(-4px); filter: drop-shadow(0 0 8px cyan); }
+.animate-popInFast {
+  animation: popInFast 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* Rebote con brillo adaptativo */
+@keyframes bounceGlowFast {
+  0%, 100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 0 0px currentColor);
+  }
+  50% {
+    transform: translateY(-4px);
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+}
+
 .animate-bounceGlowFast {
   animation: bounceGlowFast 0.8s ease-in-out infinite;
+}
+
+/* ============================================================
+   ✨ ANIMACIONES ADICIONALES MEJORADAS
+   ============================================================ */
+
+/* Deslizamiento desde arriba */
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideInFromTop {
+  animation: slideInFromTop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fundido de fondo */
+@keyframes backdropFade {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.animate-backdropFade {
+  animation: backdropFade 0.3s ease-out forwards;
+}
+
+/* Pulso suave para elementos de carga */
+@keyframes pulseSoft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulseSoft {
+  animation: pulseSoft 2s ease-in-out infinite;
+}
+
+/* Rotación para spinners */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Escala suave */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   🎨 UTILIDADES DE TRANSICIÓN
+   ============================================================ */
+
+.transition-theme {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.transition-transform-smooth {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-all-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Login overlay */
+.login-overlay {
+  position: relative;
+  z-index: 30;
 }

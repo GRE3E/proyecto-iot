@@ -40,3 +40,14 @@ class CoordinatesResponse(BaseModel):
     latitude: float
     longitude: float
     message: str
+
+
+class TimeResponse(BaseModel):
+    """Modelo para respuesta de hora basada en coordenadas."""
+    latitude: float
+    longitude: float
+    timezone_offset_seconds: int
+    timezone_name: str
+    current_time: str
+    utc_time: str
+    location_name: str

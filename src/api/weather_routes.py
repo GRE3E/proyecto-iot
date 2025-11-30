@@ -3,7 +3,7 @@ Rutas de la API para obtener información del clima.
 """
 from fastapi import APIRouter, HTTPException, Query
 import logging
-from src.api.schemas import WeatherRequest, WeatherResponse, CoordinatesUpdate, CoordinatesResponse
+from src.api.schemas import WeatherRequest, WeatherResponse, CoordinatesUpdate, CoordinatesResponse, TimeResponse
 from src.utils.weather_utils import fetch_weather_data, get_stored_coordinates, save_coordinates
 import httpx
 
@@ -117,4 +117,45 @@ async def get_current_weather():
         raise HTTPException(status_code=503, detail="Error al conectar con el servicio de clima")
     except Exception as e:
         logger.error(f"Error inesperado al obtener clima: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@weather_router.get("/weather/time", response_model=TimeResponse)
+async def get_time_by_coordinates(
+    latitude: float = Query(..., ge=-90, le=90, description="Latitud geográfica WGS84"),
+    longitude: float = Query(..., ge=-180, le=180, description="Longitud geográfica WGS84")
+):
+    """
+    Obtiene la hora actual basada en coordenadas geográficas.
+    
+    Utiliza el timezone offset de OpenWeatherMap para calcular la hora local exacta.
+    
+    Args:
+        latitude: Latitud geográfica (-90 a 90)
+        longitude: Longitud geográfica (-180 a 180)
+        
+    Returns:
+        Hora actual local, hora UTC, offset de zona horaria y nombre de ubicación
+    """
+    try:
+        from src.utils.time_utils import get_current_time_by_coordinates
+        from src.utils.weather_utils import OPENWEATHERMAP_API_KEY
+        
+        if not OPENWEATHERMAP_API_KEY:
+            raise HTTPException(
+                status_code=500,
+                detail="OPENWEATHERMAP_API_KEY no está configurada"
+            )
+        
+        logger.info(f"Solicitando hora para lat={latitude}, lon={longitude}")
+        time_data = await get_current_time_by_coordinates(latitude, longitude, OPENWEATHERMAP_API_KEY)
+        return TimeResponse(**time_data)
+    except ValueError as e:
+        logger.error(f"Error de validación: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx.HTTPError as e:
+        logger.error(f"Error al obtener hora: {e}")
+        raise HTTPException(status_code=503, detail="Error al conectar con el servicio de clima")
+    except Exception as e:
+        logger.error(f"Error inesperado al obtener hora: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")

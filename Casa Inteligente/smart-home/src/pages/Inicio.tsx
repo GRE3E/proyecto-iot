@@ -7,6 +7,7 @@ import { useState } from "react";
 import NavButton from "../components/UI/NavButton";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useEnergyData } from "../hooks/useEnergyData";
+import { useGestionDispositivos } from "../hooks/useGestionDispositivos";
 import EnergyStatistics from "../components/statistics/EnergyStatistics";
 import TemperatureStatistics from "../components/statistics/TemperatureStatistics";
 import HumidityStatistics from "../components/statistics/HumidityStatistics";
@@ -22,16 +23,6 @@ interface Device {
 export default function Inicio({
   temperature = 24,
   humidity = 45,
-  devices = [
-    { name: "Luz Sala", location: "Sala", power: "60W", on: true },
-    {
-      name: "Aire Acondicionado",
-      location: "Dormitorio",
-      power: "1500W",
-      on: false,
-    },
-    { name: "Bombilla Cocina", location: "Cocina", power: "40W", on: true },
-  ],
 }: {
   temperature?: number;
   humidity?: number;
@@ -42,6 +33,9 @@ export default function Inicio({
   >("energy");
   const { colors } = useThemeByTime();
   const { energyHistory, loading: energyLoading } = useEnergyData();
+  const { devices } = useGestionDispositivos();
+
+  const activeDeviceCount = devices.filter((d) => d.on).length;
 
   const currentEnergy =
     energyHistory.length > 0 ? energyHistory[energyHistory.length - 1] : 0;
@@ -96,7 +90,7 @@ export default function Inicio({
             type="devices"
             label="Dispositivos"
             icon={Zap}
-            value={`${devices.filter((d) => d.on).length} activos`}
+            value={`${activeDeviceCount} activos`}
             expandedCard={expandedCard}
             setExpandedCard={setExpandedCard}
           />
@@ -111,9 +105,7 @@ export default function Inicio({
             {expandedCard === "humidity" && (
               <HumidityStatistics humidity={humidity} />
             )}
-            {expandedCard === "devices" && (
-              <DevicesStatistics devices={devices} />
-            )}
+            {expandedCard === "devices" && <DevicesStatistics />}
           </div>
 
           <div className="hidden lg:block w-full lg:w-80 flex-shrink-0 space-y-4">
@@ -138,7 +130,7 @@ export default function Inicio({
                   devices: {
                     label: "Dispositivos",
                     icon: Zap,
-                    value: `${devices.filter((d) => d.on).length} activos`,
+                    value: `${activeDeviceCount} activos`,
                   },
                 };
                 const { label, icon: Icon, value } = config[type];

@@ -69,12 +69,6 @@ export function useGestionDispositivos() {
 
     loadAllDevices();
     loadEnergyData();
-
-    const interval = setInterval(() => {
-      loadEnergyData();
-    }, 5000); // Actualizar cada 5 segundos
-
-    return () => clearInterval(interval);
   }, []);
 
   const loadEnergyData = async () => {

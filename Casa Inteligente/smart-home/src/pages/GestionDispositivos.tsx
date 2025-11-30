@@ -39,7 +39,6 @@ export default function GestionDispositivos() {
     statusFilter,
     setStatusFilter,
     toggleDevice,
-    energyHistory,
   } = useGestionDispositivos();
   const { colors } = useThemeByTime();
 

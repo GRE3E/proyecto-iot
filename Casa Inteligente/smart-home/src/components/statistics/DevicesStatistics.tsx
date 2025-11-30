@@ -1,44 +1,51 @@
 "use client";
 
 import { Power } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { useGestionDispositivos } from "../../hooks/useGestionDispositivos";
 import { useThemeByTime } from "../../hooks/useThemeByTime";
-import SimpleButton from "../UI/Button";
 
-interface Device {
-  name: string;
-  location?: string;
-  power: string;
-  on: boolean;
-}
-
-interface DevicesStatisticsProps {
-  devices: Device[];
-}
-
-export default function DevicesStatistics({ devices }: DevicesStatisticsProps) {
-  const [deviceFilter, setDeviceFilter] = useState<
-    "all" | "luz" | "puerta" | "ventilador"
-  >("all");
+export default function DevicesStatistics() {
   const { colors } = useThemeByTime();
+  const { devices } = useGestionDispositivos();
+  const activeDeviceCount = devices.filter((d) => d.on).length;
 
-  const activeDevices = devices.filter((d) => d.on).length;
+  const [deviceCountHistory, setDeviceCountHistory] = useState<number[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const getDevicesByFilter = () => {
-    const deviceMap: { [key: string]: string[] } = {
-      luz: ["Luz", "Bombilla", "Lámpara"],
-      puerta: ["Puerta", "Cerradura"],
-      ventilador: ["Aire", "Ventilador", "Climatización"],
+  useEffect(() => {
+    const fetchDeviceCountHistory = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          throw new Error("No authentication token found.");
+        }
+
+        const response = await fetch(
+          "http://localhost:8000/iot/device_count_history",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: number[] = await response.json();
+        setDeviceCountHistory(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     };
-    if (deviceFilter === "all") return devices;
-    return devices.filter((d) =>
-      deviceMap[deviceFilter]?.some((keyword) =>
-        d.name.toLowerCase().includes(keyword.toLowerCase())
-      )
-    );
-  };
 
-  const filteredDevices = useMemo(() => getDevicesByFilter(), [deviceFilter, devices]);
+    fetchDeviceCountHistory();
+  }, []);
 
   const getSectionTheme = (type: "devices") => {
     const themeMap = {
@@ -53,6 +60,98 @@ export default function DevicesStatistics({ devices }: DevicesStatisticsProps) {
     return themeMap[type];
   };
 
+  const renderChart = (
+    type: "devices",
+    data: number[],
+    loading: boolean,
+    error: string | null
+  ) => {
+    if (loading) {
+      return (
+        <div className="text-center text-gray-500">
+          Cargando datos de dispositivos...
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="text-center text-red-500">
+          Error al cargar datos: {error}
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="text-center text-gray-500">
+          No hay datos de dispositivos disponibles.
+        </div>
+      );
+    }
+
+    const chartColorMap = {
+      devices: "#8b5cf6", // Color violeta para dispositivos
+    };
+    const chartColor = chartColorMap[type];
+    const gradientId = `${type}Gradient`;
+
+    // Escala para el eje Y (ajustar según el número máximo esperado de dispositivos)
+    const maxDeviceCount = Math.max(...data, 1); // Asegura que no sea 0
+    const yScale = 200 / (maxDeviceCount + 2); // Ajusta la escala para que el gráfico no se salga
+
+    return (
+      <svg viewBox="0 0 1000 300" className="w-full h-full">
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={chartColor} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={chartColor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <line
+            key={i}
+            x1="50"
+            y1={50 + i * 50}
+            x2="950"
+            y2={50 + i * 50}
+            stroke={chartColor}
+            strokeWidth="1"
+            opacity="0.1"
+          />
+        ))}
+        {data.map((value, i) => {
+          const x = 50 + (i / (data.length - 1)) * 900;
+          const y = 250 - value * yScale; // Usar yScale para ajustar la altura
+          return (
+            <g key={i}>
+              <circle cx={x} cy={y} r="2.5" fill={chartColor} opacity="0.8" />
+              {i > 0 && (
+                <line
+                  x1={50 + ((i - 1) / (data.length - 1)) * 900}
+                  y1={250 - data[i - 1] * yScale}
+                  x2={x}
+                  y2={y}
+                  stroke={chartColor}
+                  strokeWidth="1.5"
+                />
+              )}
+            </g>
+          );
+        })}
+        <path
+          d={`M 50,${250 - data[0] * yScale} ${data
+            .map(
+              (v, i) =>
+                `L ${50 + (i / (data.length - 1)) * 900} ${250 - v * yScale}`
+            )
+            .join(" ")} L 950,250 L 50,250 Z`}
+          fill={`url(#${gradientId})`}
+        />
+      </svg>
+    );
+  };
+
   const sectionTheme = getSectionTheme("devices");
 
   return (
@@ -63,63 +162,57 @@ export default function DevicesStatistics({ devices }: DevicesStatisticsProps) {
         <Power className={`w-5 h-5 ${sectionTheme.icon}`} />
         <div className="ml-2">
           <h3 className={`text-md font-bold ${sectionTheme.text}`}>
-            Dispositivos
+            Historial de Conexiones de Dispositivos
           </h3>
           <p className={`text-[10px] mt-0.5 ${colors.mutedText}`}>
-            {activeDevices} de {devices.length} activos
+            Últimas 24 horas
           </p>
         </div>
       </div>
-
-      <div className="flex gap-2 mb-3 flex-wrap">
-        {(["all", "luz", "puerta", "ventilador"] as const).map((filter) => (
-          <SimpleButton
-            key={filter}
-            onClick={() => setDeviceFilter(filter)}
-            active={deviceFilter === filter}
-            className="px-3 py-1 text-sm"
-          >
-            {filter === "all"
-              ? "Todos"
-              : filter.charAt(0).toUpperCase() + filter.slice(1)}
-          </SimpleButton>
-        ))}
+      <div
+        className={`h-36 md:h-40 flex items-center justify-center mb-3 rounded-lg bg-gradient-to-br ${sectionTheme.card} p-2 border ${sectionTheme.border}`}
+      >
+        {renderChart("devices", deviceCountHistory, loading, error)}
       </div>
-
-      <div className="space-y-2 mb-2">
-        {filteredDevices.length > 0 ? (
-          filteredDevices.map((d, i) => (
-            <div
-              key={i}
-              className={`flex items-center justify-between p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border} hover:border-${sectionTheme.border} transition-all`}
-            >
-              <div className="flex-1">
-                <p className={`text-sm font-semibold ${sectionTheme.text}`}>
-                  {d.name}
-                </p>
-                {d.location && (
-                  <p className={`text-xs mt-1 ${colors.mutedText}`}>
-                    {d.location}
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className={`text-xs ${colors.mutedText}`}>Consumo</p>
-                <p className={`text-sm font-semibold ${sectionTheme.text}`}>
-                  {d.power}
-                </p>
-              </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {!loading && !error && deviceCountHistory.length > 0 && (
+          <>
+            {[
+              {
+                label: "Activos Ahora",
+                value: activeDeviceCount,
+              },
+              {
+                label: "Promedio",
+                value:
+                  Math.round(
+                    deviceCountHistory.reduce((a, b) => a + b) /
+                      deviceCountHistory.length
+                  ) || 0,
+              },
+              { label: "Máximo", value: Math.max(...deviceCountHistory) || 0 },
+              { label: "Mínimo", value: Math.min(...deviceCountHistory) || 0 },
+            ].map((item) => (
               <div
-                className={`w-3 h-3 ml-4 rounded-full shadow-lg transition-all ${
-                  d.on ? "bg-green-400 shadow-green-400/60" : "bg-slate-400"
-                }`}
-              />
-            </div>
-          ))
-        ) : (
-          <p className={`text-sm ${colors.mutedText}`}>
-            No hay dispositivos en esta categoría.
-          </p>
+                key={item.label}
+                className={`p-2 md:p-3 rounded-lg ${colors.cardBg} border ${sectionTheme.border}`}
+              >
+                <p className={`text-[10px] ${colors.mutedText}`}>
+                  {item.label}
+                </p>
+                <div className="flex items-center gap-1 md:gap-2">
+                  <p
+                    className={`text-xl md:text-2xl font-bold ${sectionTheme.text}`}
+                  >
+                    {item.value}
+                  </p>
+                  <span className={`text-[9px] md:text-xs ${colors.mutedText}`}>
+                    dispositivos
+                  </span>
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>

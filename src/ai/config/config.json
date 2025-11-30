@@ -18,11 +18,11 @@
   "modules": {
     "nlp": false,
     "stt": false,
-    "speaker": false,
+    "speaker": true,
     "hotword": false,
-    "mqtt": true,
+    "mqtt": false,
     "tts": false,
-    "face_recognition": false,
+    "face_recognition": true,
     "music_manager": false
   },
   "memory_size": 50,

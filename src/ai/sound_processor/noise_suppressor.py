@@ -33,7 +33,7 @@ def suppress_noise(audio_path: str, sr: int = 16000) -> str:
         segment_for_noise_estimation = int(0.5 * current_sr)
         if len(audio) < segment_for_noise_estimation:
             logger.warning(f"Audio demasiado corto para estimar ruido de los primeros 0.5s. Usando todo el audio para estimación de ruido en {audio_path}.")
-            reduced_noise = nr.reduce_noise(y=audio, sr=current_sr, n_fft=2048, hop_length=512, win_length=2048, verbose=False)
+            reduced_noise = nr.reduce_noise(y=audio, sr=current_sr, n_fft=2048, hop_length=512, win_length=2048)
         else:
             reduced_noise = nr.reduce_noise(y=audio, sr=current_sr, n_fft=2048, hop_length=512, win_length=2048,
                                             prop_decrease=1.0, # Reducir todo el ruido posible
@@ -42,11 +42,9 @@ def suppress_noise(audio_path: str, sr: int = 16000) -> str:
                                             n_jobs=1, # Usar un solo core para evitar problemas de paralelismo
                                             time_constant_s=2.0, # Constante de tiempo para adaptación
                                             freq_mask_smooth_hz=500, # Suavizado de máscara de frecuencia
-                                            noise_clip=0.150, # Umbral de recorte de ruido
                                             use_tqdm=False, # No usar tqdm para evitar dependencias de UI
                                             # Estimación de ruido del inicio del audio
-                                            y_noise=audio[0:segment_for_noise_estimation],
-                                            verbose=False)
+                                            y_noise=audio[0:segment_for_noise_estimation])
 
         # Crear un nombre de archivo temporal único
         temp_dir = "temp_audio"

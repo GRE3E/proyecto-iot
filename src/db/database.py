@@ -49,7 +49,7 @@ async def create_all_tables() -> None:
             User, Face, Preference, Permission,
             UserPermission, UserMemory, ConversationLog,
             APILog, IoTCommand, DeviceState, Routine,
-            MusicPlayLog
+            MusicPlayLog, EnergyConsumption
         )
     except Exception as e:
         logger.warning(f"No se pudieron importar todos los modelos: {e}. Intentando importar lo que exista.")

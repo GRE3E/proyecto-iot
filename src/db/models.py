@@ -205,6 +205,7 @@ class User(Base):
     faces: Mapped[List["Face"]] = relationship("Face", back_populates="user", cascade="all, delete-orphan")
     routines: Mapped[List["Routine"]] = relationship("Routine", back_populates="user", cascade="all, delete-orphan")
     context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")
+    energy_consumptions: Mapped[List["EnergyConsumption"]] = relationship("EnergyConsumption", back_populates="user", cascade="all, delete-orphan")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -324,6 +325,31 @@ class DeviceState(Base):
     last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
 
     __table_args__ = (UniqueConstraint('device_name', 'device_type', name='_device_name_type_uc'),)
+
+class EnergyConsumption(Base):
+    __tablename__ = "energy_consumption"
+    """
+    Modelo para almacenar el consumo de energía histórico de los dispositivos.
+
+    Atributos:
+        id (int): Identificador único del registro de consumo.
+        user_id (int): ID del usuario al que pertenece este registro.
+        timestamp (datetime): Marca de tiempo del registro de consumo.
+        device_name (str): Nombre del dispositivo que consumió energía.
+        device_type (str): Tipo de dispositivo.
+        energy_consumed (float): Cantidad de energía consumida en Wh.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    device_name = Column(String(100), nullable=False)
+    device_type = Column(String(50), nullable=False)
+    energy_consumed = Column(Float, nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="energy_consumptions")
+
+    def __repr__(self) -> str:
+        return f"<EnergyConsumption(id={self.id}, user_id={self.user_id}, device_name='{self.device_name}', energy_consumed={self.energy_consumed})>"
 
 class ContextEvent(Base):
     __tablename__ = "context_events"

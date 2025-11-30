@@ -6,6 +6,26 @@ from src.db.models import DeviceState
 from src.api.iot_schemas import DeviceStateCreate
 import json
 
+POWER_CONSUMPTION_RATES = {
+    "luz": {
+        "ON": 10,  # Watts
+        "OFF": 0
+    },
+    "puerta": {
+        "OPEN": 5,   # Watts
+        "CLOSED": 1, # Watts (idle)
+        "MOVING": 15 # Watts (during movement)
+    },
+    "ventilador": {
+        "ON": 30,  # Watts
+        "OFF": 0
+    },
+    "microcontrolador": {
+        "ON": 2,   # Watts (always on for simplicity)
+        "OFF": 0
+    }
+}
+
 logger = logging.getLogger("DeviceManager")
 
 def _extract_device_info_from_topic(mqtt_topic: str, command_payload: str) -> Tuple[Optional[str], Optional[str], str]:
@@ -57,17 +77,17 @@ async def get_device_state(db: AsyncSession, device_name: str, device_type: Opti
     result = await db.execute(query)
     return result.scalars().first()
 
-async def delete_device_state(db: AsyncSession, device_name: str) -> bool:
+async def delete_device_state(db: AsyncSession, device_id: int) -> bool:
     """
-    Elimina el estado de un dispositivo por su nombre.
+    Elimina el estado de un dispositivo por su ID.
     """
-    db_device_state = await get_device_state(db, device_name)
+    db_device_state = await get_device_state_by_id(db, device_id)
     if db_device_state:
         await db.delete(db_device_state)
         await db.commit()
-        logger.info(f"Estado del dispositivo {device_name} eliminado.")
+        logger.info(f"Estado del dispositivo con ID {device_id} eliminado.")
         return True
-    logger.warning(f"No se encontró el estado del dispositivo {device_name} para eliminar.")
+    logger.warning(f"No se encontró el estado del dispositivo con ID {device_id} para eliminar.")
     return False
 
 async def create_device_state(db: AsyncSession, device_state: DeviceStateCreate) -> DeviceState:
@@ -175,6 +195,31 @@ def reconstruct_mqtt_command(device_state: DeviceState, new_state: Dict[str, Any
         return mqtt_topic, command_payload
     
     return None, None
+
+async def calculate_current_energy_consumption(db: AsyncSession) -> float:
+    """
+    Calcula el consumo de energía actual basado en el estado de todos los dispositivos activos.
+    """
+    total_consumption = 0.0
+    device_states = await get_all_device_states(db)
+
+    for device_state in device_states:
+        device_type = device_state.device_type.lower()
+        state_json = json.loads(device_state.state_json)
+        current_status = state_json.get("status", "OFF").upper() # Asumir "OFF" si no hay estado
+
+        if device_type in POWER_CONSUMPTION_RATES:
+            rates = POWER_CONSUMPTION_RATES[device_type]
+            consumption = rates.get(current_status, rates.get("OFF", 0)) # Usar "OFF" como fallback
+            total_consumption += consumption
+        elif device_type == "actuador" and "VENTILADOR" in device_state.device_name.upper():
+            rates = POWER_CONSUMPTION_RATES.get("ventilador", {})
+            consumption = rates.get(current_status, rates.get("OFF", 0))
+            total_consumption += consumption
+        else:
+            logger.warning(f"Tipo de dispositivo desconocido para cálculo de energía: {device_type}")
+
+    return total_consumption
 
 async def process_mqtt_message_and_update_state(session: AsyncSession, mqtt_topic: str, command_payload: str):
     """

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Union
 from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand, DeviceTypeList, DeviceStateUpdate
 from src.db.database import get_db
@@ -6,9 +6,11 @@ import logging
 from src.api.utils import get_mqtt_client
 from src.iot import device_manager
 import json
-from src.db.models import IoTCommand as DBLoTCommand
+from src.db.models import IoTCommand as DBLoTCommand, EnergyConsumption, User
 from sqlalchemy import select
 from src.websocket.connection_manager import manager
+from datetime import datetime, timedelta
+from src.api.auth_router import get_current_user
 
 logger = logging.getLogger("APIRoutes")
 
@@ -168,6 +170,43 @@ async def get_all_device_types_route():
         logger.info("Tipos de dispositivos obtenidos exitosamente.")
         return DeviceTypeList(device_types=device_types)
 
+@iot_router.get("/energy", response_model=List[float])
+async def get_energy_data(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calcula el consumo de energía actual, lo guarda en la base de datos y devuelve
+    el historial de consumo de las últimas 24 horas para el usuario autenticado.
+    """
+    async with get_db() as db:
+        # Calcular el consumo actual y guardarlo
+        current_consumption = await device_manager.calculate_current_energy_consumption(db)
+        
+        new_energy_record = EnergyConsumption(
+            user_id=current_user.id,
+            device_name="Total",
+            device_type="Total",
+            energy_consumed=current_consumption
+        )
+        db.add(new_energy_record)
+        await db.commit()
+        await db.refresh(new_energy_record)
+        logger.info(f"Consumo de energía actual ({current_consumption} Wh) registrado para el usuario {current_user.id}.")
+
+        # Obtener historial de las últimas 24 horas
+        time_24_hours_ago = datetime.now() - timedelta(hours=24)
+        result = await db.execute(
+            select(EnergyConsumption.energy_consumed)
+            .filter(
+                EnergyConsumption.user_id == current_user.id,
+                EnergyConsumption.timestamp >= time_24_hours_ago
+            )
+            .order_by(EnergyConsumption.timestamp)
+        )
+        energy_history = result.scalars().all()
+
+        return energy_history
+
 @iot_router.put("/device_states/{device_id}", response_model=DeviceState)
 async def update_device_state_by_id(device_id: int, device_update: DeviceStateUpdate):
     """
@@ -201,3 +240,18 @@ async def update_device_state_by_id(device_id: int, device_update: DeviceStateUp
         except Exception as e:
             logger.error(f"Error al actualizar el estado del dispositivo {device_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Error al actualizar el estado del dispositivo: {e}")
+
+@iot_router.delete("/device_states/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device_state(device_id: int):
+    """
+    Elimina un estado de dispositivo IoT por su ID.
+    """
+    async with get_db() as session:
+        device_state = await device_manager.get_device_state_by_id(session, device_id)
+        if device_state is None:
+            logger.warning(f"Dispositivo con ID {device_id} no encontrado para eliminar.")
+            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
+
+        await device_manager.delete_device_state(session, device_id)
+        logger.info(f"Estado del dispositivo con ID {device_id} eliminado exitosamente.")
+        return {"message": "Estado del dispositivo eliminado exitosamente"}

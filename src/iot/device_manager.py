@@ -2,9 +2,10 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.db.models import DeviceState
+from src.db.models import DeviceState, DeviceCountHistory, EnergyConsumption
 from src.api.iot_schemas import DeviceStateCreate
 import json
+from datetime import datetime, timedelta
 
 POWER_CONSUMPTION_RATES = {
     "luz": {
@@ -220,6 +221,61 @@ async def calculate_current_energy_consumption(db: AsyncSession) -> float:
             logger.warning(f"Tipo de dispositivo desconocido para cálculo de energía: {device_type}")
 
     return total_consumption
+
+async def record_current_device_count(db: AsyncSession, user_id: int):
+    """
+    Registra el número actual de dispositivos conectados para un usuario.
+    """
+    device_states = await get_all_device_states(db)
+    connected_devices = 0
+    for ds in device_states:
+        state_json = json.loads(ds.state_json)
+        if state_json.get("status", "").upper() == "ON" or state_json.get("status", "").upper() == "OPEN":
+            connected_devices += 1
+    
+    new_record = DeviceCountHistory(
+        user_id=user_id,
+        device_count=connected_devices
+    )
+    db.add(new_record)
+    await db.commit()
+    await db.refresh(new_record)
+    logger.info(f"Registrado {connected_devices} dispositivos conectados para el usuario {user_id}.")
+
+async def get_device_count_history(db: AsyncSession, user_id: int) -> list[int]:
+    """
+    Obtiene el historial del número de dispositivos conectados para un usuario en las últimas 24 horas.
+    """
+    time_24_hours_ago = datetime.now() - timedelta(hours=24)
+    result = await db.execute(
+        select(DeviceCountHistory.device_count)
+        .filter(
+            DeviceCountHistory.user_id == user_id,
+            DeviceCountHistory.timestamp >= time_24_hours_ago
+        )
+        .order_by(DeviceCountHistory.timestamp)
+    )
+    return result.scalars().all()
+
+async def delete_device_count_history_for_user(db: AsyncSession, user_id: int) -> None:
+    """
+    Elimina todo el historial de conteo de dispositivos para un usuario específico.
+    """
+    await db.execute(
+        DeviceCountHistory.__table__.delete().where(DeviceCountHistory.user_id == user_id)
+    )
+    await db.commit()
+    logger.info(f"Historial de conteo de dispositivos eliminado para el usuario {user_id}.")
+
+async def delete_energy_consumption_history_for_user(db: AsyncSession, user_id: int) -> None:
+    """
+    Elimina todo el historial de consumo de energía para un usuario específico.
+    """
+    await db.execute(
+        EnergyConsumption.__table__.delete().where(EnergyConsumption.user_id == user_id)
+    )
+    await db.commit()
+    logger.info(f"Historial de consumo de energía eliminado para el usuario {user_id}.")
 
 async def process_mqtt_message_and_update_state(session: AsyncSession, mqtt_topic: str, command_payload: str):
     """

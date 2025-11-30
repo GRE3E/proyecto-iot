@@ -17,7 +17,7 @@ logger = logging.getLogger("APIRoutes")
 iot_router = APIRouter()
 
 @iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
-async def send_arduino_command(command: ArduinoCommandSend):
+async def send_arduino_command(command: ArduinoCommandSend, current_user: User = Depends(get_current_user)):
     mqtt_client = get_mqtt_client()
     if not mqtt_client or not mqtt_client.is_connected:
         logger.error("MQTT client no está inicializado o conectado.")
@@ -57,6 +57,7 @@ async def send_arduino_command(command: ArduinoCommandSend):
             raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
 
         await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
+        await device_manager.record_current_device_count(session, current_user.id)
         
         updated_device_state = await device_manager.get_device_state(session, device_name, device_type)
         if updated_device_state:
@@ -207,8 +208,44 @@ async def get_energy_data(
 
         return energy_history
 
+@iot_router.get("/device_count_history", response_model=List[int])
+async def get_device_count_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial del número de dispositivos conectados para el usuario autenticado en las últimas 24 horas.
+    """
+    async with get_db() as db:
+        device_count_history = await device_manager.get_device_count_history(db, current_user.id)
+        logger.info(f"Historial de recuento de dispositivos obtenido para el usuario {current_user.id}.")
+        return device_count_history
+
+@iot_router.delete("/device_count_history", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device_count_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Elimina todo el historial de conteo de dispositivos para el usuario autenticado.
+    """
+    async with get_db() as db:
+        await device_manager.delete_device_count_history_for_user(db, current_user.id)
+        logger.info(f"Historial de conteo de dispositivos eliminado para el usuario {current_user.id}.")
+        return {"message": "Historial de conteo de dispositivos eliminado exitosamente"}
+
+@iot_router.delete("/energy_consumption_history", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_energy_consumption_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Elimina todo el historial de consumo de energía para el usuario autenticado.
+    """
+    async with get_db() as db:
+        await device_manager.delete_energy_consumption_history_for_user(db, current_user.id)
+        logger.info(f"Historial de consumo de energía eliminado para el usuario {current_user.id}.")
+        return {"message": "Historial de consumo de energía eliminado exitosamente"}
+
 @iot_router.put("/device_states/{device_id}", response_model=DeviceState)
-async def update_device_state_by_id(device_id: int, device_update: DeviceStateUpdate):
+async def update_device_state_by_id(device_id: int, device_update: DeviceStateUpdate, current_user: User = Depends(get_current_user)):
     """
     Actualiza el estado de un dispositivo IoT por su ID.
     """
@@ -229,7 +266,7 @@ async def update_device_state_by_id(device_id: int, device_update: DeviceStateUp
         logger.debug(f"Reconstructed MQTT Payload: {command_payload}")
         
         try:
-            await send_arduino_command(command_to_send)
+            await send_arduino_command(command_to_send, current_user)
             updated_device_state = await device_manager.get_device_state_by_id(session, device_id)
             if updated_device_state is None:
                 raise HTTPException(status_code=404, detail="Estado del dispositivo actualizado no encontrado")

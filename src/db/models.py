@@ -206,6 +206,7 @@ class User(Base):
     routines: Mapped[List["Routine"]] = relationship("Routine", back_populates="user", cascade="all, delete-orphan")
     context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")
     energy_consumptions: Mapped[List["EnergyConsumption"]] = relationship("EnergyConsumption", back_populates="user", cascade="all, delete-orphan")
+    device_count_history: Mapped[List["DeviceCountHistory"]] = relationship("DeviceCountHistory", back_populates="user", cascade="all, delete-orphan")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -350,6 +351,27 @@ class EnergyConsumption(Base):
 
     def __repr__(self) -> str:
         return f"<EnergyConsumption(id={self.id}, user_id={self.user_id}, device_name='{self.device_name}', energy_consumed={self.energy_consumed})>"
+
+class DeviceCountHistory(Base):
+    __tablename__ = "device_count_history"
+    """
+    Modelo para almacenar el historial del número de dispositivos conectados.
+
+    Atributos:
+        id (int): Identificador único del registro.
+        user_id (int): ID del usuario al que pertenece este registro.
+        timestamp (datetime): Marca de tiempo del registro.
+        device_count (int): Número de dispositivos conectados en ese momento.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    device_count = Column(Integer, nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="device_count_history")
+
+    def __repr__(self) -> str:
+        return f"<DeviceCountHistory(id={self.id}, user_id={self.user_id}, device_count={self.device_count}, timestamp='{self.timestamp}')>"
 
 class ContextEvent(Base):
     __tablename__ = "context_events"

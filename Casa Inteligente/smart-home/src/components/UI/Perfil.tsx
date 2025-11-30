@@ -291,6 +291,7 @@ export default function Perfil({
           onClose={() => setEditingMember(null)}
           title={`Editar: ${editingMember.name}`}
           className="border border-slate-700/50"
+          backdropClassName="bg-black"
         >
           <div className="space-y-4">
             <div>

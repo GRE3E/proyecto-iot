@@ -165,28 +165,63 @@ export function useRecuperarContra() {
     } catch {}
   }, [selectedCameraId]);
 
-  const startFacePreview = useCallback(async (deviceId?: string | null) => {
-    try {
-      setBiometricLoading(true);
-      setBiometricStatus("Iniciando cámara...");
-      const constraints: MediaStreamConstraints = {
-        video: deviceId
-          ? { deviceId: { exact: deviceId } as any }
-          : { facingMode: "user" },
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      mediaStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setBiometricLoading(false);
-      setBiometricStatus("Cámara lista");
-    } catch (err) {
-      setError("No se pudo acceder a la cámara");
-      setBiometricLoading(false);
+  const stopCamera = useCallback(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
     }
   }, []);
+
+  const startFacePreview = useCallback(
+    async (deviceId?: string | null) => {
+      try {
+        setBiometricLoading(true);
+        setBiometricStatus("Iniciando cámara...");
+        stopCamera();
+
+        const tryGet = async (c: MediaStreamConstraints) => {
+          try {
+            return await navigator.mediaDevices.getUserMedia(c);
+          } catch {
+            return null;
+          }
+        };
+
+        const useDeviceId = !!deviceId && String(deviceId).length > 0;
+        const primary: MediaStreamConstraints = {
+          video: useDeviceId
+            ? ({ deviceId: { exact: deviceId } } as any)
+            : { facingMode: "user" },
+        };
+        let stream = await tryGet(primary);
+        if (!stream)
+          stream = await tryGet({ video: { facingMode: "environment" } });
+        if (!stream) stream = await tryGet({ video: true });
+        if (!stream) throw new Error("No se pudo iniciar la cámara");
+
+        mediaStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          try {
+            (videoRef.current as any).muted = true;
+            (videoRef.current as any).playsInline = true;
+            (videoRef.current as any).autoplay = true;
+            videoRef.current.setAttribute("autoplay", "true");
+          } catch {}
+          try {
+            await videoRef.current.play();
+          } catch {}
+        }
+        setBiometricLoading(false);
+        setBiometricStatus("Cámara lista");
+        await enumerateCameras();
+      } catch (err) {
+        setError("No se pudo acceder a la cámara");
+        setBiometricLoading(false);
+      }
+    },
+    [enumerateCameras, stopCamera]
+  );
 
   useEffect(() => {
     const run = async () => {
@@ -239,13 +274,6 @@ export function useRecuperarContra() {
     } catch {}
   }, [stopVR]);
 
-  const stopCamera = useCallback(() => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-  }, []);
-
   const closeFaceModal = useCallback(() => {
     setFaceModalOpen(false);
     stopCamera();
@@ -280,7 +308,7 @@ export function useRecuperarContra() {
             {
               params: { source: "file" },
               headers: {
-                "Content-Type": "multipart/form-data",
+                "Content-Type": undefined,
                 accept: "application/json",
               },
             }

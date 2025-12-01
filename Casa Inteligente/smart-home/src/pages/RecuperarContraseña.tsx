@@ -392,6 +392,9 @@ export default function RecuperarContraseña() {
                         ref={videoRef}
                         className="w-full rounded-lg xs:rounded-xl bg-black border border-slate-700/50"
                         style={{ maxHeight: "320px" }}
+                        muted
+                        playsInline
+                        autoPlay
                       />
                       <div className="flex items-center gap-2 p-2 xs:p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg xs:rounded-xl">
                         {biometricLoading ? (

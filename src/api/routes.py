@@ -11,6 +11,7 @@ from src.api.addons_routes import router as addons_router
 from src.api.permissions_routes import router as permissions_router
 from src.api.music_routes import music_router
 from src.api.face_recognition_routes import face_recognition_router
+from src.api.camera_routes import camera_router
 from src.api.auth_router import router as auth_router
 from src.api.websocket_routes import websocket_router
 from src.api.notifications_routes import notifications_router
@@ -34,6 +35,7 @@ router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Dep
 router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
+router.include_router(camera_router, prefix="", tags=["cameras"], dependencies=[Depends(get_current_user)])
 router.include_router(websocket_router, prefix="", tags=["websocket"])
 router.include_router(notifications_router, tags=["notifications"], dependencies=[Depends(get_current_user)])
 router.include_router(music_router, prefix="/music", tags=["music"], dependencies=[Depends(get_current_user)])

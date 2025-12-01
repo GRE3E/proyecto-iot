@@ -11,21 +11,23 @@
     "max_tokens": 1024
   },
   "capabilities": [
-    "administrar_comandos_iot",
-    "memoria_y_rutinas",
-    "control_musica"
+    "control_luces",
+    "control_temperatura",
+    "control_dispositivos",
+    "consulta_estado",
+    "administrar_comandos_iot"
   ],
   "modules": {
-    "nlp": true,
-    "stt": true,
-    "speaker": true,
-    "hotword": true,
-    "mqtt": true,
-    "tts": true,
+    "nlp": false,
+    "stt": false,
+    "speaker": false,
+    "hotword": false,
+    "mqtt": false,
+    "tts": false,
     "face_recognition": true,
-    "music_manager": true
+    "music_manager": false
   },
   "memory_size": 50,
   "timezone": "America/Lima",
-  "debug": true
+  "debug": false
 }

@@ -522,7 +522,7 @@ export function useConfiguracion() {
         "/speaker/speaker/add_voice_to_user",
         form,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: { "Content-Type": undefined },
         }
       );
       // Si el backend devuelve nuevos tokens, actualizarlos para evitar 401 posteriores

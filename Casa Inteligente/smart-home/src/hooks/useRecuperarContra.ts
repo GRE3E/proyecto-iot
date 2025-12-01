@@ -250,8 +250,19 @@ export function useRecuperarContra() {
 
       checkSilence();
 
-      const mime = "audio/webm;codecs=opus";
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: mime });
+      const preferred = "audio/webm;codecs=opus";
+      const alt1 = "audio/webm";
+      const alt2 = "audio/mp4";
+      let options: MediaRecorderOptions | undefined;
+      try {
+        const MR: any = (window as any).MediaRecorder;
+        if (MR?.isTypeSupported?.(preferred)) options = { mimeType: preferred };
+        else if (MR?.isTypeSupported?.(alt1)) options = { mimeType: alt1 };
+        else if (MR?.isTypeSupported?.(alt2)) options = { mimeType: alt2 };
+      } catch {}
+      mediaRecorderRef.current = options
+        ? new MediaRecorder(stream, options)
+        : new MediaRecorder(stream);
       audioChunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
@@ -473,7 +484,7 @@ export function useRecuperarContra() {
           formData,
           {
             headers: {
-              "Content-Type": "multipart/form-data",
+              "Content-Type": undefined,
               accept: "application/json",
             },
           }
@@ -497,7 +508,7 @@ export function useRecuperarContra() {
           {
             params: { source: "file" },
             headers: {
-              "Content-Type": "multipart/form-data",
+              "Content-Type": undefined,
               accept: "application/json",
             },
           }

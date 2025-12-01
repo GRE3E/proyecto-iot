@@ -137,7 +137,7 @@ export default function Configuracion() {
         fd.append("files", blob, `face_${idx}.jpg`)
       );
       await axiosInstance.post(`/rc/rc/users/${userId}/upload_faces`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": undefined },
       });
       setChangeFaceModalOpen(false);
       setCapturedPhotos([]);

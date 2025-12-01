@@ -310,6 +310,21 @@ export function useRecuperarContra() {
     } catch {}
   }, [newPassword, pendingFaceSubmit, stopCamera]);
 
+  const captureFaceSnapshot = useCallback(async () => {
+    try {
+      const imageBlob = await captureFrameBlob();
+      if (!imageBlob) {
+        setError("No se pudo capturar la imagen");
+        return;
+      }
+      faceImageBlobRef.current = imageBlob;
+      setFaceReady(true);
+      setBiometricStatus("Foto capturada ✓");
+    } catch {
+      setError("Error al capturar la foto");
+    }
+  }, []);
+
   // Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
     if (!newPassword.trim()) {
@@ -351,16 +366,15 @@ export function useRecuperarContra() {
           }
         );
       } else if (recoveryMethod === "face") {
-        const blob = await captureFrameBlob();
-        if (!blob) {
-          setError("Activa la cámara para capturar tu rostro");
-          await enumerateCameras();
-          await startFacePreview(selectedCameraId);
+        if (!faceImageBlobRef.current) {
+          setError("Primero toma una foto de tu rostro");
           return;
         }
         const formData = new FormData();
         formData.append("new_password", newPassword);
-        const imgFile = new File([blob], "face.jpg", { type: "image/jpeg" });
+        const imgFile = new File([faceImageBlobRef.current], "face.jpg", {
+          type: "image/jpeg",
+        });
         formData.append("image_file", imgFile);
         setLoading(true);
         await axiosInstance.post(
@@ -486,6 +500,7 @@ export function useRecuperarContra() {
     openFaceModal,
     closeFaceModal,
     confirmFaceCapture,
+    captureFaceSnapshot,
     faceReady,
   };
 }

@@ -39,6 +39,8 @@ export default function RecuperarContraseña() {
     availableCameras,
     selectedCameraId,
     updateSelectedCamera,
+    captureFaceSnapshot,
+    faceReady,
 
     // Funciones
     startFacialRecognition,
@@ -404,6 +406,14 @@ export default function RecuperarContraseña() {
                           {biometricStatus || "Cámara lista"}
                         </p>
                       </div>
+
+                      <button
+                        onClick={captureFaceSnapshot}
+                        className="w-full flex items-center justify-center gap-3 p-3 xs:p-4 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/40 hover:border-blue-400/70 rounded-lg xs:rounded-xl transition-all text-white font-semibold"
+                      >
+                        <Camera className="w-5 h-5 text-blue-400" />
+                        Tomar foto
+                      </button>
                     </div>
 
                     <div className="space-y-6">
@@ -493,7 +503,9 @@ export default function RecuperarContraseña() {
 
                       <button
                         onClick={handleChangePassword}
-                        disabled={loading}
+                        disabled={
+                          loading || (recoveryMethod === "face" && !faceReady)
+                        }
                         className="relative w-full py-3 xs:py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-green-600/50 disabled:to-emerald-600/50 rounded-lg xs:rounded-xl text-white font-bold text-xs xs:text-sm sm:text-base tracking-[0.2em] uppercase overflow-hidden group transition-all shadow-lg hover:shadow-green-500/20 disabled:cursor-not-allowed"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />

@@ -139,6 +139,18 @@ async def stop_music():
         
 
 
+        msg = {
+            "type": "music_update",
+            "status": "stopped",
+            "current_track": None,
+            "queue": [],
+            "last_added": None,
+            "history": await _get_last_history(),
+            "position": 0,
+            "duration": 0,
+        }
+        await ws_manager.broadcast(json.dumps(msg, ensure_ascii=False))
+
         return response_obj
     except Exception as e:
         logger.error(f"Error en /music/stop: {e}", exc_info=True)

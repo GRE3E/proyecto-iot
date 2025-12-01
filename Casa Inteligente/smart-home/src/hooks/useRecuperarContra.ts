@@ -335,12 +335,10 @@ export function useRecuperarContra() {
         try {
           const fd = new FormData();
           fd.append("audio_file", wavBlob, "audio.wav");
-          const resp = await axiosInstance.post(
-            "/hotword/hotword/process_audio/auth",
-            fd,
-            { headers: { "Content-Type": undefined } }
-          );
-          const txt = String(resp?.data?.transcribed_text || "").trim();
+          const resp = await axiosInstance.post("/stt/stt/transcribe", fd, {
+            headers: { "Content-Type": undefined },
+          });
+          const txt = String(resp?.data?.text || "").trim();
           setVoiceTranscript(txt);
           const normalizeTxt = (s: string) =>
             s

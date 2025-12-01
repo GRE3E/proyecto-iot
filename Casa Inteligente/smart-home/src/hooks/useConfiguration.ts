@@ -35,7 +35,10 @@ export function useConfiguracion() {
     null
   );
   const recordTimeoutRef = useRef<any>(null);
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RECORD_DURATION_MS = 5000;
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   const [modalOwnerName, setModalOwnerName] = useState(ownerName);
   const [modalPassword, setModalPassword] = useState("");
@@ -278,26 +281,82 @@ export function useConfiguracion() {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
         });
-        const rec = new MediaRecorder(stream);
+        const MR: any = (window as any).MediaRecorder;
+        const preferred = "audio/webm;codecs=opus";
+        const alt1 = "audio/webm";
+        const alt2 = "audio/mp4";
+        let options: MediaRecorderOptions | undefined;
+        try {
+          if (MR?.isTypeSupported?.(preferred))
+            options = { mimeType: preferred };
+          else if (MR?.isTypeSupported?.(alt1)) options = { mimeType: alt1 };
+          else if (MR?.isTypeSupported?.(alt2)) options = { mimeType: alt2 };
+        } catch {}
+        const rec = options
+          ? new MediaRecorder(stream, options)
+          : new MediaRecorder(stream);
         const chunks: BlobPart[] = [];
         rec.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) chunks.push(e.data);
         };
+        audioContextRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.minDecibels = -90;
+        analyserRef.current.maxDecibels = -10;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+        source.connect(analyserRef.current);
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        const SILENCE_THRESHOLD = 20;
+        const SILENCE_DURATION = 1500;
+        const checkSilence = () => {
+          if (!analyserRef.current || !isRecording) return;
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const sum = dataArray.reduce((a, b) => a + b, 0);
+          const average = sum / bufferLength;
+          if (average < SILENCE_THRESHOLD) {
+            if (!silenceTimeoutRef.current) {
+              silenceTimeoutRef.current = setTimeout(() => {
+                try {
+                  (rec as any)?.requestData?.();
+                } catch {}
+                try {
+                  rec.stop();
+                } catch {}
+              }, SILENCE_DURATION);
+            }
+          } else {
+            if (silenceTimeoutRef.current) {
+              clearTimeout(silenceTimeoutRef.current);
+              silenceTimeoutRef.current = null;
+            }
+          }
+          requestAnimationFrame(checkSilence);
+        };
+        checkSilence();
         rec.onstop = async () => {
           const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
           setVoiceBlob(blob);
           setIsRecording(false);
+          setIsListening(false);
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
+          }
+          try {
+            audioContextRef.current?.close();
+          } catch {}
           if (!recognition) {
             try {
               const wavBlob = await convertBlobToWav(blob);
               const fd = new FormData();
               fd.append("audio_file", wavBlob, "audio.wav");
-              const resp = await axiosInstance.post(
-                "/hotword/hotword/process_audio/auth",
-                fd,
-                { headers: { "Content-Type": undefined } }
-              );
-              const txt = String(resp?.data?.transcribed_text || "").trim();
+              const resp = await axiosInstance.post("/stt/stt/transcribe", fd, {
+                headers: { "Content-Type": undefined },
+              });
+              const txt = String(resp?.data?.text || "").trim();
               setTranscript(txt);
               const normalize = (s: string) =>
                 s
@@ -331,6 +390,9 @@ export function useConfiguracion() {
           recordTimeoutRef.current = null;
         }
         recordTimeoutRef.current = setTimeout(() => {
+          try {
+            (rec as any)?.requestData?.();
+          } catch {}
           try {
             rec.stop();
           } catch {}

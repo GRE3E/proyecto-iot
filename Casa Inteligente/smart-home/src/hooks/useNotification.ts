@@ -5,6 +5,7 @@ import type { Notification } from "../utils/notificationsUtils";
 import {
   initialNotifications,
   fetchNotifications,
+  updateNotificationStatus,
 } from "../utils/notificationsUtils";
 import { useWebSocket } from "./useWebSocket";
 
@@ -23,43 +24,49 @@ export function useNotifications(
   const [closing, setClosing] = useState(false);
   const { message: wsMessage } = useWebSocket();
 
-  const storageKey = options?.userId
-    ? `dismissed_notifications_${options.userId}`
-    : `dismissed_notifications`;
-  const getDismissed = (): number[] => {
-    try {
-      const raw =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(storageKey)
-          : null;
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch {
-      return [];
+  // Fetch notifications on initial load
+  useEffect(() => {
+    fetchNotifications(options?.apiBase, options?.token, {
+      limit: options?.limit,
+      offset: options?.offset,
+      status: "new",
+    })
+      .then((list) => {
+        setNotifications(list);
+      })
+      .catch(() => {});
+  }, [options?.apiBase, options?.token, options?.limit, options?.offset]);
+
+  const remove = async (id: number) => {
+    const success = await updateNotificationStatus(
+      id,
+      "archived",
+      options?.apiBase,
+      options?.token
+    );
+    if (success) {
+      setNotifications((p) => p.filter((n) => n.id !== id));
+    } else {
+      console.error("Failed to archive notification", id);
     }
   };
-  const setDismissed = (ids: number[]) => {
-    try {
-      if (typeof window !== "undefined")
-        window.localStorage.setItem(
-          storageKey,
-          JSON.stringify(Array.from(new Set(ids)))
-        );
-    } catch {}
-  };
 
-  const remove = (id: number) => {
-    const dismissed = getDismissed();
-    setDismissed([...dismissed, id]);
-    setNotifications((p) => p.filter((n) => n.id !== id));
-  };
-
-  const clearAll = () => {
-    const dismissed = getDismissed();
-    const allIds = notifications.map((n) => n.id);
-    setDismissed([...dismissed, ...allIds]);
-    setNotifications([]);
-    setOpen(false);
+  const clearAll = async () => {
+    const archivePromises = notifications.map((n) =>
+      updateNotificationStatus(
+        n.id,
+        "archived",
+        options?.apiBase,
+        options?.token
+      )
+    );
+    const results = await Promise.all(archivePromises);
+    if (results.every(Boolean)) {
+      setNotifications([]);
+      setOpen(false);
+    } else {
+      console.error("Failed to archive all notifications");
+    }
   };
 
   const toggle = () => {
@@ -74,10 +81,10 @@ export function useNotifications(
       fetchNotifications(options?.apiBase, options?.token, {
         limit: options?.limit,
         offset: options?.offset,
+        status: "new",
       })
         .then((list) => {
-          const dismissed = getDismissed();
-          setNotifications(list.filter((n) => !dismissed.includes(n.id)));
+          setNotifications(list);
         })
         .catch(() => {});
     }
@@ -109,7 +116,7 @@ export function useNotifications(
         : null;
     const wsType = raw?.type ?? parsed?.type;
     const wsTitle = raw?.title ?? parsed?.title;
-    if (wsType === "user_action") return;
+
     const id =
       raw?.id ??
       raw?.notification_id ??

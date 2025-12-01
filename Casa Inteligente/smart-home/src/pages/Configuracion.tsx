@@ -7,14 +7,14 @@ import SimpleCard from "../components/UI/Card";
 import Perfil from "../components/UI/Perfil";
 import Modal from "../components/UI/Modal";
 import PageHeader from "../components/UI/PageHeader";
-import TimezoneSelector from "../components/UI/TimezoneSelector";
+import LocationSelector from "../components/UI/LocationSelector";
 import { useConfiguracion } from "../hooks/useConfiguration";
-import { useZonaHoraria } from "../hooks/useZonaHoraria";
+import { useLocation } from "../hooks/useLocation";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Configuracion() {
-  const { colors, theme, setTheme} = useThemeByTime();
+  const { colors, theme, setTheme } = useThemeByTime();
   const {
     ownerName,
     setOwnerName,
@@ -65,7 +65,7 @@ export default function Configuracion() {
     ownerUsernames,
   } = useConfiguracion();
 
-  const { selectedTimezone, handleTimezoneChange } = useZonaHoraria();
+  const { handleLocationChange } = useLocation();
   const { user } = useAuth();
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -76,7 +76,9 @@ export default function Configuracion() {
     let stream: MediaStream | null = null;
     const start = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 },
+        });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
@@ -103,15 +105,19 @@ export default function Configuracion() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, w, h);
-    canvas.toBlob((blob) => {
-      if (blob) {
-        setCapturedPhotos((prev) => {
-          const next = [...prev, blob];
-          if (next.length === 1) handleFaceDetection();
-          return next;
-        });
-      }
-    }, "image/jpeg", 0.9);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          setCapturedPhotos((prev) => {
+            const next = [...prev, blob];
+            if (next.length === 1) handleFaceDetection();
+            return next;
+          });
+        }
+      },
+      "image/jpeg",
+      0.9
+    );
   };
 
   const handleUploadClientFaces = async () => {
@@ -127,7 +133,9 @@ export default function Configuracion() {
         return;
       }
       const fd = new FormData();
-      capturedPhotos.forEach((blob, idx) => fd.append("files", blob, `face_${idx}.jpg`));
+      capturedPhotos.forEach((blob, idx) =>
+        fd.append("files", blob, `face_${idx}.jpg`)
+      );
       await axiosInstance.post(`/rc/rc/users/${userId}/upload_faces`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -135,7 +143,8 @@ export default function Configuracion() {
       setCapturedPhotos([]);
       setIsUploadingFace(false);
     } catch (e: any) {
-      const message = e?.response?.data?.detail || e?.message || "Error al registrar rostro";
+      const message =
+        e?.response?.data?.detail || e?.message || "Error al registrar rostro";
       alert(message);
     } finally {
       setIsUploadingFace(false);
@@ -153,7 +162,9 @@ export default function Configuracion() {
 
       <div className="space-y-6">
         {/* Tema del sistema */}
-        <SimpleCard className={`p-4 flex items-center justify-between ${colors.cardBg}`}>
+        <SimpleCard
+          className={`p-4 flex items-center justify-between ${colors.cardBg}`}
+        >
           <div>
             <div
               className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
@@ -196,7 +207,9 @@ export default function Configuracion() {
         </SimpleCard>
 
         {/* Perfil del propietario */}
-        <SimpleCard className={`p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4 ${colors.cardBg}`}>
+        <SimpleCard
+          className={`p-6 ring-1 ring-slate-700/30 shadow-lg flex flex-col gap-4 ${colors.cardBg}`}
+        >
           <Perfil
             name={ownerName}
             setName={setOwnerName}
@@ -217,7 +230,9 @@ export default function Configuracion() {
         {/* Preferencias */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Notificaciones */}
-          <SimpleCard className={`p-4 flex items-center justify-between ${colors.cardBg}`}>
+          <SimpleCard
+            className={`p-4 flex items-center justify-between ${colors.cardBg}`}
+          >
             <div>
               <div
                 className={`${colors.text} flex items-center gap-2 font-medium text-sm`}
@@ -236,11 +251,8 @@ export default function Configuracion() {
             />
           </SimpleCard>
 
-          {/* Zona horaria */}
-          <TimezoneSelector
-            selectedTimezone={selectedTimezone}
-            onTimezoneChange={handleTimezoneChange}
-          />
+          {/* Ubicación */}
+          <LocationSelector onLocationChange={handleLocationChange} />
         </div>
 
         {/* Modal editar perfil */}
@@ -442,19 +454,32 @@ export default function Configuracion() {
               Usa la cámara para registrar el reconocimiento de tu rostro.
             </p>
 
-            <div className={`rounded-xl w-full h-48 flex items-center justify-center border ${colors.border} ${colors.panelBg}`}>
-              <video ref={videoRef} className="w-full h-48 object-cover rounded-xl" muted playsInline />
+            <div
+              className={`rounded-xl w-full h-48 flex items-center justify-center border ${colors.border} ${colors.panelBg}`}
+            >
+              <video
+                ref={videoRef}
+                className="w-full h-48 object-cover rounded-xl"
+                muted
+                playsInline
+              />
             </div>
 
             <div className="flex items-center gap-3 justify-center">
               <button
                 onClick={handleTakePhoto}
                 className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white disabled:opacity-50"
-                disabled={!facePasswordVerified || capturedPhotos.length >= 5 || isUploadingFace}
+                disabled={
+                  !facePasswordVerified ||
+                  capturedPhotos.length >= 5 ||
+                  isUploadingFace
+                }
               >
                 Tomar foto
               </button>
-              <span className={`text-xs ${colors.mutedText}`}>Fotos: {capturedPhotos.length}/5</span>
+              <span className={`text-xs ${colors.mutedText}`}>
+                Fotos: {capturedPhotos.length}/5
+              </span>
             </div>
 
             {faceDetected && (
@@ -524,7 +549,9 @@ export default function Configuracion() {
                   />
                 </div>
 
-                <div className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.cardBg}`}>
+                <div
+                  className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.cardBg}`}
+                >
                   <label className={`text-sm ${colors.text}`}>
                     ¿Es administrador?
                   </label>

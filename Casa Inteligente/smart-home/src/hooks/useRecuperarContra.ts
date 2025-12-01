@@ -130,7 +130,9 @@ export function useRecuperarContra() {
 
   const startVoiceRecognition = useCallback(() => {
     setError("");
-    setBiometricStatus("Listo para grabar. Di la frase: 'Murphy soy parte del hogar'.");
+    setBiometricStatus(
+      "Listo para grabar. Di la frase: 'Murphy soy parte del hogar'."
+    );
     setBiometricLoading(false);
     voiceWavBlobRef.current = null;
     setVoiceReady(false);
@@ -252,8 +254,14 @@ export function useRecuperarContra() {
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
       };
-      const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const SpeechRecognitionClass =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const normalize = (s: string) =>
+        s
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
       const targetPhrase = normalize("murphy soy parte del hogar");
       let recognition: any = null;
       if (SpeechRecognitionClass) {
@@ -262,7 +270,9 @@ export function useRecuperarContra() {
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.onresult = (ev: any) => {
-          const txt = Array.from(ev.results).map((r: any) => r[0]?.transcript || "").join(" ");
+          const txt = Array.from(ev.results)
+            .map((r: any) => r[0]?.transcript || "")
+            .join(" ");
           const ok = normalize(txt).includes(targetPhrase);
           if (ok) {
             setBiometricStatus("Frase detectada ✓");
@@ -272,9 +282,13 @@ export function useRecuperarContra() {
             setVoiceReady(false);
           }
         };
-        try { recognition.start(); } catch {}
+        try {
+          recognition.start();
+        } catch {}
       } else {
-        setBiometricStatus("Tu navegador no soporta reconocimiento de voz. Intenta decir claramente la frase.");
+        setBiometricStatus(
+          "Tu navegador no soporta reconocimiento de voz. Intenta decir claramente la frase."
+        );
       }
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, {
@@ -304,6 +318,34 @@ export function useRecuperarContra() {
         setBiometricStatus("Audio capturado ✓");
         setBiometricLoading(false);
         setIsRecording(false);
+        // Fallback: validar frase en backend cuando SpeechRecognition no está disponible
+        // o cuando aún no se ha marcado voiceReady
+        try {
+          if (!voiceReady) {
+            const fd = new FormData();
+            fd.append("audioFile", audioBlob, "audio.webm");
+            const resp = await axiosInstance.post(
+              "/hotword/hotword/process_audio/auth",
+              fd,
+              { headers: { "Content-Type": undefined } }
+            );
+            const text = (
+              resp?.data?.transcribed_text ||
+              resp?.data?.text ||
+              ""
+            ).toString();
+            const ok = normalize(text).includes(targetPhrase);
+            if (ok) {
+              setBiometricStatus("Frase detectada ✓");
+              setVoiceReady(true);
+            } else {
+              setBiometricStatus("Frase incorrecta. Intenta nuevamente.");
+              setVoiceReady(false);
+            }
+          }
+        } catch (e) {
+          // No bloquear si la validación de backend falla; se puede reintentar
+        }
         try {
           await ctx.close();
         } catch {}
@@ -318,7 +360,9 @@ export function useRecuperarContra() {
       }
       recordTimeoutRef.current = setTimeout(() => {
         stopVoiceRecording();
-        try { (recognition as any)?.stop?.(); } catch {}
+        try {
+          (recognition as any)?.stop?.();
+        } catch {}
       }, RECORD_DURATION_MS);
     } catch (err) {
       setError("Error al iniciar la grabación de voz");

@@ -139,12 +139,6 @@ export function useRecuperarContra() {
     }
   }, [username]);
 
-  const startFacialRecognition = useCallback(async () => {
-    setError("");
-    setBiometricStatus("");
-    setStep(2);
-  }, []);
-
   const startVoiceRecognition = useCallback(() => {
     setError("");
     setBiometricStatus(
@@ -223,6 +217,16 @@ export function useRecuperarContra() {
     },
     [enumerateCameras, stopCamera]
   );
+
+  const startFacialRecognition = useCallback(async () => {
+    setError("");
+    setBiometricStatus("");
+    setStep(2);
+    try {
+      await enumerateCameras();
+      await startFacePreview(selectedCameraId);
+    } catch {}
+  }, [enumerateCameras, startFacePreview, selectedCameraId]);
 
   useEffect(() => {
     const run = async () => {

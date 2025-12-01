@@ -139,6 +139,12 @@ export function useRecuperarContra() {
     }
   }, [username]);
 
+  const startFacialRecognition = useCallback(async () => {
+    setError("");
+    setBiometricStatus("");
+    setStep(2);
+  }, []);
+
   const startVoiceRecognition = useCallback(() => {
     setError("");
     setBiometricStatus(
@@ -217,16 +223,6 @@ export function useRecuperarContra() {
     },
     [enumerateCameras, stopCamera]
   );
-
-  const startFacialRecognition = useCallback(async () => {
-    setError("");
-    setBiometricStatus("");
-    setStep(2);
-    try {
-      await enumerateCameras();
-      await startFacePreview(selectedCameraId);
-    } catch {}
-  }, [enumerateCameras, startFacePreview, selectedCameraId]);
 
   useEffect(() => {
     const run = async () => {
@@ -385,6 +381,13 @@ export function useRecuperarContra() {
       await startFacePreview(selectedCameraId);
     } catch {}
   }, [faceImageUrl, selectedCameraId, startFacePreview]);
+
+  const turnOnCamera = useCallback(async () => {
+    try {
+      await enumerateCameras();
+      await startFacePreview(selectedCameraId);
+    } catch {}
+  }, [enumerateCameras, startFacePreview, selectedCameraId]);
 
   // Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
@@ -571,6 +574,7 @@ export function useRecuperarContra() {
     confirmFaceCapture,
     captureFaceSnapshot,
     retakeFaceSnapshot,
+    turnOnCamera,
     faceReady,
     faceImageUrl,
   };

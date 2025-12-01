@@ -42,6 +42,7 @@ export default function RecuperarContraseña() {
     updateSelectedCamera,
     captureFaceSnapshot,
     retakeFaceSnapshot,
+    turnOnCamera,
     faceReady,
 
     // Funciones
@@ -420,6 +421,13 @@ export default function RecuperarContraseña() {
                           {biometricStatus || "Cámara lista"}
                         </p>
                       </div>
+
+                      <button
+                        onClick={turnOnCamera}
+                        className="w-full flex items-center justify-center gap-3 p-3 xs:p-4 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/40 hover:border-indigo-400/70 rounded-lg xs:rounded-xl transition-all text-white font-semibold"
+                      >
+                        Prender cámara
+                      </button>
 
                       <div className="flex gap-3">
                         <button

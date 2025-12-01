@@ -37,6 +37,19 @@ export function useNotifications(
       .catch(() => {});
   }, [options?.apiBase, options?.token, options?.limit, options?.offset]);
 
+  useEffect(() => {
+    if (!wsMessage) return;
+    fetchNotifications(options?.apiBase, options?.token, {
+      limit: options?.limit,
+      offset: options?.offset,
+      status: "new",
+    })
+      .then((list) => {
+        setNotifications(list);
+      })
+      .catch(() => {});
+  }, [wsMessage, options?.apiBase, options?.token, options?.limit, options?.offset]);
+
   const remove = async (id: number) => {
     const success = await updateNotificationStatus(
       id,

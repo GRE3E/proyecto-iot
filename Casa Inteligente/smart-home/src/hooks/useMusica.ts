@@ -112,17 +112,21 @@ export const useMusica = () => {
                 ? true
                 : status === "paused"
                 ? false
+                : status === "stopped"
+                ? false
                 : prev.estaReproduciendo;
             const estaPausado =
               status === "paused"
                 ? true
                 : status === "playing"
                 ? false
+                : status === "stopped"
+                ? false
                 : prev.estaPausado;
 
             return {
               ...prev,
-              cancionActual,
+              cancionActual: status === "stopped" ? null : cancionActual,
               estaReproduciendo,
               estaPausado,
               volumen: volume !== undefined ? volume : prev.volumen,
@@ -447,7 +451,6 @@ export const useMusica = () => {
         estaReproduciendo: false,
         tiempoActual: 0,
         cola: [],
-        historial: [],
         indiceActual: 0,
         error: null,
         lastAdded: null,

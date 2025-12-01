@@ -103,9 +103,7 @@ export default function MusicaPage() {
           <SimpleCard className={`p-8 w-full max-w-md ${colors.cardBg}`}>
             <div className="text-center">
               <Loader className="w-12 h-12 text-purple-500 animate-spin mx-auto mb-4" />
-              <p className={`${colors.mutedText}`}>
-                Cargando canciones...
-              </p>
+              <p className={`${colors.mutedText}`}>Cargando canciones...</p>
             </div>
           </SimpleCard>
         </div>
@@ -144,7 +142,9 @@ export default function MusicaPage() {
                   value={nombreCancion}
                   onChange={(e) => setNombreCancion(e.target.value)}
                   disabled={agregando}
-                  className={`w-full ${colors.cardBg} ${colors.text} px-4 py-3 rounded-xl 
+                  className={`w-full ${colors.cardBg} ${
+                    colors.text
+                  } px-4 py-3 rounded-xl 
                   outline-none focus:ring-2 focus:ring-purple-500 
                   ${colors.mutedText.replace("text-", "placeholder-")} 
                   text-sm border ${
@@ -244,9 +244,7 @@ export default function MusicaPage() {
                               className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border border-purple-500/30 bg-white/5`}
                             >
                               <Calendar className="w-3 h-3 text-purple-300" />
-                              <span
-                                className={`text-xs ${colors.mutedText}`}
-                              >
+                              <span className={`text-xs ${colors.mutedText}`}>
                                 {formatearFecha(estado.cancionActual.createdAt)}
                               </span>
                             </span>
@@ -419,7 +417,9 @@ export default function MusicaPage() {
 
         {/* Panel Lateral - Solo Essentials */}
         <div className="lg:col-span-1 space-y-4">
-          <SimpleCard className={`p-6 ${colors.cardBg} space-y-3 hidden lg:block`}>
+          <SimpleCard
+            className={`p-6 ${colors.cardBg} space-y-3 hidden lg:block`}
+          >
             <form onSubmit={handleAgregarCancion} className="space-y-3">
               <div className="relative group">
                 <input
@@ -428,7 +428,9 @@ export default function MusicaPage() {
                   value={nombreCancion}
                   onChange={(e) => setNombreCancion(e.target.value)}
                   disabled={agregando}
-                  className={`w-full ${colors.cardBg} ${colors.text} px-4 py-3 rounded-xl 
+                  className={`w-full ${colors.cardBg} ${
+                    colors.text
+                  } px-4 py-3 rounded-xl 
                   outline-none focus:ring-2 focus:ring-purple-500 
                   ${colors.mutedText.replace("text-", "placeholder-")} 
                   text-sm border ${
@@ -533,9 +535,7 @@ export default function MusicaPage() {
                 ))
               ) : (
                 <div className="flex items-center justify-center h-24">
-                  <p
-                    className={`text-center ${colors.mutedText} text-xs`}
-                  >
+                  <p className={`text-center ${colors.mutedText} text-xs`}>
                     La cola está vacía
                   </p>
                 </div>
@@ -552,22 +552,16 @@ export default function MusicaPage() {
                   .map((cancion) => (
                     <div
                       key={cancion.id}
-                      className={`group relative p-3 rounded-lg transition-all border-l-3 ${colors.cardBg} border-transparent hover:bg-white/5 cursor-pointer`}
-                      onClick={async () => {
-                        if (reproduciendoHistorialId) return;
-                        setReproduciendoHistorialId(cancion.id);
-                        const query = cancion.urlYoutube || cancion.titulo;
-                        try {
-                          await agregarCancion(
-                            query,
-                            user?.nombre || "Desconocido"
-                          );
-                        } finally {
-                          setReproduciendoHistorialId(null);
-                        }
-                      }}
+                      className={`flex items-center justify-between p-3 rounded-lg transition-all border-l-3 ${colors.cardBg} border-transparent hover:bg-white/5`}
                     >
-                      <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-3">
+                        {cancion.thumbnail && (
+                          <img
+                            src={cancion.thumbnail}
+                            alt="Miniatura"
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p
                             className={`${colors.text} font-semibold text-sm truncate`}
@@ -605,27 +599,35 @@ export default function MusicaPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="absolute right-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={async () => {
+                          if (reproduciendoHistorialId) return;
+                          setReproduciendoHistorialId(cancion.id);
+                          const query = cancion.urlYoutube || cancion.titulo;
+                          try {
+                            await agregarCancion(
+                              query,
+                              user?.nombre || "Desconocido"
+                            );
+                          } finally {
+                            setReproduciendoHistorialId(null);
+                          }
+                        }}
+                        className="text-purple-400 hover:text-purple-300 transition-all hover:scale-110 transform p-2 rounded-full hover:bg-white/5 flex-shrink-0"
+                        aria-label={`Reproducir ${cancion.titulo}`}
+                        disabled={reproduciendoHistorialId === cancion.id}
+                      >
                         {reproduciendoHistorialId === cancion.id ? (
-                          <div className="w-8 h-8 rounded-full bg-purple-500/30 flex items-center justify-center">
-                            <Loader
-                              size={16}
-                              className="text-purple-300 animate-spin"
-                            />
-                          </div>
+                          <Loader size={20} className="animate-spin" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-purple-500/30 flex items-center justify-center">
-                            <Play size={18} className="text-purple-200" />
-                          </div>
+                          <Play size={20} />
                         )}
-                      </div>
+                      </button>
                     </div>
                   ))
               ) : (
                 <div className="flex items-center justify-center h-16">
-                  <p
-                    className={`text-center ${colors.mutedText} text-xs`}
-                  >
+                  <p className={`text-center ${colors.mutedText} text-xs`}>
                     Aún no hay historial
                   </p>
                 </div>

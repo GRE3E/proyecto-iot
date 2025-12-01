@@ -287,12 +287,40 @@ export function useConfiguracion() {
           const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
           setVoiceBlob(blob);
           setIsRecording(false);
-          // Fallback móvil: si no hay SpeechRecognition (WebView/Android), permitir guardar
           if (!recognition) {
-            setStatusMessage(
-              "✅ Audio capturado. Tu dispositivo no soporta reconocimiento de frase. Puedes guardar tu voz."
-            );
-            setVoiceConfirmed(true);
+            try {
+              const wavBlob = await convertBlobToWav(blob);
+              const fd = new FormData();
+              fd.append("audio_file", wavBlob, "audio.wav");
+              const resp = await axiosInstance.post(
+                "/hotword/hotword/process_audio/auth",
+                fd,
+                { headers: { "Content-Type": undefined } }
+              );
+              const txt = String(resp?.data?.transcribed_text || "").trim();
+              setTranscript(txt);
+              const normalize = (s: string) =>
+                s
+                  .toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "");
+              const ok = normalize(txt).includes(
+                normalize("murphy soy parte del hogar")
+              );
+              if (ok) {
+                setStatusMessage(`✅ Frase detectada: "${txt}"`);
+                setVoiceConfirmed(true);
+              } else {
+                setStatusMessage(
+                  "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+                );
+              }
+            } catch {
+              setStatusMessage(
+                "⚠️ No se pudo transcribir el audio, pero se capturó correctamente. Puedes guardar tu voz."
+              );
+              setVoiceConfirmed(true);
+            }
           }
         };
         rec.start(200);

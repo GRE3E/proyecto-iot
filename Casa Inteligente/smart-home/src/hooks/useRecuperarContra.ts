@@ -332,6 +332,36 @@ export function useRecuperarContra() {
         }
         voiceWavBlobRef.current = wavBlob;
         setBiometricStatus("Audio capturado ✓");
+        try {
+          const fd = new FormData();
+          fd.append("audio_file", wavBlob, "audio.wav");
+          const resp = await axiosInstance.post(
+            "/hotword/hotword/process_audio/auth",
+            fd,
+            { headers: { "Content-Type": undefined } }
+          );
+          const txt = String(resp?.data?.transcribed_text || "").trim();
+          setVoiceTranscript(txt);
+          const normalizeTxt = (s: string) =>
+            s
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+          const ok = normalizeTxt(txt).includes(
+            normalizeTxt("murphy soy parte del hogar")
+          );
+          if (ok) {
+            setBiometricStatus("Frase detectada ✓");
+            setVoiceReady(true);
+          } else {
+            setBiometricStatus(
+              "No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+            );
+            setVoiceReady(false);
+          }
+        } catch {
+          setVoiceTranscript("");
+        }
         setBiometricLoading(false);
         setIsRecording(false);
         // Sin uso de hotword en recuperación: si SpeechRecognition no está disponible,

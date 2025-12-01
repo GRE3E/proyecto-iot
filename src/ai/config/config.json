@@ -24,10 +24,10 @@
     "hotword": false,
     "mqtt": false,
     "tts": false,
-    "face_recognition": true,
-    "music_manager": false
+    "face_recognition": false,
+    "music_manager": true
   },
   "memory_size": 50,
   "timezone": "America/Lima",
-  "debug": false
+  "debug": true
 }

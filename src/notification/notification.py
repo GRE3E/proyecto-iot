@@ -1,16 +1,15 @@
 import logging
-import json
 from datetime import datetime
 from typing import Optional, List
-
-from fastapi import Depends, Query, HTTPException, status, Request
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-
-from src.db.database import get_db, get_async_db
-from src.db.models import Notification, User
+from sqlalchemy import select
+from src.db.database import get_async_db
+from src.db.models import Notification, User, UserNotification
 from src.auth.auth_service import get_current_user
 from src.api.notifications_schemas import NotificationCreate, NotificationUpdate, NotificationResponse, NotificationsListResponse
+from src.websocket.connection_manager import manager as ws_manager
+
 
 logger = logging.getLogger("NotificationsModule")
 
@@ -37,15 +36,34 @@ async def log_user_action_dependency(
             # Si no se puede leer el body (por streaming o multipart), continuar sin él
             pass
 
-        notif = Notification(
+        # Creamos la notificación global
+        new_notification = Notification(
             timestamp=datetime.now(),
             type="user_action",
             title=f"{method} {path}",
             message=message or "",
-            status="new", # Default status as per user request
         )
-        db.add(notif)
+        db.add(new_notification)
+        await db.flush() # Para obtener el ID de la notificación antes del commit
+
+        # Creamos la UserNotification para el usuario actual
+        user_notification = UserNotification(
+            user_id=user.id,
+            notification_id=new_notification.id,
+            status="new",
+        )
+        db.add(user_notification)
         await db.commit()
+        # Enviar la nueva notificación por WebSocket
+        notification_response = NotificationResponse(
+            id=new_notification.id,
+            timestamp=new_notification.timestamp,
+            type=new_notification.type,
+            title=new_notification.title,
+            message=new_notification.message,
+            status=user_notification.status
+        )
+        await ws_manager.broadcast(notification_response.model_dump_json())
     except Exception as e:
         # No romper el flujo del endpoint por errores de logging
         logger.error(f"Error registrando acción de usuario en notificaciones: {e}")
@@ -56,54 +74,89 @@ async def log_user_action_dependency(
 
 async def get_notifications_logic(
     db: AsyncSession,
+    current_user: User,
     type: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    since: Optional[str] = None
+    since: Optional[str] = None,
+    status: Optional[str] = None # Nuevo filtro por estado de UserNotification
 ) -> NotificationsListResponse:
     """Devuelve la lista de notificaciones, con filtros opcionales."""
     try:
-        query = select(Notification)
+        # 1. Consulta para UserNotifications específicas del usuario
+        user_specific_query = select(Notification, UserNotification).join(UserNotification).where(UserNotification.user_id == current_user.id)
 
         if type:
-            query = query.where(Notification.type == type)
-
+            user_specific_query = user_specific_query.where(Notification.type == type)
         if since:
             try:
                 since_dt = datetime.fromisoformat(since)
-                query = query.where(Notification.timestamp >= since_dt)
+                user_specific_query = user_specific_query.where(Notification.timestamp >= since_dt)
             except ValueError:
                 raise HTTPException(status_code=400, detail="Formato de fecha 'since' inválido. Use ISO 8601.")
+        if status:
+            user_specific_query = user_specific_query.where(UserNotification.status == status)
 
-        total_query = select(Notification)
+        user_specific_notifications = (await db.execute(user_specific_query)).all()
+
+        # 2. Consulta para Notificaciones globales sin UserNotification para el usuario actual
+        global_notifications_query = select(Notification).outerjoin(UserNotification, (Notification.id == UserNotification.notification_id) & (UserNotification.user_id == current_user.id))
+        global_notifications_query = global_notifications_query.where(Notification.is_global == True)
+        global_notifications_query = global_notifications_query.where(UserNotification.id == None) # Donde no hay UserNotification para este usuario
+
         if type:
-            total_query = total_query.where(Notification.type == type)
+            global_notifications_query = global_notifications_query.where(Notification.type == type)
         if since:
             try:
                 since_dt = datetime.fromisoformat(since)
-                total_query = total_query.where(Notification.timestamp >= since_dt)
+                global_notifications_query = global_notifications_query.where(Notification.timestamp >= since_dt)
             except ValueError:
-                pass # Already handled above
+                pass # Ya manejado arriba
+        # Si se filtra por status, las globales sin UserNotification siempre se consideran 'new'
+        if status and status != "new":
+            global_notifications_query = global_notifications_query.where(False) # No incluir si el status no es 'new'
 
-        total_result = await db.execute(total_query)
-        total_count = len(total_result.scalars().all()) # This is inefficient for large tables, but works for now.
+        global_notifications = (await db.execute(global_notifications_query)).scalars().all()
 
-        query = query.order_by(Notification.timestamp.desc()).offset(offset).limit(limit)
+        # Combinar y procesar resultados
+        combined_notifications = []
+        seen_notification_ids = set()
 
-        result = await db.execute(query)
-        items: List[Notification] = result.scalars().all()
-
-        return NotificationsListResponse(
-            notifications=[
-                NotificationResponse(
+        for n, un in user_specific_notifications:
+            if n.id not in seen_notification_ids:
+                combined_notifications.append(NotificationResponse(
                     id=n.id,
                     timestamp=n.timestamp,
                     type=n.type,
                     title=n.title,
                     message=n.message,
-                    status=n.status,
-                ) for n in items
-            ],
+                    status=un.status,
+                ))
+                seen_notification_ids.add(n.id)
+        
+        for n in global_notifications:
+            if n.id not in seen_notification_ids:
+                combined_notifications.append(NotificationResponse(
+                    id=n.id,
+                    timestamp=n.timestamp,
+                    type=n.type,
+                    title=n.title,
+                    message=n.message,
+                    status="new", # Estado por defecto para globales sin UserNotification
+                ))
+                seen_notification_ids.add(n.id)
+
+        # Ordenar por timestamp descendente
+        combined_notifications.sort(key=lambda x: x.timestamp, reverse=True)
+
+        # Calcular total antes de aplicar limit y offset
+        total_count = len(combined_notifications)
+
+        # Aplicar limit y offset
+        paginated_notifications = combined_notifications[offset : offset + limit]
+
+        return NotificationsListResponse(
+            notifications=paginated_notifications,
             total=total_count,
             limit=limit,
             offset=offset
@@ -114,10 +167,18 @@ async def get_notifications_logic(
         logger.error(f"Error al obtener notificaciones: {e}")
         raise HTTPException(status_code=500, detail="Error interno al obtener notificaciones")
 
-async def get_notification_types_logic(db: AsyncSession) -> List[str]:
-    """Devuelve la lista de tipos de notificaciones disponibles."""
+async def get_notification_types_logic(
+    db: AsyncSession,
+    current_user: User = Depends(get_current_user) # Añadir current_user para filtrar tipos por usuario
+) -> List[str]:
+    """Devuelve la lista de tipos de notificaciones disponibles para el usuario actual."""
     try:
-        result = await db.execute(select(Notification.type).distinct())
+        result = await db.execute(
+            select(Notification.type)
+            .join(UserNotification)
+            .where(UserNotification.user_id == current_user.id)
+            .distinct()
+        )
         types = [row[0] for row in result.all()]
         return types
     except Exception as e:
@@ -126,28 +187,74 @@ async def get_notification_types_logic(db: AsyncSession) -> List[str]:
 
 async def create_notification_logic(
     db: AsyncSession,
-    notification_data: NotificationCreate
+    notification_data: NotificationCreate,
+    current_user: User # current_user ya se resuelve en el endpoint
 ) -> NotificationResponse:
-    """Crea una nueva notificación."""
+    """Crea una nueva notificación. Si es global, crea UserNotifications para todos los usuarios."""
     try:
         new_notification = Notification(
             timestamp=datetime.now(),
             type=notification_data.type,
             title=notification_data.title,
             message=notification_data.message,
-            status=notification_data.status
         )
         db.add(new_notification)
+        await db.flush() # Para obtener el ID de la notificación antes del commit
+
+        if notification_data.is_global:
+            # Obtener todos los usuarios
+            users_result = await db.execute(select(User))
+            all_users = users_result.scalars().all()
+
+            user_notifications_to_add = []
+            for user in all_users:
+                user_notifications_to_add.append(
+                    UserNotification(
+                        user_id=user.id,
+                        notification_id=new_notification.id,
+                        status=notification_data.status or "new"
+                    )
+                )
+            db.add_all(user_notifications_to_add)
+        else:
+            # Comportamiento actual: solo para el usuario que la crea
+            user_notification = UserNotification(
+                user_id=current_user.id,
+                notification_id=new_notification.id,
+                status=notification_data.status or "new"
+            )
+            db.add(user_notification)
+        
         await db.commit()
         await db.refresh(new_notification)
+
+        # Si es global, el status devuelto es el por defecto 'new'
+        # Si no es global, se devuelve el status de la UserNotification creada para el usuario
+        status_to_return = notification_data.status or "new"
+        if not notification_data.is_global:
+            # Si no es global, necesitamos refrescar la user_notification para obtener su status real si se modificó
+            # Aunque en este punto, el status ya debería ser el que se asignó.
+            # Podríamos buscar la user_notification específica para el current_user si fuera necesario.
+            pass # No necesitamos refrescar user_notification aquí para el retorno, ya tenemos el status.
+
         return NotificationResponse(
             id=new_notification.id,
             timestamp=new_notification.timestamp,
             type=new_notification.type,
             title=new_notification.title,
             message=new_notification.message,
-            status=new_notification.status
+            status=status_to_return # Devolver el status adecuado
         )
+        # Enviar la nueva notificación por WebSocket
+        notification_response = NotificationResponse(
+            id=new_notification.id,
+            timestamp=new_notification.timestamp,
+            type=new_notification.type,
+            title=new_notification.title,
+            message=new_notification.message,
+            status=status_to_return
+        )
+        await ws_manager.broadcast(notification_response.model_dump_json())
     except Exception as e:
         logger.error(f"Error al crear notificación: {e}")
         raise HTTPException(status_code=500, detail="Error interno al crear notificación")
@@ -155,34 +262,45 @@ async def create_notification_logic(
 async def update_notification_logic(
     db: AsyncSession,
     notification_id: int,
-    notification_data: NotificationUpdate
+    notification_data: NotificationUpdate,
+    current_user: User # current_user ya se resuelve en el endpoint
 ) -> NotificationResponse:
-    """Actualiza una notificación existente."""
+    """Actualiza el estado de una UserNotification existente para el usuario actual."""
     try:
-        result = await db.execute(select(Notification).where(Notification.id == notification_id))
-        notification = result.scalars().first()
+        # Buscar la UserNotification específica para el usuario y la notificación
+        result = await db.execute(
+            select(UserNotification)
+            .where(UserNotification.notification_id == notification_id)
+            .where(UserNotification.user_id == current_user.id)
+        )
+        user_notification = result.scalars().first()
 
-        if not notification:
-            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        if not user_notification:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada para este usuario")
 
-        if notification_data.type is not None:
-            notification.type = notification_data.type
-        if notification_data.title is not None:
-            notification.title = notification_data.title
-        if notification_data.message is not None:
-            notification.message = notification_data.message
+        # Actualizar solo el status de la UserNotification
         if notification_data.status is not None:
-            notification.status = notification_data.status
+            user_notification.status = notification_data.status
+        
+        # Opcionalmente, si se quiere actualizar la notificación global (type, title, message)
+        # esto debería ser un endpoint separado o manejarse con cuidado.
+        # Por ahora, solo actualizamos el status de la UserNotification.
 
         await db.commit()
-        await db.refresh(notification)
+        await db.refresh(user_notification)
+
+        # Recuperar la notificación global para la respuesta
+        notification_global = (await db.execute(select(Notification).where(Notification.id == notification_id))).scalars().first()
+        if not notification_global:
+            raise HTTPException(status_code=404, detail="Notificación global no encontrada")
+
         return NotificationResponse(
-            id=notification.id,
-            timestamp=notification.timestamp,
-            type=notification.type,
-            title=notification.title,
-            message=notification.message,
-            status=notification.status
+            id=notification_global.id,
+            timestamp=notification_global.timestamp,
+            type=notification_global.type,
+            title=notification_global.title,
+            message=notification_global.message,
+            status=user_notification.status # Devolver el status de UserNotification
         )
     except HTTPException:
         raise
@@ -190,19 +308,94 @@ async def update_notification_logic(
         logger.error(f"Error al actualizar notificación: {e}")
         raise HTTPException(status_code=500, detail="Error interno al actualizar notificación")
 
+async def update_notification_status_logic(
+    db: AsyncSession,
+    notification_id: int,
+    new_status: str,
+    current_user: User
+) -> NotificationResponse:
+    """Actualiza el estado de una UserNotification específica o crea una si no existe para notificaciones globales."""
+    try:
+        # Buscar la UserNotification existente para este usuario y notificación
+        user_notification_query = select(UserNotification).where(
+            UserNotification.user_id == current_user.id,
+            UserNotification.notification_id == notification_id
+        )
+        user_notification = (await db.execute(user_notification_query)).scalars().first()
+
+        if user_notification:
+            # Si existe, actualizar su estado
+            user_notification.status = new_status
+            await db.commit()
+            await db.refresh(user_notification)
+
+            # Obtener la notificación original para la respuesta
+            notification = (await db.execute(select(Notification).where(Notification.id == notification_id))).scalars().first()
+            if not notification:
+                raise HTTPException(status_code=404, detail="Notificación no encontrada")
+
+            return NotificationResponse(
+                id=notification.id,
+                timestamp=notification.timestamp,
+                type=notification.type,
+                title=notification.title,
+                message=notification.message,
+                status=user_notification.status
+            )
+        else:
+            # Si no existe UserNotification, verificar si es una notificación global
+            notification = (await db.execute(select(Notification).where(Notification.id == notification_id))).scalars().first()
+            if not notification:
+                raise HTTPException(status_code=404, detail="Notificación no encontrada")
+
+            if notification.is_global:
+                # Crear una nueva UserNotification para esta notificación global y usuario
+                new_user_notification = UserNotification(
+                    user_id=current_user.id,
+                    notification_id=notification_id,
+                    status=new_status
+                )
+                db.add(new_user_notification)
+                await db.commit()
+                await db.refresh(new_user_notification)
+
+                return NotificationResponse(
+                    id=notification.id,
+                    timestamp=notification.timestamp,
+                    type=notification.type,
+                    title=notification.title,
+                    message=notification.message,
+                    status=new_user_notification.status
+                )
+            else:
+                # Si no es global y no hay UserNotification, significa que el usuario no tiene acceso a ella o no debería modificarla
+                raise HTTPException(status_code=403, detail="No autorizado para modificar esta notificación")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al actualizar el estado de la notificación: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al actualizar el estado de la notificación")
+
 async def delete_notification_logic(
     db: AsyncSession,
-    notification_id: int
+    notification_id: int,
+    current_user: User = Depends(get_current_user) # Añadir current_user
 ) -> None:
-    """Elimina una notificación."""
+    """Elimina la UserNotification para el usuario actual."""
     try:
-        result = await db.execute(select(Notification).where(Notification.id == notification_id))
-        notification = result.scalars().first()
+        # Buscar la UserNotification específica para el usuario y la notificación
+        result = await db.execute(
+            select(UserNotification)
+            .where(UserNotification.notification_id == notification_id)
+            .where(UserNotification.user_id == current_user.id)
+        )
+        user_notification = result.scalars().first()
 
-        if not notification:
-            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        if not user_notification:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada para este usuario")
 
-        await db.delete(notification)
+        await db.delete(user_notification)
         await db.commit()
         return
     except HTTPException:

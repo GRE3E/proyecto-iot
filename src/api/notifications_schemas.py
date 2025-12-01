@@ -24,9 +24,13 @@ class NotificationCreate(BaseModel):
     title: str
     message: str
     status: Optional[str] = "new"
+    is_global: bool = False
 
 class NotificationUpdate(BaseModel):
     type: Optional[str] = None
     title: Optional[str] = None
     message: Optional[str] = None
     status: Optional[str] = None
+
+class NotificationStatusUpdate(BaseModel):
+    status: str

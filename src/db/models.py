@@ -207,6 +207,7 @@ class User(Base):
     context_events: Mapped[List["ContextEvent"]] = relationship("ContextEvent", back_populates="user", cascade="all, delete-orphan")
     energy_consumptions: Mapped[List["EnergyConsumption"]] = relationship("EnergyConsumption", back_populates="user", cascade="all, delete-orphan")
     device_count_history: Mapped[List["DeviceCountHistory"]] = relationship("DeviceCountHistory", back_populates="user", cascade="all, delete-orphan")
+    user_notifications: Mapped[List["UserNotification"]] = relationship("UserNotification", back_populates="user", cascade="all, delete-orphan")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -428,6 +429,38 @@ class Notification(Base):
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     status = Column(String(50), nullable=False, default="new")
+    is_global = Column(Boolean, default=False)
+
+    user_notifications: Mapped[List["UserNotification"]] = relationship("UserNotification", back_populates="notification", cascade="all, delete-orphan")
+
+
+class UserNotification(Base):
+    __tablename__ = "user_notifications"
+    """
+    Modelo para almacenar el estado de las notificaciones por usuario.
+
+    Atributos:
+        id (int): Identificador único de la relación usuario-notificación.
+        user_id (int): ID del usuario.
+        notification_id (int): ID de la notificación.
+        status (str): Estado de la notificación para este usuario (e.g., "new", "read", "archived").
+        created_at (datetime): Fecha de creación del registro.
+        updated_at (datetime): Fecha de última actualización del registro.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    notification_id = Column(Integer, ForeignKey("notifications.id"), nullable=False)
+    status = Column(String(50), nullable=False, default="new") # e.g., "new", "read", "archived"
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    user: Mapped["User"] = relationship("User", back_populates="user_notifications")
+    notification: Mapped["Notification"] = relationship("Notification", back_populates="user_notifications")
+
+    __table_args__ = (UniqueConstraint('user_id', 'notification_id', name='_user_notification_uc'),)
+
+    def __repr__(self) -> str:
+        return f"<UserNotification(id={self.id}, user_id={self.user_id}, notification_id={self.notification_id}, status='{self.status}')>"
 
 
 class MusicPlayLog(Base):

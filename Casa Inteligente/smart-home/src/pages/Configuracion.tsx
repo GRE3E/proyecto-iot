@@ -248,7 +248,8 @@ export default function Configuracion() {
           title="Editar perfil"
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
-          backdropClassName="bg-black"
+          backdropClassName="bg-black/60"
+          className="!bg-[#0f1420]"
         >
           <div className="space-y-4">
             <div>
@@ -326,6 +327,8 @@ export default function Configuracion() {
           title="Agregar reconocimiento de voz"
           isOpen={changeVoiceModalOpen}
           onClose={() => setChangeVoiceModalOpen(false)}
+          backdropClassName="bg-black/60"
+          className="!bg-[#0f1420]"
         >
           <div className="flex flex-col items-center gap-4">
             <div className="w-full">
@@ -408,6 +411,8 @@ export default function Configuracion() {
           title="Agregar reconocimiento facial"
           isOpen={changeFaceModalOpen}
           onClose={() => setChangeFaceModalOpen(false)}
+          backdropClassName="bg-black/60"
+          className="!bg-[#0f1420]"
         >
           <div className="space-y-4 text-center">
             <div className="text-left">
@@ -486,6 +491,8 @@ export default function Configuracion() {
             setIsAddMemberModalOpen(false);
             setCurrentStep(1);
           }}
+          backdropClassName="bg-black/60"
+          className="!bg-[#0f1420]"
         >
           <div className="space-y-6">
             {currentStep === 1 && (

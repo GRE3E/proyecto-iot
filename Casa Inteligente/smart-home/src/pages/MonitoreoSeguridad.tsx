@@ -10,12 +10,14 @@ import { Wifi, WifiOff } from "lucide-react"
 
 export default function MonitoreoSeguridad() {
   const { colors } = useThemeByTime()
-  const { systemOn, setSystemOn, cameraStates, toggleCamera, activeCameras } = useSecurityCameras()
+  const { systemOn, setSystemOn, camerasList, cameraStates, toggleCamera, activeCameras } = useSecurityCameras()
 
-  const cameras = [
-    { id: "camera1", name: "Entrada Principal" },
-    { id: "camera2", name: "Sala de Estar" }
-  ]
+  const API_BASE_URL = "http://localhost:8000"; // Asegúrate de que esta URL sea correcta
+
+  function getAuthToken(): string | null {
+    // Asume que el token JWT se guarda en localStorage después del login
+    return localStorage.getItem("access_token");
+  }
 
   return (
     <div className={`p-2 md:p-6 pt-8 md:pt-6 space-y-4 md:space-y-6 font-inter w-full ${colors.background} ${colors.text}`}>
@@ -60,7 +62,7 @@ export default function MonitoreoSeguridad() {
                         systemOn ? colors.greenText : colors.mutedText
                       }`}
                     >
-                      {systemOn ? `${activeCameras}/2 Cámaras Activas` : "Sistema Desactivado"}
+                      {systemOn ? `${activeCameras}/${camerasList.length} Cámaras Activas` : "Sistema Desactivado"}
                     </p>
                   </div>
                 </div>
@@ -79,7 +81,7 @@ export default function MonitoreoSeguridad() {
             </SimpleCard>
 
             <div className="grid grid-cols-1 gap-4 md:gap-6">
-              {cameras.map((camera) => {
+              {camerasList.map((camera) => {
                 const isActive = cameraStates[camera.id] && systemOn
 
                 return (
@@ -99,7 +101,7 @@ export default function MonitoreoSeguridad() {
                             <Camera className={`w-4 sm:w-5 ${isActive ? "text-green-400" : colors.mutedText}`} />
                           </div>
                           <div>
-                            <p className={`text-xs sm:text-sm font-medium ${colors.text}`}>{camera.name}</p>
+                            <p className={`text-xs sm:text-sm font-medium ${colors.text}`}>{camera.label}</p>
                             <div className="flex items-center gap-1 mt-0.5">
                               {isActive ? (
                                 <>
@@ -123,20 +125,13 @@ export default function MonitoreoSeguridad() {
                               ? "bg-green-500/30 text-green-400 hover:bg-green-500/40"
                               : "bg-slate-700/30 text-slate-500 hover:bg-slate-700/50"
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          aria-label={`${camera.name}: ${cameraStates[camera.id] ? "desactivar" : "activar"}`}
-                        >
+                          aria-label={`${camera.label}: ${cameraStates[camera.id] ? "desactivar" : "activar"}`}                        >
                           <Power className="w-4 sm:w-5" />
                         </button>
                       </div>
 
                       {/* Feed de la cámara */}
                       <div className="relative w-full h-48 sm:h-64 md:h-[28rem] bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center overflow-hidden">
-                        {/* Imagen de fondo que ocupa todo el espacio */}
-                        <img 
-                          src={`data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 448'%3E%3Crect fill='%23020617' width='400' height='448'/%3E%3C/svg%3E`}
-                          alt="feed"
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
                         {/* Indicador de estado */}
                         <div
                           className={`absolute top-3 right-3 w-3 h-3 rounded-full ${
@@ -146,6 +141,12 @@ export default function MonitoreoSeguridad() {
 
                         {isActive ? (
                           <>
+                            {/* Stream de la cámara */}
+                            <img
+                              src={`${API_BASE_URL}/cameras/${camera.id}/stream-public?token=${getAuthToken()}`}
+                              alt={`Cámara ${camera.label} en vivo`}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
                             {/* Efecto de cámara activa */}
                             <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-transparent animate-pulse" />
                             <div className="relative z-10 flex flex-col items-center gap-2">
@@ -160,6 +161,12 @@ export default function MonitoreoSeguridad() {
                           </>
                         ) : (
                           <>
+                            {/* Imagen de fondo que ocupa todo el espacio */}
+                            <img
+                              src={`data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 448'%3E%3Crect fill='%23020617' width='400' height='448'/%3E%3C/svg%3E`}
+                              alt="feed"
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
                             {/* Efecto de cámara inactiva */}
                             <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 via-transparent to-transparent" />
                             <div className="relative z-10 flex flex-col items-center gap-2">
@@ -177,7 +184,7 @@ export default function MonitoreoSeguridad() {
                         <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${isActive ? "bg-green-500" : "bg-slate-500"}`} />
                         <Camera className="w-3 sm:w-4 h-3 sm:h-4 text-slate-400" />
                         <span className={`text-xs sm:text-sm font-medium ${colors.mutedText}`}>
-                          {camera.name}
+                          {camera.label}
                         </span>
                       </div>
                     </div>

@@ -36,10 +36,12 @@ export default function RecuperarContraseña() {
     biometricStatus,
     voiceTranscript,
     videoRef,
+    faceImageUrl,
     availableCameras,
     selectedCameraId,
     updateSelectedCamera,
     captureFaceSnapshot,
+    retakeFaceSnapshot,
     faceReady,
 
     // Funciones
@@ -388,14 +390,23 @@ export default function RecuperarContraseña() {
                           )}
                         </select>
                       </div>
-                      <video
-                        ref={videoRef}
-                        className="w-full rounded-lg xs:rounded-xl bg-black border border-slate-700/50"
-                        style={{ maxHeight: "320px" }}
-                        muted
-                        playsInline
-                        autoPlay
-                      />
+                      {faceReady && faceImageUrl ? (
+                        <img
+                          src={faceImageUrl}
+                          alt="Foto capturada"
+                          className="w-full rounded-lg xs:rounded-xl bg-black border border-slate-700/50 object-cover"
+                          style={{ maxHeight: "320px" }}
+                        />
+                      ) : (
+                        <video
+                          ref={videoRef}
+                          className="w-full rounded-lg xs:rounded-xl bg-black border border-slate-700/50"
+                          style={{ maxHeight: "320px" }}
+                          muted
+                          playsInline
+                          autoPlay
+                        />
+                      )}
                       <div className="flex items-center gap-2 p-2 xs:p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg xs:rounded-xl">
                         {biometricLoading ? (
                           <Loader
@@ -410,13 +421,23 @@ export default function RecuperarContraseña() {
                         </p>
                       </div>
 
-                      <button
-                        onClick={captureFaceSnapshot}
-                        className="w-full flex items-center justify-center gap-3 p-3 xs:p-4 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/40 hover:border-blue-400/70 rounded-lg xs:rounded-xl transition-all text-white font-semibold"
-                      >
-                        <Camera className="w-5 h-5 text-blue-400" />
-                        Tomar foto
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={captureFaceSnapshot}
+                          className="flex-1 flex items-center justify-center gap-3 p-3 xs:p-4 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/40 hover:border-blue-400/70 rounded-lg xs:rounded-xl transition-all text-white font-semibold"
+                        >
+                          <Camera className="w-5 h-5 text-blue-400" />
+                          Tomar foto
+                        </button>
+                        {faceReady && (
+                          <button
+                            onClick={retakeFaceSnapshot}
+                            className="flex-1 flex items-center justify-center gap-3 p-3 xs:p-4 bg-gradient-to-r from-red-600/20 to-pink-600/20 border border-red-500/40 hover:border-red-400/70 rounded-lg xs:rounded-xl transition-all text-white font-semibold"
+                          >
+                            Volver a tomar
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-6">
@@ -526,6 +547,11 @@ export default function RecuperarContraseña() {
                           )}
                         </span>
                       </button>
+                      {recoveryMethod === "face" && faceReady && (
+                        <p className="text-center text-blue-300 text-xs xs:text-sm mt-2">
+                          Foto capturada ✓ ¿Seguro que quieres enviar esta foto?
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : null}

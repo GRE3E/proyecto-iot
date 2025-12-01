@@ -41,6 +41,7 @@ export function useRecuperarContra() {
   const faceImageBlobRef = useRef<Blob | null>(null);
   const [faceReady, setFaceReady] = useState(false);
   const [pendingFaceSubmit, setPendingFaceSubmit] = useState(false);
+  const [faceImageUrl, setFaceImageUrl] = useState<string | null>(null);
 
   const { startListening: startVR, stopListening: stopVR } =
     useVoiceRecognition({
@@ -347,11 +348,29 @@ export function useRecuperarContra() {
       }
       faceImageBlobRef.current = imageBlob;
       setFaceReady(true);
+      try {
+        if (faceImageUrl) URL.revokeObjectURL(faceImageUrl);
+      } catch {}
+      const url = URL.createObjectURL(imageBlob);
+      setFaceImageUrl(url);
       setBiometricStatus("Foto capturada ✓");
     } catch {
       setError("Error al capturar la foto");
     }
-  }, []);
+  }, [faceImageUrl]);
+
+  const retakeFaceSnapshot = useCallback(async () => {
+    try {
+      setFaceReady(false);
+      try {
+        if (faceImageUrl) URL.revokeObjectURL(faceImageUrl);
+      } catch {}
+      setFaceImageUrl(null);
+      faceImageBlobRef.current = null;
+      setBiometricStatus("Cámara lista");
+      await startFacePreview(selectedCameraId);
+    } catch {}
+  }, [faceImageUrl, selectedCameraId, startFacePreview]);
 
   // Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
@@ -464,6 +483,10 @@ export function useRecuperarContra() {
     setVoiceReady(false);
     faceImageBlobRef.current = null;
     setFaceReady(false);
+    try {
+      if (faceImageUrl) URL.revokeObjectURL(faceImageUrl);
+    } catch {}
+    setFaceImageUrl(null);
     setFaceModalOpen(false);
     setAvailableCameras([]);
     setSelectedCameraId(null);
@@ -479,6 +502,10 @@ export function useRecuperarContra() {
     setBiometricLoading(false);
     setIsRecording(false);
     setVoiceReady(false);
+    try {
+      if (faceImageUrl) URL.revokeObjectURL(faceImageUrl);
+    } catch {}
+    setFaceImageUrl(null);
   }, [stopCamera]);
 
   return {
@@ -529,6 +556,8 @@ export function useRecuperarContra() {
     closeFaceModal,
     confirmFaceCapture,
     captureFaceSnapshot,
+    retakeFaceSnapshot,
     faceReady,
+    faceImageUrl,
   };
 }

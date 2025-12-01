@@ -74,21 +74,49 @@ export default function Configuracion() {
 
   useEffect(() => {
     let stream: MediaStream | null = null;
+    const stop = () => {
+      try {
+        stream?.getTracks().forEach((t) => t.stop());
+        stream = null;
+      } catch {}
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+    const tryGet = async (constraints: MediaStreamConstraints) => {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        return null;
+      }
+    };
     const start = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
+        stop();
+        let s = await tryGet({
+          video: { width: 640, height: 480, facingMode: "user" },
         });
+        if (!s)
+          s = await tryGet({
+            video: { width: 640, height: 480, facingMode: "environment" },
+          });
+        if (!s) s = await tryGet({ video: true });
+        if (!s) return;
+        stream = s;
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
+          videoRef.current.srcObject = s;
+          try {
+            (videoRef.current as any).muted = true;
+            (videoRef.current as any).playsInline = true;
+            (videoRef.current as any).autoplay = true;
+          } catch {}
+          try {
+            await videoRef.current.play();
+          } catch {}
         }
       } catch {}
     };
     if (changeFaceModalOpen && facePasswordVerified) start();
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
+      stop();
       setCapturedPhotos([]);
     };
   }, [changeFaceModalOpen, facePasswordVerified]);
@@ -462,6 +490,7 @@ export default function Configuracion() {
                 className="w-full h-48 object-cover rounded-xl"
                 muted
                 playsInline
+                autoPlay
               />
             </div>
 

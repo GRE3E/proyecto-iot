@@ -190,7 +190,7 @@ export default function RecuperarContraseña() {
                             Di la siguiente frase para verificar tu identidad:
                           </p>
                           <p className="text-center text-blue-400 font-semibold text-base">
-                            "Murphy soy parte del hogar"
+                            "soy parte del hogar"
                           </p>
                           <button
                             onClick={() =>

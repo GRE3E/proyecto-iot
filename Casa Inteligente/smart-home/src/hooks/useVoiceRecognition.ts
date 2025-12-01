@@ -5,6 +5,9 @@ interface UseVoiceRecognitionProps {
   onStart?: () => void;
   onEnd?: () => void;
   onAudioProcessed?: (apiResponse: any) => void;
+  onAudioCaptured?: (wavBlob: Blob) => void;
+  transcribePath?: string;
+  maxDurationMs?: number;
 }
 
 // Función auxiliar para codificar audio a WAV
@@ -65,6 +68,9 @@ export function useVoiceRecognition({
   onStart,
   onEnd,
   onAudioProcessed,
+  onAudioCaptured,
+  transcribePath,
+  maxDurationMs,
 }: UseVoiceRecognitionProps = {}) {
   const [listening, setListening] = useState(false);
   const listeningStateRef = useRef(listening);
@@ -75,6 +81,7 @@ export function useVoiceRecognition({
   const analyserRef = useRef<AnalyserNode | null>(null);
   // En navegador, setTimeout devuelve number; usar ReturnType para compatibilidad
   const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     listeningStateRef.current = listening;
@@ -86,6 +93,10 @@ export function useVoiceRecognition({
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
+      }
+      if (recordTimeoutRef.current) {
+        clearTimeout(recordTimeoutRef.current);
+        recordTimeoutRef.current = null;
       }
 
       // Iniciar grabación de audio
@@ -170,6 +181,9 @@ export function useVoiceRecognition({
         const float32Array = decodedAudio.getChannelData(0); // Asumiendo un solo canal
         const wavBlob = encodeWAV(float32Array, audioContext.sampleRate);
         console.log("WAV Blob size:", wavBlob.size, "type:", wavBlob.type);
+        try {
+          onAudioCaptured?.(wavBlob);
+        } catch {}
 
         // Enviar el archivo WAV a la API
         const formData = new FormData();
@@ -188,7 +202,7 @@ export function useVoiceRecognition({
 
         try {
           const response = await axiosInstance.post(
-            `/hotword/hotword/process_audio/auth`,
+            `${transcribePath ?? "/hotword/hotword/process_audio/auth"}`,
             formData,
             {
               headers: {
@@ -199,7 +213,15 @@ export function useVoiceRecognition({
             }
           );
 
-          const data = response.data;
+          let data = response.data;
+          if (
+            data &&
+            typeof data === "object" &&
+            typeof (data as any).text === "string" &&
+            !(data as any).transcribed_text
+          ) {
+            data = { ...data, transcribed_text: (data as any).text };
+          }
           console.log("Audio Processed API Response:", data);
           if (onAudioProcessed) {
             onAudioProcessed(data);
@@ -217,6 +239,13 @@ export function useVoiceRecognition({
       mediaRecorderRef.current.start();
       setListening(true);
       onStart?.();
+
+      const duration = typeof maxDurationMs === "number" ? maxDurationMs : 4000;
+      recordTimeoutRef.current = setTimeout(() => {
+        try {
+          stopListening();
+        } catch {}
+      }, duration);
     } catch (err) {
       console.warn("SpeechRecognition or MediaRecorder start error:", err);
     }
@@ -231,6 +260,10 @@ export function useVoiceRecognition({
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
+      }
+      if (recordTimeoutRef.current) {
+        clearTimeout(recordTimeoutRef.current);
+        recordTimeoutRef.current = null;
       }
       setListening(false);
       onEnd?.();

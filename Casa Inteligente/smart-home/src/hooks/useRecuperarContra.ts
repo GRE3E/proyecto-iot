@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { axiosInstance } from "../services/authService";
-import { encodeWAV } from "./useVoiceRecognition";
+
+import { useVoiceRecognition } from "./useVoiceRecognition";
 
 export type RecoveryStep = 1 | 2 | 3;
 export type RecoveryMethod = "face" | "voice" | null;
@@ -27,13 +28,7 @@ export function useRecuperarContra() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const voiceWavBlobRef = useRef<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
@@ -47,6 +42,46 @@ export function useRecuperarContra() {
   const [faceReady, setFaceReady] = useState(false);
   const [pendingFaceSubmit, setPendingFaceSubmit] = useState(false);
 
+  const { startListening: startVR, stopListening: stopVR } =
+    useVoiceRecognition({
+      transcribePath: "/stt/stt/transcribe",
+      maxDurationMs: 4000,
+      onStart: () => {
+        setBiometricLoading(true);
+        setIsRecording(true);
+        setBiometricStatus("Grabando...");
+      },
+      onEnd: () => {
+        setIsRecording(false);
+        setBiometricLoading(false);
+      },
+      onAudioCaptured: (wav) => {
+        voiceWavBlobRef.current = wav;
+        setBiometricStatus("Audio capturado ✓");
+      },
+      onAudioProcessed: (resp: any) => {
+        const txt = String(resp?.transcribed_text || "").trim();
+        setVoiceTranscript(txt);
+        const normalizeTxt = (s: string) =>
+          s
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+        const ok = normalizeTxt(txt).includes(
+          normalizeTxt("soy parte del hogar")
+        );
+        if (ok) {
+          setBiometricStatus("Frase detectada ✓");
+          setVoiceReady(true);
+        } else {
+          setBiometricStatus(
+            "No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
+          );
+          setVoiceReady(false);
+        }
+      },
+    });
+
   const captureFrameBlob = async (): Promise<Blob | null> => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return null;
@@ -59,26 +94,6 @@ export function useRecuperarContra() {
     return await new Promise<Blob | null>((resolve) => {
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.95);
     });
-  };
-
-  const resampleTo16k = (input: Float32Array, sourceRate: number) => {
-    const targetRate = 16000;
-    if (sourceRate === targetRate) return input;
-    const ratio = sourceRate / targetRate;
-    const newLength = Math.round(input.length / ratio);
-    const output = new Float32Array(newLength);
-    let pos = 0;
-    for (let i = 0; i < newLength; i++) {
-      const nextPos = (i + 1) * ratio;
-      const leftIndex = Math.floor(pos);
-      const rightIndex = Math.min(input.length - 1, Math.floor(nextPos));
-      const left = input[leftIndex];
-      const right = input[rightIndex];
-      const t = pos - leftIndex;
-      output[i] = left + (right - left) * t;
-      pos = nextPos;
-    }
-    return output;
   };
 
   // Validar usuario
@@ -132,7 +147,7 @@ export function useRecuperarContra() {
   const startVoiceRecognition = useCallback(() => {
     setError("");
     setBiometricStatus(
-      "Listo para grabar. Di la frase: 'Murphy soy parte del hogar'."
+      "Listo para grabar. Di la frase: 'soy parte del hogar'."
     );
     setBiometricLoading(false);
     voiceWavBlobRef.current = null;
@@ -207,204 +222,22 @@ export function useRecuperarContra() {
   );
 
   const beginVoiceRecording = useCallback(async () => {
-    setBiometricLoading(true);
     setError("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioStreamRef.current = stream;
-
-      audioContextRef.current = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.minDecibels = -90;
-      analyserRef.current.maxDecibels = -10;
-      analyserRef.current.smoothingTimeConstant = 0.85;
-      source.connect(analyserRef.current);
-
-      const bufferLength = analyserRef.current.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      const SILENCE_THRESHOLD = 20;
-      const SILENCE_DURATION = 3000;
-      const RECORD_DURATION_MS = 5000;
-
-      const checkSilence = () => {
-        if (!analyserRef.current || !isRecording) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const sum = dataArray.reduce((a, b) => a + b, 0);
-        const average = sum / bufferLength;
-        if (average < SILENCE_THRESHOLD) {
-          if (!silenceTimeoutRef.current) {
-            silenceTimeoutRef.current = setTimeout(() => {
-              stopVoiceRecording();
-            }, SILENCE_DURATION);
-          }
-        } else {
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-          }
-        }
-        requestAnimationFrame(checkSilence);
-      };
-
-      checkSilence();
-
-      const preferred = "audio/webm;codecs=opus";
-      const alt1 = "audio/webm";
-      const alt2 = "audio/mp4";
-      let options: MediaRecorderOptions | undefined;
-      try {
-        const MR: any = (window as any).MediaRecorder;
-        if (MR?.isTypeSupported?.(preferred)) options = { mimeType: preferred };
-        else if (MR?.isTypeSupported?.(alt1)) options = { mimeType: alt1 };
-        else if (MR?.isTypeSupported?.(alt2)) options = { mimeType: alt2 };
-      } catch {}
-      mediaRecorderRef.current = options
-        ? new MediaRecorder(stream, options)
-        : new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-      const SpeechRecognitionClass =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
-      const normalize = (s: string) =>
-        s
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-      const targetPhrase = normalize("murphy soy parte del hogar");
-      let recognition: any = null;
-      if (SpeechRecognitionClass) {
-        recognition = new SpeechRecognitionClass();
-        recognition.lang = "es-ES";
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.onresult = (ev: any) => {
-          const txt = Array.from(ev.results)
-            .map((r: any) => r[0]?.transcript || "")
-            .join(" ");
-          setVoiceTranscript(txt);
-          const ok = normalize(txt).includes(targetPhrase);
-          if (ok) {
-            setBiometricStatus("Frase detectada ✓");
-            setVoiceReady(true);
-          } else {
-            setBiometricStatus(
-              "No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
-            );
-            setVoiceReady(false);
-          }
-        };
-        try {
-          recognition.start();
-        } catch {}
-      } else {
-        setBiometricStatus(
-          "Tu navegador no soporta reconocimiento de voz. Intenta decir claramente la frase."
-        );
-      }
-      mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-        const ctx = new (window.AudioContext ||
-          (window as any).webkitAudioContext)();
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const decoded = await ctx.decodeAudioData(arrayBuffer);
-        const float32Array = decoded.getChannelData(0);
-        const resampled = resampleTo16k(float32Array, ctx.sampleRate);
-        const wavBlob = encodeWAV(resampled, 16000);
-        const durationSec = resampled.length / 16000;
-        if (durationSec < 2) {
-          voiceWavBlobRef.current = null;
-          setBiometricStatus("Audio demasiado corto. Intenta de nuevo.");
-          setError("Graba al menos 2 segundos");
-          setBiometricLoading(false);
-          setIsRecording(false);
-          setVoiceReady(false);
-          try {
-            await ctx.close();
-          } catch {}
-          return;
-        }
-        voiceWavBlobRef.current = wavBlob;
-        setBiometricStatus("Audio capturado ✓");
-        try {
-          const fd = new FormData();
-          fd.append("audio_file", wavBlob, "audio.wav");
-          const resp = await axiosInstance.post("/stt/stt/transcribe", fd, {
-            headers: { "Content-Type": undefined },
-          });
-          const txt = String(resp?.data?.text || "").trim();
-          setVoiceTranscript(txt);
-          const normalizeTxt = (s: string) =>
-            s
-              .toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "");
-          const ok = normalizeTxt(txt).includes(
-            normalizeTxt("murphy soy parte del hogar")
-          );
-          if (ok) {
-            setBiometricStatus("Frase detectada ✓");
-            setVoiceReady(true);
-          } else {
-            setBiometricStatus(
-              "No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
-            );
-            setVoiceReady(false);
-          }
-        } catch {
-          setVoiceTranscript("");
-        }
-        setBiometricLoading(false);
-        setIsRecording(false);
-        // Sin uso de hotword en recuperación: si SpeechRecognition no está disponible,
-        // permitir continuar con la validación de hablante en backend.
-        try {
-          await ctx.close();
-        } catch {}
-      };
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      setBiometricStatus("Grabando...");
-      if (recordTimeoutRef.current) {
-        clearTimeout(recordTimeoutRef.current);
-        recordTimeoutRef.current = null;
-      }
-      recordTimeoutRef.current = setTimeout(() => {
-        stopVoiceRecording();
-        try {
-          (recognition as any)?.stop?.();
-        } catch {}
-      }, RECORD_DURATION_MS);
-    } catch (err) {
-      setError("Error al iniciar la grabación de voz");
-      setBiometricLoading(false);
-      setIsRecording(false);
-    }
-  }, [isRecording]);
+    setBiometricStatus(
+      "Listo para grabar. Di la frase: 'soy parte del hogar'."
+    );
+    setBiometricLoading(false);
+    setVoiceTranscript("");
+    setVoiceReady(false);
+    startVR();
+  }, [startVR]);
 
   const stopVoiceRecording = useCallback(() => {
     try {
-      mediaRecorderRef.current?.stop();
-      audioStreamRef.current?.getTracks().forEach((t) => t.stop());
-      audioStreamRef.current = null;
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-        silenceTimeoutRef.current = null;
-      }
-      if (recordTimeoutRef.current) {
-        clearTimeout(recordTimeoutRef.current);
-        recordTimeoutRef.current = null;
-      }
+      stopVR();
       setIsRecording(false);
     } catch {}
-  }, []);
+  }, [stopVR]);
 
   const stopCamera = useCallback(() => {
     if (mediaStreamRef.current) {

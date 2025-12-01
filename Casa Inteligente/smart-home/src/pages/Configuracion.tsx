@@ -370,7 +370,7 @@ export default function Configuracion() {
               Di la siguiente frase para registrar tu voz:
             </p>
             <p className="text-blue-400 font-semibold text-center text-lg">
-              "Murphy soy parte del hogar"
+              "soy parte del hogar"
             </p>
 
             <button

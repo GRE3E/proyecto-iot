@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useVoiceRecognition } from "./useVoiceRecognition";
 import { useAuth } from "./useAuth";
 import { axiosInstance } from "../services/authService";
 import type { FamilyMember } from "../components/UI/Perfil";
@@ -31,14 +32,44 @@ export function useConfiguracion() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
-    null
-  );
-  const recordTimeoutRef = useRef<any>(null);
-  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const RECORD_DURATION_MS = 5000;
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+
+  const { startListening: startVR } = useVoiceRecognition({
+    transcribePath: "/stt/stt/transcribe/auth",
+    maxDurationMs: 4000,
+    onStart: () => {
+      setIsListening(true);
+      setIsRecording(true);
+      setTranscript("");
+      setStatusMessage(
+        "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para cambiar tu voz."
+      );
+    },
+    onEnd: () => {
+      setIsRecording(false);
+      setIsListening(false);
+    },
+    onAudioCaptured: (wav) => {
+      setVoiceBlob(wav);
+    },
+    onAudioProcessed: (resp: any) => {
+      const txt = String(resp?.transcribed_text || "").trim();
+      setTranscript(txt);
+      const normalize = (s: string) =>
+        s
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+      const ok = normalize(txt).includes(normalize("soy parte del hogar"));
+      if (ok) {
+        setStatusMessage(`✅ Frase detectada: "${txt}"`);
+        setVoiceConfirmed(true);
+      } else {
+        setStatusMessage(
+          "❌ No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
+        );
+      }
+    },
+  });
 
   const [modalOwnerName, setModalOwnerName] = useState(ownerName);
   const [modalPassword, setModalPassword] = useState("");
@@ -219,7 +250,7 @@ export function useConfiguracion() {
       setIsListening(true);
       setTranscript("");
       setStatusMessage(
-        "🎙️ Escuchando... Di la frase: 'Murphy soy parte del hogar' para registrar tu voz."
+        "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para registrar tu voz."
       );
     };
 
@@ -229,12 +260,12 @@ export function useConfiguracion() {
       setStatusMessage("🔄 Procesando voz...");
 
       const lower = result.toLowerCase();
-      if (lower.includes("murphy") && lower.includes("soy parte del hogar")) {
+      if (lower.includes("soy parte del hogar")) {
         setStatusMessage(`✅ Voz registrada correctamente: "${result}"`);
         setVoiceConfirmed(true);
       } else {
         setStatusMessage(
-          "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+          "❌ No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
         );
       }
     };
@@ -260,211 +291,11 @@ export function useConfiguracion() {
       alert("Primero verifica tu contraseña actual para agregar tu voz.");
       return;
     }
-    const SpeechRecognitionClass =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition: any = null;
-    if (SpeechRecognitionClass) {
-      recognition = new SpeechRecognitionClass();
-      recognition.lang = "es-ES";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-    }
-
-    const startRecording = async () => {
-      setIsListening(true);
-      setTranscript("");
-      setStatusMessage(
-        "🎙️ Escuchando... Di la frase: 'Murphy soy parte del hogar' para cambiar tu voz."
-      );
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        const MR: any = (window as any).MediaRecorder;
-        const preferred = "audio/webm;codecs=opus";
-        const alt1 = "audio/webm";
-        const alt2 = "audio/mp4";
-        let options: MediaRecorderOptions | undefined;
-        try {
-          if (MR?.isTypeSupported?.(preferred))
-            options = { mimeType: preferred };
-          else if (MR?.isTypeSupported?.(alt1)) options = { mimeType: alt1 };
-          else if (MR?.isTypeSupported?.(alt2)) options = { mimeType: alt2 };
-        } catch {}
-        const rec = options
-          ? new MediaRecorder(stream, options)
-          : new MediaRecorder(stream);
-        const chunks: BlobPart[] = [];
-        rec.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-        audioContextRef.current = new (window.AudioContext ||
-          (window as any).webkitAudioContext)();
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.minDecibels = -90;
-        analyserRef.current.maxDecibels = -10;
-        analyserRef.current.smoothingTimeConstant = 0.85;
-        source.connect(analyserRef.current);
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        const SILENCE_THRESHOLD = 20;
-        const SILENCE_DURATION = 1500;
-        const checkSilence = () => {
-          if (!analyserRef.current || !isRecording) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const sum = dataArray.reduce((a, b) => a + b, 0);
-          const average = sum / bufferLength;
-          if (average < SILENCE_THRESHOLD) {
-            if (!silenceTimeoutRef.current) {
-              silenceTimeoutRef.current = setTimeout(() => {
-                try {
-                  (rec as any)?.requestData?.();
-                } catch {}
-                try {
-                  rec.stop();
-                } catch {}
-              }, SILENCE_DURATION);
-            }
-          } else {
-            if (silenceTimeoutRef.current) {
-              clearTimeout(silenceTimeoutRef.current);
-              silenceTimeoutRef.current = null;
-            }
-          }
-          requestAnimationFrame(checkSilence);
-        };
-        checkSilence();
-        rec.onstop = async () => {
-          const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-          setVoiceBlob(blob);
-          setIsRecording(false);
-          setIsListening(false);
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-          }
-          try {
-            audioContextRef.current?.close();
-          } catch {}
-          if (!recognition) {
-            try {
-              const wavBlob = await convertBlobToWav(blob);
-              const fd = new FormData();
-              fd.append("audio_file", wavBlob, "audio.wav");
-              const resp = await axiosInstance.post("/stt/stt/transcribe", fd, {
-                headers: { "Content-Type": undefined },
-              });
-              const txt = String(resp?.data?.text || "").trim();
-              setTranscript(txt);
-              const normalize = (s: string) =>
-                s
-                  .toLowerCase()
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "");
-              const ok = normalize(txt).includes(
-                normalize("murphy soy parte del hogar")
-              );
-              if (ok) {
-                setStatusMessage(`✅ Frase detectada: "${txt}"`);
-                setVoiceConfirmed(true);
-              } else {
-                setStatusMessage(
-                  "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
-                );
-              }
-            } catch {
-              setStatusMessage(
-                "⚠️ No se pudo transcribir el audio, pero se capturó correctamente. Puedes guardar tu voz."
-              );
-              setVoiceConfirmed(true);
-            }
-          }
-        };
-        rec.start(200);
-        setMediaRecorder(rec);
-        setIsRecording(true);
-        if (recordTimeoutRef.current) {
-          clearTimeout(recordTimeoutRef.current);
-          recordTimeoutRef.current = null;
-        }
-        recordTimeoutRef.current = setTimeout(() => {
-          try {
-            (rec as any)?.requestData?.();
-          } catch {}
-          try {
-            rec.stop();
-          } catch {}
-        }, RECORD_DURATION_MS);
-      } catch (err) {
-        console.error("No se pudo iniciar la grabación de audio", err);
-        setStatusMessage("⚠️ No se pudo acceder al micrófono para grabar.");
-      }
-    };
-
-    const onRecognitionResult = (event: any) => {
-      const result = event.results[0][0].transcript.trim();
-      setTranscript(result);
-      setStatusMessage("🔄 Procesando voz...");
-
-      const lower = result.toLowerCase();
-      if (lower.includes("murphy") && lower.includes("soy parte del hogar")) {
-        setStatusMessage(`✅ Frase detectada: "${result}"`);
-        setVoiceConfirmed(true);
-        if (mediaRecorder && isRecording) {
-          try {
-            mediaRecorder.stop();
-            // Asegurar cierre de pistas para forzar evento onstop en algunos navegadores
-            if ((mediaRecorder as any).stream) {
-              (mediaRecorder as any).stream
-                .getTracks()
-                .forEach((t: MediaStreamTrack) => t.stop());
-            }
-          } catch (err) {
-            console.warn(
-              "No se pudo detener el MediaRecorder en onresult",
-              err
-            );
-          }
-        }
-      } else {
-        setStatusMessage(
-          "❌ No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
-        );
-      }
-    };
-
-    const onRecognitionError = () => {
-      setStatusMessage("⚠️ Ocurrió un error con el reconocimiento de voz.");
-      setIsListening(false);
-    };
-
-    const onRecognitionEnd = () => {
-      setIsListening(false);
-      if (mediaRecorder && isRecording) {
-        try {
-          mediaRecorder.stop();
-          if ((mediaRecorder as any).stream) {
-            (mediaRecorder as any).stream
-              .getTracks()
-              .forEach((t: MediaStreamTrack) => t.stop());
-          }
-        } catch (err) {
-          console.warn("No se pudo detener el MediaRecorder en onend", err);
-        }
-      }
-    };
-
-    if (recognition) {
-      recognition.onstart = startRecording;
-      recognition.onresult = onRecognitionResult;
-      recognition.onerror = onRecognitionError;
-      recognition.onend = onRecognitionEnd;
-      recognition.start();
-    } else {
-      startRecording();
-    }
+    setTranscript("");
+    setStatusMessage(
+      "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para cambiar tu voz."
+    );
+    startVR();
   };
 
   // 📸 Simulación de reconocimiento facial
@@ -547,54 +378,9 @@ export function useConfiguracion() {
     try {
       // Feedback inmediato en UI
       setStatusMessage("🔄 Subiendo voz...");
-      console.log("[handleUploadVoiceToUser] inicio", {
-        isRecording,
-        voiceConfirmed,
-        hasBlob: !!voiceBlob,
-      });
-      // En caso de carrera: si aún se está deteniendo el recorder, espera a que se genere el blob
-      const waitForVoiceBlob = (timeoutMs = 5000) =>
-        new Promise<Blob | null>((resolve) => {
-          const start = Date.now();
-          const tick = () => {
-            if (voiceBlob) return resolve(voiceBlob);
-            if (Date.now() - start >= timeoutMs) return resolve(null);
-            setTimeout(tick, 100);
-          };
-          tick();
-        });
-
-      let finalBlob: Blob | null = voiceBlob;
-      if (!finalBlob) {
-        if (mediaRecorder && isRecording) {
-          try {
-            // Forzar emisión de datos antes de detener
-            if (typeof (mediaRecorder as any).requestData === "function") {
-              try {
-                (mediaRecorder as any).requestData();
-              } catch {}
-            }
-            mediaRecorder.stop();
-            if ((mediaRecorder as any).stream) {
-              (mediaRecorder as any).stream
-                .getTracks()
-                .forEach((t: MediaStreamTrack) => t.stop());
-            }
-          } catch {}
-          finalBlob = await waitForVoiceBlob();
-          if (!finalBlob) {
-            setIsRecording(false);
-            console.warn(
-              "[handleUploadVoiceToUser] sin blob tras detener recorder"
-            );
-            return;
-          }
-        } else {
-          console.warn(
-            "[handleUploadVoiceToUser] no hay mediaRecorder/voiceBlob"
-          );
-          return;
-        }
+      if (!voiceBlob) {
+        alert("Primero graba tu voz y detecta la frase.");
+        return;
       }
       const userId = user?.user?.id ?? user?.user?.user_id;
       if (!userId) {
@@ -605,7 +391,7 @@ export function useConfiguracion() {
       const form = new FormData();
       form.append("user_id", String(userId));
       // Convertir a WAV para que el backend (preprocess_wav) lo procese correctamente
-      const wavBlob = await convertBlobToWav(finalBlob as Blob);
+      const wavBlob = await convertBlobToWav(voiceBlob as Blob);
       form.append("audio_file", wavBlob, "voice.wav");
 
       const tokenResp = await axiosInstance.post(
@@ -632,7 +418,6 @@ export function useConfiguracion() {
       setChangeVoiceModalOpen(false);
       setVoiceConfirmed(false);
       setVoiceBlob(null);
-      setIsRecording(false);
       console.log("[handleUploadVoiceToUser] éxito");
     } catch (e: any) {
       const status = e?.response?.status;

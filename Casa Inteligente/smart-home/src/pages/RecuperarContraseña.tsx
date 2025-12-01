@@ -34,6 +34,7 @@ export default function RecuperarContraseña() {
     // Estados biométricos
     biometricLoading,
     biometricStatus,
+    voiceTranscript,
     videoRef,
     availableCameras,
     selectedCameraId,
@@ -162,6 +163,12 @@ export default function RecuperarContraseña() {
                           {biometricStatus}
                         </p>
                       </div>
+                    )}
+
+                    {recoveryMethod === "voice" && voiceTranscript && (
+                      <p className="text-center text-purple-300 text-xs xs:text-sm italic mt-2">
+                        Detectado: "{voiceTranscript}"
+                      </p>
                     )}
 
                     {error && (

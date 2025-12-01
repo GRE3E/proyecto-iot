@@ -37,6 +37,7 @@ export function useRecuperarContra() {
   const voiceWavBlobRef = useRef<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
   const [faceModalOpen, setFaceModalOpen] = useState(false);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>(
     []
@@ -136,6 +137,7 @@ export function useRecuperarContra() {
     setBiometricLoading(false);
     voiceWavBlobRef.current = null;
     setVoiceReady(false);
+    setVoiceTranscript("");
   }, []);
 
   const enumerateCameras = useCallback(async () => {
@@ -273,12 +275,15 @@ export function useRecuperarContra() {
           const txt = Array.from(ev.results)
             .map((r: any) => r[0]?.transcript || "")
             .join(" ");
+          setVoiceTranscript(txt);
           const ok = normalize(txt).includes(targetPhrase);
           if (ok) {
             setBiometricStatus("Frase detectada ✓");
             setVoiceReady(true);
           } else {
-            setBiometricStatus("Frase incorrecta. Intenta nuevamente.");
+            setBiometricStatus(
+              "No se detectó la frase correcta. Por favor di: 'Murphy soy parte del hogar'."
+            );
             setVoiceReady(false);
           }
         };
@@ -318,34 +323,8 @@ export function useRecuperarContra() {
         setBiometricStatus("Audio capturado ✓");
         setBiometricLoading(false);
         setIsRecording(false);
-        // Fallback: validar frase en backend cuando SpeechRecognition no está disponible
-        // o cuando aún no se ha marcado voiceReady
-        try {
-          if (!voiceReady) {
-            const fd = new FormData();
-            fd.append("audioFile", audioBlob, "audio.webm");
-            const resp = await axiosInstance.post(
-              "/hotword/hotword/process_audio/auth",
-              fd,
-              { headers: { "Content-Type": undefined } }
-            );
-            const text = (
-              resp?.data?.transcribed_text ||
-              resp?.data?.text ||
-              ""
-            ).toString();
-            const ok = normalize(text).includes(targetPhrase);
-            if (ok) {
-              setBiometricStatus("Frase detectada ✓");
-              setVoiceReady(true);
-            } else {
-              setBiometricStatus("Frase incorrecta. Intenta nuevamente.");
-              setVoiceReady(false);
-            }
-          }
-        } catch (e) {
-          // No bloquear si la validación de backend falla; se puede reintentar
-        }
+        // Sin uso de hotword en recuperación: si SpeechRecognition no está disponible,
+        // permitir continuar con la validación de hablante en backend.
         try {
           await ctx.close();
         } catch {}
@@ -613,6 +592,7 @@ export function useRecuperarContra() {
     // Estados biométricos
     biometricLoading,
     biometricStatus,
+    voiceTranscript,
     videoRef,
     canvasRef,
 

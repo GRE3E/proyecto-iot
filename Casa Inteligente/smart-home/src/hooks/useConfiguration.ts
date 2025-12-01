@@ -292,30 +292,12 @@ export function useConfiguracion() {
           const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
           setVoiceBlob(blob);
           setIsRecording(false);
-          if (!voiceConfirmed) {
-            try {
-              const fd = new FormData();
-              fd.append("audioFile", blob, "audio.webm");
-              const resp = await axiosInstance.post(
-                "/hotword/hotword/process_audio/auth",
-                fd,
-                { headers: { "Content-Type": undefined } }
-              );
-              const text =
-                resp?.data?.transcribed_text || resp?.data?.text || "";
-              const ok = normalize(text).includes(
-                normalize("murphy soy parte del hogar")
-              );
-              if (ok) {
-                setTranscript(text);
-                setStatusMessage("✅ Frase detectada por backend");
-                setVoiceConfirmed(true);
-              } else {
-                setStatusMessage("❌ No se detectó la frase correcta.");
-              }
-            } catch (e) {
-              setStatusMessage("⚠️ Error validando frase en backend");
-            }
+          // Fallback móvil: si no hay SpeechRecognition (WebView/Android), permitir guardar
+          if (!recognition) {
+            setStatusMessage(
+              "✅ Audio capturado. Tu dispositivo no soporta reconocimiento de frase. Puedes guardar tu voz."
+            );
+            setVoiceConfirmed(true);
           }
         };
         rec.start(200);

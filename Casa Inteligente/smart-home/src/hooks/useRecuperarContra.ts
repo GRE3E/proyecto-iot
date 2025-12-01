@@ -341,6 +341,16 @@ export function useRecuperarContra() {
 
   const captureFaceSnapshot = useCallback(async () => {
     try {
+      const ensurePreview = async () => {
+        const v = videoRef.current;
+        const hasStream = !!(v && v.srcObject);
+        const hasFrame = !!(v && v.videoWidth && v.videoHeight);
+        if (!hasStream || !hasFrame) {
+          await startFacePreview(selectedCameraId);
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      };
+      await ensurePreview();
       const imageBlob = await captureFrameBlob();
       if (!imageBlob) {
         setError("No se pudo capturar la imagen");

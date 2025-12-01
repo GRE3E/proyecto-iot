@@ -479,18 +479,20 @@ export function useConfiguracion() {
     }
   };
 
-  const handleVerifyFacePassword = async () => {
+  const handleVerifyFacePassword = async (): Promise<boolean> => {
     try {
       await axiosInstance.post("/auth/auth/verify-password", {
         current_password: facePassword,
       });
       setFacePasswordVerified(true);
       setStatusMessage("🔐 Contraseña verificada. Puedes agregar tu rostro.");
+      return true;
     } catch (e: any) {
       setFacePasswordVerified(false);
       const message =
         e?.response?.data?.detail || e?.message || "Contraseña incorrecta";
       alert(message);
+      return false;
     }
   };
 

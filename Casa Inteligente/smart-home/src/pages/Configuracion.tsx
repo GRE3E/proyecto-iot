@@ -125,6 +125,34 @@ export default function Configuracion() {
     const video = videoRef.current;
     if (!video) return;
     if (capturedPhotos.length >= 5) return;
+    if (!video.videoWidth || !video.videoHeight || !video.srcObject) {
+      // Intentar iniciar la cámara rápidamente si aún no está lista
+      const tryGet = async (constraints: MediaStreamConstraints) => {
+        try {
+          return await navigator.mediaDevices.getUserMedia(constraints);
+        } catch {
+          return null;
+        }
+      };
+      let s =
+        (await tryGet({
+          video: { width: 640, height: 480, facingMode: "user" },
+        })) ||
+        (await tryGet({
+          video: { width: 640, height: 480, facingMode: "environment" },
+        })) ||
+        (await tryGet({ video: true }));
+      if (s) {
+        try {
+          video.srcObject = s;
+          (video as any).muted = true;
+          (video as any).playsInline = true;
+          (video as any).autoplay = true;
+          await video.play().catch(() => {});
+        } catch {}
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
     const canvas = document.createElement("canvas");
     const w = video.videoWidth || 640;
     const h = video.videoHeight || 480;
@@ -467,7 +495,53 @@ export default function Configuracion() {
                 placeholder="Confirma tu contraseña"
               />
               <button
-                onClick={handleVerifyFacePassword}
+                onClick={async () => {
+                  const ok = await handleVerifyFacePassword();
+                  if (!ok) return;
+                  try {
+                    const v = videoRef.current;
+                    const tryGet = async (
+                      constraints: MediaStreamConstraints
+                    ) => {
+                      try {
+                        return await navigator.mediaDevices.getUserMedia(
+                          constraints
+                        );
+                      } catch {
+                        return null;
+                      }
+                    };
+                    if (v && !v.srcObject) {
+                      let s =
+                        (await tryGet({
+                          video: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "user",
+                          },
+                        })) ||
+                        (await tryGet({
+                          video: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment",
+                          },
+                        })) ||
+                        (await tryGet({ video: true }));
+                      if (s) {
+                        v.srcObject = s;
+                        try {
+                          (v as any).muted = true;
+                          (v as any).playsInline = true;
+                          (v as any).autoplay = true;
+                        } catch {}
+                        try {
+                          await v.play();
+                        } catch {}
+                      }
+                    }
+                  } catch {}
+                }}
                 className={`mt-2 px-4 py-2 rounded-lg text-sm ${colors.buttonActive}`}
               >
                 Verificar contraseña

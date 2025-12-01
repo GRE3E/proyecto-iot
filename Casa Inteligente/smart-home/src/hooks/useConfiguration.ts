@@ -36,11 +36,6 @@ export function useConfiguracion() {
   );
   const recordTimeoutRef = useRef<any>(null);
   const RECORD_DURATION_MS = 5000;
-  const normalize = (s: string) =>
-    s
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
 
   const [modalOwnerName, setModalOwnerName] = useState(ownerName);
   const [modalPassword, setModalPassword] = useState("");

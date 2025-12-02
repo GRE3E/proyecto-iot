@@ -110,6 +110,29 @@ async def recognize_face(
             with open(temp_path, "wb") as f:
                 f.write(await file.read())
             source_param = temp_path
+        elif source == "camera":
+            # Intentar usar CameraManager para evitar conflictos con el stream
+            try:
+                from src.api.camera_routes import get_camera_manager
+                mgr = get_camera_manager()
+                # Intentar obtener snapshot de la cámara "door" (principal)
+                jpg_bytes = mgr.get_snapshot("door")
+                
+                if jpg_bytes:
+                    logger.info("📸 Captura obtenida desde CameraManager para reconocimiento")
+                    suffix = ".jpg"
+                    temp_name = f"rc_cam_snap_{uuid.uuid4().hex}{suffix}"
+                    temp_dir = tempfile.gettempdir()
+                    temp_path = os.path.join(temp_dir, temp_name)
+                    with open(temp_path, "wb") as f:
+                        f.write(jpg_bytes)
+                    source_param = temp_path
+                else:
+                    logger.warning("⚠️ No se pudo obtener snapshot de CameraManager, intentando acceso directo...")
+                    source_param = "camera"
+            except Exception as e:
+                logger.error(f"Error al intentar usar CameraManager: {e}")
+                source_param = "camera"
         else:
             source_param = source
 

@@ -81,6 +81,7 @@ class FaceRecognizer:
                     if cached_encoding is not None:
                         self.known_face_encodings.append(cached_encoding)
                         self.known_face_names.append(user.nombre)
+                        logger.debug(f"Encoding cargado desde caché para: {user.nombre}")
                         continue
 
                     if user.face_embedding:
@@ -88,8 +89,9 @@ class FaceRecognizer:
                         self.known_face_encodings.append(encoding)
                         self.known_face_names.append(user.nombre)
                         self.encoding_cache.set(user.nombre, encoding)
+                        logger.debug(f"Encoding cargado desde DB para: {user.nombre}")
 
-            logger.info("Encodings cargados: %d usuarios", len(self.known_face_names))
+            logger.info(f" Encodings cargados: {len(self.known_face_names)} usuarios - {self.known_face_names}")
             return True
         except Exception as e:
             logger.error("Error cargando encodings conocidos: %s", e)
@@ -153,36 +155,60 @@ class FaceRecognizer:
         Realiza reconocimiento facial desde un archivo.
         """
         try:
+            logger.info(f"🔍 Iniciando reconocimiento desde archivo: {image_path}")
+            
             image = cv2.imread(image_path)
             if image is None:
-                logger.error("No se pudo cargar la imagen: %s", image_path)
+                logger.error(f" No se pudo cargar la imagen: {image_path}")
                 return []
 
+            logger.info(f" Imagen cargada correctamente. Tamaño original: {image.shape}")
+            
             image = cv2.resize(image, self.resize_dim)
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
+            
+            logger.info(f"🔎 Buscando caras en la imagen...")
             face_locations = face_recognition.face_locations(rgb_image, model="hog")
+            
             if not face_locations:
+                logger.warning(f"⚠️ No se detectaron caras en la imagen")
                 return []
+            
+            logger.info(f" Se detectaron {len(face_locations)} cara(s) en la imagen")
 
             face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
+            logger.info(f" Se extrajeron {len(face_encodings)} encoding(s)")
+            
             recognized_users = set()
 
-            for face_encoding in face_encodings:
+            for idx, face_encoding in enumerate(face_encodings):
+                logger.info(f" Comparando cara #{idx+1} con {len(self.known_face_encodings)} usuarios conocidos...")
+                
+                # Calcular distancias para debugging
+                face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
+                logger.info(f" Distancias: {dict(zip(self.known_face_names, face_distances))}")
+                
                 matches = face_recognition.compare_faces(
                     self.known_face_encodings, 
                     face_encoding,
                     tolerance=0.6
                 )
+                
                 if True in matches:
                     first_match_index = matches.index(True)
                     name = self.known_face_names[first_match_index]
+                    distance = face_distances[first_match_index]
+                    logger.info(f" ¡MATCH! Usuario reconocido: {name} (distancia: {distance:.3f})")
                     recognized_users.add(name)
+                else:
+                    min_distance = min(face_distances) if len(face_distances) > 0 else None
+                    logger.warning(f" No se encontró match. Distancia mínima: {min_distance:.3f if min_distance else 'N/A'}")
 
+            logger.info(f" Resultado final: {list(recognized_users) if recognized_users else 'Ningún usuario reconocido'}")
             return list(recognized_users)
 
         except Exception as e:
-            logger.error("Error en reconocimiento desde archivo: %s", e)
+            logger.error(f" Error en reconocimiento desde archivo: {e}", exc_info=True)
             return []
 
     def clear_cache(self):

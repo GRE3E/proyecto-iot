@@ -155,7 +155,7 @@ class FaceRecognizer:
         Realiza reconocimiento facial desde un archivo.
         """
         try:
-            logger.info(f"🔍 Iniciando reconocimiento desde archivo: {image_path}")
+            logger.info(f" Iniciando reconocimiento desde archivo: {image_path}")
             
             image = cv2.imread(image_path)
             if image is None:
@@ -167,11 +167,11 @@ class FaceRecognizer:
             image = cv2.resize(image, self.resize_dim)
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             
-            logger.info(f"🔎 Buscando caras en la imagen...")
+            logger.info(f" Buscando caras en la imagen...")
             face_locations = face_recognition.face_locations(rgb_image, model="hog")
             
             if not face_locations:
-                logger.warning(f"⚠️ No se detectaron caras en la imagen")
+                logger.warning(f" No se detectaron caras en la imagen")
                 return []
             
             logger.info(f" Se detectaron {len(face_locations)} cara(s) en la imagen")
@@ -186,7 +186,7 @@ class FaceRecognizer:
                 
                 # Calcular distancias para debugging
                 face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
-                logger.info(f" Distancias: {dict(zip(self.known_face_names, face_distances))}")
+                logger.info(f"Distancias: {dict(zip(self.known_face_names, face_distances))}")
                 
                 matches = face_recognition.compare_faces(
                     self.known_face_encodings, 

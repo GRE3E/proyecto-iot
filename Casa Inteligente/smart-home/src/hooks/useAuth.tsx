@@ -15,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   accessToken: string | null;
   checkAuth: () => Promise<void>;
+  isPostLoginTransition: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
@@ -27,6 +28,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isPostLoginTransition, setIsPostLoginTransition] =
+    useState<boolean>(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
@@ -40,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const profile = await authService.getProfile();
         setUser(profile);
         setIsAuthenticated(true);
+        // La lógica de isPostLoginTransition se ha movido a la función login
       } catch (error: any) {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -60,7 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [checkAuth]);
 
   const login = useCallback(async (username: string, password: string) => {
-    setIsLoading(true);
     try {
       const response: LoginResponse = await authService.login(
         username,
@@ -72,13 +75,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const profile = await authService.getProfile();
       setUser(profile);
       setIsAuthenticated(true);
+      setIsPostLoginTransition(true);
+      console.log("setIsPostLoginTransition(true) called in login function");
+      setTimeout(() => {
+        setIsPostLoginTransition(false);
+      }, 2000); // Duración de la animación de la puerta
     } catch (error) {
       setIsAuthenticated(false);
       setUser(null);
       setAccessToken(null);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -99,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         isLoading,
         accessToken,
         checkAuth,
+        isPostLoginTransition,
       }}
     >
       {children}

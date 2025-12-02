@@ -1,10 +1,20 @@
 "use client";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useThemeByTime } from "./hooks/useThemeByTime";
-import { Home, Settings, Monitor, Shield, MessageCircle, Cpu, ListTodo, Music } from "lucide-react";
+import {
+  Home,
+  Settings,
+  Monitor,
+  Shield,
+  MessageCircle,
+  Cpu,
+  ListTodo,
+  Music,
+} from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import HamburgerMenu from "./components/Layout/Sidebar";
-import { DoorTransition } from "./pages/login";
+import DoorTransition from "./components/transitions/DoorTransition";
+import "./styles/animations.css";
 
 const Login = lazy(() => import("./pages/login"));
 const RecuperarContraseña = lazy(() => import("./pages/RecuperarContraseña"));
@@ -18,10 +28,20 @@ const Rutinas = lazy(() => import("./pages/Rutinas"));
 const Musica = lazy(() => import("./pages/Musica"));
 
 export default function App() {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout, isPostLoginTransition } =
+    useAuth();
+  console.log(
+    "isLoading en App.tsx:",
+    isLoading,
+    "isAuthenticated:",
+    isAuthenticated,
+    "isPostLoginTransition:",
+    isPostLoginTransition
+  );
   const [selectedMenu, setSelectedMenu] = useState("Inicio");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { colors, theme } = useThemeByTime();
+  console.log("Valor de theme:", theme);
 
   const menuItems = [
     { name: "Inicio", icon: Home },
@@ -36,15 +56,16 @@ export default function App() {
 
   const pathByMenu = useMemo<Record<string, string>>(
     () => ({
-      "Inicio": "/inicio",
+      Inicio: "/inicio",
       "Casa 3D": "/casa3d",
       "Gestión de Dispositivos": "/dispositivos",
       "Monitoreo y Seguridad": "/seguridad",
-      "Música": "/musica",
-      "Chat": "/chat",
-      "Rutinas": "/rutinas",
-      "Configuración": "/configuracion",
+      Música: "/musica",
+      Chat: "/chat",
+      Rutinas: "/rutinas",
+      Configuración: "/configuracion",
       "Recuperar Contraseña": "/recuperar",
+      Login: "/login",
     }),
     []
   );
@@ -60,6 +81,7 @@ export default function App() {
       "/rutinas": "Rutinas",
       "/configuracion": "Configuración",
       "/recuperar": "Recuperar Contraseña",
+      "/login": "Login",
     }),
     []
   );
@@ -68,9 +90,10 @@ export default function App() {
 
   useEffect(() => {
     const current = window.location.pathname;
-    const initial = menuByPath[current] || "Inicio";
+    const initial =
+      menuByPath[current] || (isAuthenticated ? "Inicio" : "Login");
     setSelectedMenu(initial);
-  }, [menuByPath]);
+  }, [menuByPath, isAuthenticated]);
 
   useEffect(() => {
     const handler = () => {
@@ -90,12 +113,16 @@ export default function App() {
   }, [selectedMenu, pathByMenu]);
 
   useEffect(() => {
-    if (isAuthenticated && window.location.pathname === "/login") {
-      setSelectedMenu("Inicio");
+    if (isAuthenticated) {
+      if (window.location.pathname === "/login") {
+        setSelectedMenu("Inicio");
+      }
+    } else {
+      setSelectedMenu("Login");
     }
   }, [isAuthenticated]);
 
-  if (isLoading) {
+  if (isLoading || isPostLoginTransition) {
     return <DoorTransition theme={theme as "dark" | "light"} />;
   }
 
@@ -141,8 +168,12 @@ export default function App() {
             <Suspense fallback={<div>Cargando contenido...</div>}>
               {selectedMenu === "Inicio" && <Inicio />}
               {selectedMenu === "Casa 3D" && <Casa3d />}
-              {selectedMenu === "Gestión de Dispositivos" && <GestionDispositivos />}
-              {selectedMenu === "Monitoreo y Seguridad" && <MonitoreoSeguridad />}
+              {selectedMenu === "Gestión de Dispositivos" && (
+                <GestionDispositivos />
+              )}
+              {selectedMenu === "Monitoreo y Seguridad" && (
+                <MonitoreoSeguridad />
+              )}
               {selectedMenu === "Música" && <Musica />}
               {selectedMenu === "Chat" && <Chat />}
               {selectedMenu === "Rutinas" && <Rutinas />}

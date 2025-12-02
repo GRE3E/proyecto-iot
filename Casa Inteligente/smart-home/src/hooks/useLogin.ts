@@ -10,6 +10,7 @@ export function useLogin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [showErrorModal, setShowErrorModal] = useState(false); // Nuevo estado para controlar la visibilidad del modal de error
   const [isLoading, setIsLoading] = useState(false);
   const [showDoorTransition, setShowDoorTransition] = useState(false);
   const { theme: themeByTime } = useThemeByTime() as { theme: ThemeMode };
@@ -21,6 +22,7 @@ export function useLogin() {
 
       if (!username || !password) {
         setError("⚠ Por favor ingrese usuario y contraseña");
+        setShowErrorModal(true); // Mostrar modal de error
         return;
       }
 
@@ -28,9 +30,10 @@ export function useLogin() {
       setIsLoading(true);
 
       try {
+        console.log("Intentando autenticar...");
         await authLogin(username, password); // Usar la función login del contexto
 
-        console.log("✅ Login completado");
+        console.log("✅ Login completado. Mostrando transición de puerta.");
         setShowDoorTransition(true);
 
         // Inicia efecto de zoom o animación
@@ -43,8 +46,15 @@ export function useLogin() {
           console.log("🟢 Ejecutando onLogin()");
         }, 4000);
       } catch (err: any) {
+        console.log("Error capturado en handleLogin.");
         console.error("Error durante el login:", err.message, err);
-        setError(err.response?.data?.message || "Error de autenticación");
+        setError(err.response?.data?.detail || "Credenciales incorrectas");
+        setShowErrorModal(true); // Mostrar modal de error
+        setTimeout(() => {
+          closeErrorModal();
+        }, 1500); // Auto-cerrar modal después de 1.5 segundos
+      } finally {
+        console.log("Finalizando handleLogin.");
         setIsLoading(false);
       }
     },
@@ -57,6 +67,11 @@ export function useLogin() {
     },
     [isLoading, handleLogin]
   );
+
+  const closeErrorModal = useCallback(() => {
+    setShowErrorModal(false);
+    setError("");
+  }, []);
 
   return {
     username,
@@ -71,5 +86,7 @@ export function useLogin() {
     themeByTime,
     handleLogin,
     handleKeyPress,
+    showErrorModal,
+    closeErrorModal,
   };
 }

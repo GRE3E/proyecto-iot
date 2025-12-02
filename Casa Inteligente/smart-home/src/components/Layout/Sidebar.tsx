@@ -1,4 +1,3 @@
-// Menú Hamburguesa - Versión con bordes en todos los ítems
 import { useEffect, useRef, useState } from "react"
 import { Home, LogOut } from "lucide-react"
 import { useThemeByTime } from "../../hooks/useThemeByTime"
@@ -62,6 +61,25 @@ export default function HamburgerMenu({
     }, 2100)
   }
 
+  /* ==========================================================
+     CLASES CONDICIONALES SEGÚN TEMA (más gris en light)
+  ========================================================== */
+  const menuButtonBase = `flex items-center ${
+    isSidebarOpen ? "justify-start px-5" : "justify-center"
+  } gap-3 text-sm font-medium py-2 rounded-xl w-11/12 transition-all duration-300 overflow-hidden border`
+
+  const menuButtonLight = {
+    inactive: "bg-gray-100/80 border-gray-300 hover:bg-gray-200 hover:border-gray-400 text-gray-700",
+    active:   "bg-gray-800 border-gray-600 text-white shadow-lg"
+  }
+
+  const menuButtonDark = {
+    inactive: `${colors.cardHover} border-gray-600/40 hover:border-gray-500 text-gray-300`,
+    active:   `bg-gradient-to-r ${colors.primary} text-white border-gray-500 shadow-lg`
+  }
+
+  const buttonStyles = currentTheme === "light" ? menuButtonLight : menuButtonDark
+
   return (
     <>
       {/* Fondo animado de transición */}
@@ -84,7 +102,6 @@ export default function HamburgerMenu({
               : "linear-gradient(180deg, rgba(8,12,24,0.95) 0%, rgba(6,10,20,0.95) 100%)",
           }}
         >
-          {/* ... (el resto de la animación de puertas se mantiene igual) */}
           <div className="absolute inset-0">
             <div className="absolute inset-0" style={{ perspective: "2000px" }}>
               <div className="absolute left-0 top-0 w-1/2 h-full origin-left animate-door-close-left" style={{ transformStyle: "preserve-3d" }}>
@@ -106,7 +123,9 @@ export default function HamburgerMenu({
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Abrir menú"
-            className={`h-11 w-11 flex flex-col justify-center items-center rounded-xl bg-gradient-to-r ${colors.primary} shadow-lg transition-transform duration-200 active:scale-95 ${colors.text}`}
+            className={`h-11 w-11 flex flex-col justify-center items-center rounded-xl bg-gradient-to-r ${
+              currentTheme === "light" ? "from-gray-200 to-gray-300" : colors.primary
+            } shadow-lg transition-transform duration-200 active:scale-95 text-gray-700`}
           >
             <span className="block h-[2px] w-6 bg-current rounded-sm mb-[3px]" />
             <span className="block h-[2px] w-6 bg-current rounded-sm mb-[3px]" />
@@ -145,7 +164,11 @@ export default function HamburgerMenu({
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 disabled={isLoggingOut}
-                className={`w-11/12 h-12 flex flex-col justify-center items-center gap-[3px] rounded-2xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${colors.text}`}
+                className={`w-11/12 h-12 flex flex-col justify-center items-center gap-[3px] rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                  currentTheme === "light"
+                    ? "bg-gray-200 text-gray-700"
+                    : `${colors.primary} ${colors.text}`
+                }`}
               >
                 <span className="block h-[2px] w-6 bg-current rounded-sm" />
                 <span className="block h-[2px] w-6 bg-current rounded-sm" />
@@ -159,12 +182,20 @@ export default function HamburgerMenu({
                   onClick={() => setIsSidebarOpen(false)}
                   disabled={isLoggingOut}
                   aria-label="Cerrar menú"
-                  className={`h-12 w-14.5 flex items-center justify-center rounded-xl bg-gradient-to-r ${colors.primary} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0`}
+                  className={`h-12 w-14.5 flex items-center justify-center rounded-xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] active:scale-[0.97] flex-shrink-0 ${
+                    currentTheme === "light"
+                      ? "bg-gray-200 text-gray-700"
+                      : `${colors.primary}`
+                  }`}
                 >
-                  <Home className={`w-6 h-6 transition-transform duration-300 hover:scale-110 ${colors.icon}`} />
+                  <Home className={`w-6 h-6 transition-transform duration-300 hover:scale-110 ${
+                    currentTheme === "light" ? "text-gray-700" : colors.icon
+                  }`} />
                 </button>
 
-                <h1 className={`text-xl md:text-2xl font-bold bg-gradient-to-r ${colors.primary} bg-clip-text text-transparent tracking-tight whitespace-nowrap`}>
+                <h1 className={`text-xl md:text-2xl font-bold bg-gradient-to-r ${
+                  currentTheme === "light" ? "from-gray-600 to-gray-800" : colors.primary
+                } bg-clip-text text-transparent tracking-tight whitespace-nowrap`}>
                   SmartHome
                 </h1>
               </div>
@@ -172,7 +203,7 @@ export default function HamburgerMenu({
           </div>
         </div>
 
-        {/* === Navegación - AHORA TODOS TIENEN BORDE === */}
+        {/* === Navegación - AHORA MÁS GRIS EN MODO CLARO === */}
         <nav className="flex flex-col gap-3 items-center w-full flex-grow mt-10 relative">
           {menuItems.map((menu) => {
             const IconComponent = menu.icon
@@ -183,20 +214,22 @@ export default function HamburgerMenu({
                 key={menu.name}
                 onClick={() => handleSelect(menu)}
                 disabled={isLoggingOut}
-                className={`flex items-center ${
-                  isSidebarOpen ? "justify-start px-5" : "justify-center"
-                } gap-3 text-sm font-medium py-2 rounded-xl w-11/12 transition-all duration-300 overflow-hidden
-                  /* Borde siempre visible */
-                  border 
-                  /* Borde más oscuro cuando NO está activo */
-                  ${isActive 
-                    ? `bg-gradient-to-r ${colors.primary} text-white border-white/20 shadow-lg` 
-                    : `${colors.cardHover} border-white/10 hover:border-white/20`
-                  }`}
+                className={`
+                  ${menuButtonBase}
+                  ${isActive ? buttonStyles.active : buttonStyles.inactive}
+                `}
               >
-                <IconComponent className={`w-6 h-6 shrink-0 ${isActive ? "text-white" : colors.icon}`} />
+                <IconComponent
+                  className={`w-6 h-6 shrink-0 ${
+                    isActive
+                      ? "text-white"
+                      : currentTheme === "light"
+                        ? "text-gray-600"
+                        : colors.icon
+                  }`}
+                />
                 {isSidebarOpen && (
-                  <span className={`truncate ${isActive ? "text-white" : ""}`}>
+                  <span className={isActive ? "text-white" : currentTheme === "light" ? "text-gray-700" : "text-gray-300"}>
                     {menu.name}
                   </span>
                 )}

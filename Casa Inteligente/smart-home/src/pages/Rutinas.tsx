@@ -14,7 +14,6 @@ import {
   Zap,
   AlertCircle,
   X,
-  Plus,
   Mic,
 } from "lucide-react";
 import SimpleButton from "../components/UI/Button";
@@ -399,18 +398,6 @@ export default function Rutinas() {
       {/* Contenido Sugerencias */}
       {activeSection === "sugerencias" && (
         <div className="space-y-4">
-          <div className="flex justify-center">
-            <SimpleButton
-              onClick={() => generateSuggestions()}
-              active
-              disabled={isLoadingSuggestions}
-            >
-              <div className="flex items-center gap-2">
-                <Wand2 className="w-5 h-5" />
-                {isLoadingSuggestions ? "Generando..." : "Generar Sugerencias"}
-              </div>
-            </SimpleButton>
-          </div>
 
           {isLoadingSuggestions && suggestions.length === 0 ? (
             <SimpleCard className="p-8 text-center">
@@ -508,12 +495,15 @@ export default function Rutinas() {
           setEditingId(null);
           setFormData(INITIAL_FORM);
         }}
-        panelClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
+        panelClassName="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 scrollbar-track-transparent"
       >
-        <div className="space-y-6">
+        <div className="space-y-6 pr-1">
           {/* Información General */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">📋 Información General</h3>
+          <div className="space-y-4 pb-4 border-b border-slate-700/50">
+            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+              <ListTodo className="w-5 h-5" />
+              Información General
+            </h3>
 
             <div>
               <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
@@ -544,195 +534,257 @@ export default function Rutinas() {
               />
             </div>
 
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.enabled}
-                onChange={(e) =>
-                  setFormData({ ...formData, enabled: e.target.checked })
-                }
-                className="w-5 h-5 rounded accent-cyan-500"
-              />
-              <span className="font-semibold">Habilitar rutina</span>
-            </label>
+            <button
+              onClick={() =>
+                setFormData({ ...formData, enabled: !formData.enabled })
+              }
+              className={`w-full py-2 px-4 rounded-lg font-semibold transition-all ${
+                formData.enabled
+                  ? `bg-gradient-to-r ${colors.primary} text-white`
+                  : `${colors.chipBg} ${colors.chipText} hover:bg-slate-700/60`
+              }`}
+            >
+              ✓ {formData.enabled ? "Habilitada" : "Deshabilitada"}
+            </button>
           </div>
 
           {/* Disparador */}
-          <div className={`space-y-4 p-4 rounded-lg ${colors.cardBg}`}>
-            <h3 className="text-lg font-semibold">🎙️ Disparador</h3>
+          <div className="space-y-4 pb-4 border-b border-slate-700/50">
+            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+              <Mic className="w-5 h-5" />
+              Disparador
+            </h3>
 
-            <select
-              value={formData.triggerType}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  triggerType: e.target.value as any,
-                })
-              }
-              className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-            >
-              <option value="NLP">Comando de voz</option>
-              <option value="Tiempo">Programado</option>
-              <option value="Evento">Evento de dispositivo</option>
-            </select>
+            <div>
+              <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                Tipo de activación
+              </label>
+              <select
+                value={formData.triggerType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    triggerType: e.target.value as any,
+                  })
+                }
+                className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+              >
+                <option value="NLP">🎤 Comando de voz</option>
+                <option value="Tiempo">⏰ Programado</option>
+                <option value="Evento">📡 Evento de dispositivo</option>
+              </select>
+            </div>
 
             {/* NLP */}
             {formData.triggerType === "NLP" && (
-              <input
-                type="text"
-                value={formData.nlpPhrase}
-                onChange={(e) =>
-                  setFormData({ ...formData, nlpPhrase: e.target.value })
-                }
-                placeholder='Ej: "Buenas noches"'
-                className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-              />
+              <div>
+                <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                  ¿Qué frase activará esta rutina?
+                </label>
+                <input
+                  type="text"
+                  value={formData.nlpPhrase}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nlpPhrase: e.target.value })
+                  }
+                  placeholder='Ej: "Buenas noches"'
+                  className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                />
+              </div>
             )}
 
             {/* Tiempo */}
             {formData.triggerType === "Tiempo" && (
               <div className="space-y-3">
-                <input
-                  type="time"
-                  value={formData.timeHour}
-                  onChange={(e) =>
-                    setFormData({ ...formData, timeHour: e.target.value })
-                  }
-                  className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                />
-
-                <div className="grid grid-cols-4 gap-2">
-                  {DAY_LABELS.map((day) => (
-                    <button
-                      key={day}
-                      onClick={() => handleToggleDay(day)}
-                      className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
-                        formData.timeDays.includes(day)
-                          ? `bg-gradient-to-r ${colors.primary} text-white`
-                          : `${colors.chipBg} ${colors.chipText}`
-                      }`}
-                    >
-                      {day.slice(0, 3)}
-                    </button>
-                  ))}
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    Hora
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.timeHour}
+                    onChange={(e) =>
+                      setFormData({ ...formData, timeHour: e.target.value })
+                    }
+                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                  />
                 </div>
 
-                <input
-                  type="date"
-                  value={formData.timeDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, timeDate: e.target.value })
-                  }
-                  className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                />
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    Días
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {DAY_LABELS.map((day) => (
+                      <button
+                        key={day}
+                        onClick={() => handleToggleDay(day)}
+                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+                          formData.timeDays.includes(day)
+                            ? `bg-gradient-to-r ${colors.primary} text-white`
+                            : `${colors.chipBg} ${colors.chipText}`
+                        }`}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    Fecha específica (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.timeDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, timeDate: e.target.value })
+                    }
+                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                  />
+                </div>
               </div>
             )}
 
             {/* Evento */}
             {formData.triggerType === "Evento" && (
               <div className="space-y-3">
-                <select
-                  value={formData.deviceId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, deviceId: e.target.value })
-                  }
-                  className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                >
-                  {DEVICE_OPTIONS.map((dev) => (
-                    <option key={dev.id} value={dev.id}>
-                      {dev.name}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedDevice && (
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    Dispositivo
+                  </label>
                   <select
-                    value={formData.deviceEvent}
+                    value={formData.deviceId}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deviceEvent: e.target.value,
-                      })
+                      setFormData({ ...formData, deviceId: e.target.value })
                     }
                     className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
                   >
-                    {selectedDevice.events.map((event) => (
-                      <option key={event} value={event}>
-                        {event}
+                    {DEVICE_OPTIONS.map((dev) => (
+                      <option key={dev.id} value={dev.id}>
+                        {dev.name}
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {selectedDevice && (
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                      Evento
+                    </label>
+                    <select
+                      value={formData.deviceEvent}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          deviceEvent: e.target.value,
+                        })
+                      }
+                      className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                    >
+                      {selectedDevice.events.map((event) => (
+                        <option key={event} value={event}>
+                          {event}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={formData.condOperator}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        condOperator: e.target.value as any,
-                      })
-                    }
-                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                  >
-                    <option value="">Sin condición</option>
-                    <option value=">">Mayor que</option>
-                    <option value="<">Menor que</option>
-                    <option value="=">Igual a</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                      Operador
+                    </label>
+                    <select
+                      value={formData.condOperator}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          condOperator: e.target.value as any,
+                        })
+                      }
+                      className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                    >
+                      <option value="">Sin condición</option>
+                      <option value=">">Mayor que</option>
+                      <option value="<">Menor que</option>
+                      <option value="=">Igual a</option>
+                    </select>
+                  </div>
 
-                  <input
-                    type="number"
-                    value={formData.condValue}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        condValue: e.target.value
-                          ? Number(e.target.value)
-                          : "",
-                      })
-                    }
-                    placeholder="0"
-                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                  />
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                      Valor
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.condValue}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          condValue: e.target.value
+                            ? Number(e.target.value)
+                            : "",
+                        })
+                      }
+                      placeholder="0"
+                      className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                    />
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Acciones */}
-          <div className={`space-y-3 p-4 rounded-lg ${colors.cardBg}`}>
-            <h3 className="text-lg font-semibold">⚡ Acciones</h3>
+          <div className="space-y-4 pb-4 border-b border-slate-700/50">
+            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+              <Zap className="w-5 h-5" />
+              Acciones
+            </h3>
 
             {availableActions.length > 0 && (
               <div>
-                <p className={`text-sm font-semibold mb-2 ${colors.mutedText}`}>
-                  Comandos IoT
+                <p className={`text-sm font-semibold mb-3 ${colors.mutedText}`}>
+                  Comandos IoT a ejecutar
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 scrollbar-track-transparent">
                   {availableActions.map((action) => (
-                    <label
+                    <button
                       key={action.id}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-slate-700/30 cursor-pointer"
+                      onClick={() => handleToggleAction(action.id)}
+                      className={`w-full flex items-center justify-between p-3 rounded-lg font-medium transition-all border ${
+                        formData.actionIds.includes(action.id)
+                          ? `bg-gradient-to-r ${colors.primary} text-white border-transparent shadow-lg`
+                          : `${colors.cardBg} ${colors.text} border-slate-700/50 hover:border-slate-600/80 hover:bg-slate-800/40`
+                      }`}
                     >
-                      <input
-                        type="checkbox"
-                        checked={formData.actionIds.includes(action.id)}
-                        onChange={() => handleToggleAction(action.id)}
-                        className="w-4 h-4 rounded accent-cyan-500"
-                      />
                       <span className="text-sm">{action.name}</span>
-                    </label>
+                      <div
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          formData.actionIds.includes(action.id)
+                            ? "border-white bg-white/20"
+                            : "border-slate-500"
+                        }`}
+                      >
+                        {formData.actionIds.includes(action.id) && (
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
             <div>
-              <p className={`text-sm font-semibold mb-2 ${colors.mutedText}`}>
+              <p className={`text-sm font-semibold mb-3 ${colors.mutedText}`}>
                 Mensajes de voz
               </p>
-              <div className="flex gap-2 mb-2">
+              <div className="flex gap-2 mb-3">
                 <input
                   type="text"
                   value={formData.ttsInput}
@@ -747,18 +799,18 @@ export default function Rutinas() {
                 />
                 <button
                   onClick={handleAddTtsMessage}
-                  className={`px-4 py-2 rounded-lg font-semibold ${colors.chipBg} hover:bg-slate-700/60`}
+                  className="px-4 py-2 rounded-lg font-semibold bg-cyan-500 hover:bg-cyan-600 text-white transition-all"
                 >
-                  <Plus className="w-5 h-5" />
+                  Añadir
                 </button>
               </div>
 
               {formData.ttsMessages.length > 0 && (
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+                <div className="space-y-2 scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 scrollbar-track-transparent">
                   {formData.ttsMessages.map((msg, i) => (
                     <div
                       key={i}
-                      className={`flex items-center justify-between p-2 rounded-lg ${colors.chipBg}`}
+                      className={`flex items-center justify-between p-3 rounded-lg ${colors.chipBg}`}
                     >
                       <span className="text-sm flex items-center gap-2">
                         <Mic className="w-4 h-4" />
@@ -766,7 +818,7 @@ export default function Rutinas() {
                       </span>
                       <button
                         onClick={() => handleRemoveTtsMessage(i)}
-                        className="hover:text-red-400"
+                        className="hover:text-red-400 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -778,7 +830,7 @@ export default function Rutinas() {
           </div>
 
           {/* Botones */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end pt-2">
             <button
               onClick={() => {
                 setIsFormOpen(false);

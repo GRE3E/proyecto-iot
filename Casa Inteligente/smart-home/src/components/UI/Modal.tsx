@@ -79,6 +79,6 @@ export default function Modal({
         </motion.div>
       )}
     </AnimatePresence>,
-    document.body // 🔥 se renderiza sobre todo
+    document.body 
   );
 }

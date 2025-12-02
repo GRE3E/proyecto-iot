@@ -2,13 +2,12 @@
 
 import SimpleCard from "../UI/Card";
 import { Sun, Cloud, CloudRain } from "lucide-react";
-import { getWeatherData } from "../../utils/widgetUtils";
 import { useTimeData } from "../../hooks/useTimeData";
 import { useWeatherData } from "../../hooks/useWeatherData";
 import { useThemeByTime } from "../../hooks/useThemeByTime";
 
 export default function AnimatedClockWidget() {
-  const { timeData, currentTime } = useTimeData();
+  const { currentTime } = useTimeData();
   const { weather } = useWeatherData();
   const { theme, colors } = useThemeByTime();
 
@@ -31,18 +30,65 @@ export default function AnimatedClockWidget() {
   const temperature = weather?.temperature ?? 22;
   const humidity = weather?.humidity ?? 47;
   const wind = Math.round(weather?.wind_speed ?? 3);
-  const weatherCondition = weather?.description ?? "Agradable";
 
-  const weatherDisplay = getWeatherData(temperature, weatherCondition);
+  // Función para traducir/corregir descripciones de portugués a español
+  const translateWeatherDescription = (description: string): string => {
+    const translations: Record<string, string> = {
+      nuboso: "nublado",
+      "muito nuboso": "muy nublado",
+      "muy nuboso": "muy nublado",
+      "parcialmente nuboso": "parcialmente nublado",
+      nublado: "nublado",
+      nubes: "nubes",
+      "nubes dispersas": "nubes dispersas",
+      "lluvia ligera": "lluvia ligera",
+      lluvia: "lluvia",
+      chuva: "lluvia",
+      sol: "despejado",
+      despejado: "despejado",
+      "cielo despejado": "cielo despejado",
+      "cielo claro": "cielo despejado",
+    };
 
-  const forecast = [
-    { day: "LUN", icon: Cloud, hi: 30, lo: 21 },
-    { day: "MAR", icon: Sun, hi: 32, lo: 22 },
-    { day: "MIER", icon: Sun, hi: 31, lo: 21 },
-    { day: "JUV", icon: CloudRain, hi: 28, lo: 20 },
-    { day: "VIE", icon: Sun, hi: 30, lo: 21 },
-    { day: "SAB", icon: Cloud, hi: 29, lo: 22 },
-  ];
+    const lowerDesc = description.toLowerCase();
+    return translations[lowerDesc] || description;
+  };
+
+  // Usar directamente la descripción del API con traducción
+  const rawDescription = weather?.description ?? "Agradable";
+  const weatherDescription = translateWeatherDescription(rawDescription);
+  const weatherLabel =
+    weatherDescription.charAt(0).toUpperCase() + weatherDescription.slice(1);
+
+  // Mapeo de weather_code a iconos
+  const getWeatherIcon = (code: number) => {
+    if (code >= 200 && code < 300) return CloudRain; // Tormenta
+    if (code >= 300 && code < 600) return CloudRain; // Lluvia
+    if (code >= 600 && code < 700) return Cloud; // Nieve
+    if (code >= 801) return Cloud; // Nublado
+    return Sun; // Despejado
+  };
+
+  // Generar pronóstico desde datos del API
+  const forecast = weather?.daily
+    ? weather.daily.time.slice(0, 6).map((date, index) => {
+        const dateObj = new Date(date);
+        const dayNames = ["DOM", "LUN", "MAR", "MIE", "JUV", "VIE", "SAB"];
+        const day = dayNames[dateObj.getDay()];
+        const icon = getWeatherIcon(weather.daily!.weather_code[index]);
+        const hi = Math.round(weather.daily!.temperature_2m_max[index]);
+        const lo = Math.round(weather.daily!.temperature_2m_min[index]);
+        return { day, icon, hi, lo };
+      })
+    : [
+        // Fallback si no hay datos del API
+        { day: "LUN", icon: Cloud, hi: 30, lo: 21 },
+        { day: "MAR", icon: Sun, hi: 32, lo: 22 },
+        { day: "MIER", icon: Sun, hi: 31, lo: 21 },
+        { day: "JUV", icon: CloudRain, hi: 28, lo: 20 },
+        { day: "VIE", icon: Sun, hi: 30, lo: 21 },
+        { day: "SAB", icon: Cloud, hi: 29, lo: 22 },
+      ];
 
   // Extraer horas y minutos para las manecillas del reloj
   const hours = currentTime.getHours() % 12;
@@ -118,12 +164,6 @@ export default function AnimatedClockWidget() {
           <div className={`text-xs font-medium mt-3 ${colors.dateText}`}>
             {formattedDate}
           </div>
-
-          {timeData && (
-            <div className={`text-xs mt-2 ${colors.timezoneText}`}>
-              {timeData.location_name} • {timeData.timezone_name}
-            </div>
-          )}
         </div>
 
         {/* Right: Weather */}
@@ -141,7 +181,7 @@ export default function AnimatedClockWidget() {
                 <p
                   className={`text-lg md:text-xl font-bold ${colors.weatherAdvice}`}
                 >
-                  {weatherDisplay.label}
+                  {weatherLabel}
                 </p>
               </div>
               <div className="text-right">
@@ -152,12 +192,6 @@ export default function AnimatedClockWidget() {
                 </p>
               </div>
             </div>
-
-            <p
-              className={`text-xs md:text-sm italic leading-relaxed ${colors.weatherAdvice}`}
-            >
-              {weatherDisplay.advice}
-            </p>
 
             <div className="flex gap-3 mt-2">
               <div

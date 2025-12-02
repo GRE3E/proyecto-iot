@@ -12,6 +12,13 @@ interface WeatherData {
   pressure: number;
   visibility: number;
   location_name?: string;
+  daily?: {
+    time: string[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+    weather_code: number[];
+    precipitation_sum: number[];
+  };
 }
 
 interface LocationCoords {
@@ -42,7 +49,7 @@ export function useWeatherData() {
         console.log("[useWeatherData] API Response:", response.data);
 
         if (response.data && response.data.current) {
-          // La respuesta tiene la estructura: { current: {temp, relative_humidity_2m, ...}, hourly: {...} }
+          // La respuesta tiene la estructura: { current: {temp, relative_humidity_2m, ...}, hourly: {...}, daily: {...} }
           const current = response.data.current;
           const weatherData = {
             temperature: current.temp || current.temperature_2m,
@@ -53,6 +60,7 @@ export function useWeatherData() {
             pressure: current.pressure,
             visibility: current.visibility,
             location_name: response.data.timezone,
+            daily: response.data.daily, // Incluir datos diarios para pronóstico
           };
 
           console.log("[useWeatherData] Setting weather state:", weatherData);

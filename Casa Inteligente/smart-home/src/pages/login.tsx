@@ -24,7 +24,6 @@ export default function Login({ onNavigate }: LoginProps) {
     handleLogin,
     handleKeyPress,
     showErrorModal,
-    closeErrorModal,
   } = useLogin();
 
   const usernameRef = useRef<HTMLInputElement>(null);

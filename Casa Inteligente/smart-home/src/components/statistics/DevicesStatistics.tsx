@@ -23,7 +23,7 @@ export default function DevicesStatistics() {
         }
 
         const response = await fetch(
-          "http://localhost:8000/iot/device_count_history",
+          `${import.meta.env.VITE_API_BASE_URL}/iot/device_count_history`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

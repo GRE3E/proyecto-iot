@@ -1,89 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import SimpleCard from "../UI/Card";
 import { Sun, Cloud, CloudRain } from "lucide-react";
 import { getWeatherData } from "../../utils/widgetUtils";
-import { useZonaHoraria } from "../../hooks/useZonaHoraria";
+import { useTimeData } from "../../hooks/useTimeData";
+import { useWeatherData } from "../../hooks/useWeatherData";
 import { useThemeByTime } from "../../hooks/useThemeByTime";
 
-export default function AnimatedClockWidget({
-  temperature,
-}: {
-  temperature?: number;
-}) {
-  const { selectedTimezone, currentTime, currentDate } = useZonaHoraria();
+export default function AnimatedClockWidget() {
+  const { timeData, currentTime } = useTimeData();
+  const { weather } = useWeatherData();
   const { theme, colors } = useThemeByTime();
-  const [realTemperature, setRealTemperature] = useState(temperature || 22);
-  const [weatherCondition, setWeatherCondition] = useState("Cloudy");
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      if (!navigator.geolocation) {
-        console.warn("Geolocation is not supported by your browser.");
-        setRealTemperature(22); // Default temperature
-        setWeatherCondition("Unknown"); // Default condition
-        return;
-      }
+  // Formatear hora desde currentTime (actualizado cada segundo)
+  const formattedTime = currentTime.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
-      try {
-        const permissionStatus = await navigator.permissions.query({
-          name: "geolocation",
-        });
+  const formattedDate = currentTime.toLocaleDateString("es-ES", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
-        if (permissionStatus.state === "denied") {
-          console.warn("Geolocation permission denied. Using default weather.");
-          setRealTemperature(22); // Default temperature
-          setWeatherCondition("Unknown"); // Default condition
-          return;
-        }
+  // Usar datos del weather hook o valores por defecto
+  const temperature = weather?.temperature ?? 22;
+  const humidity = weather?.humidity ?? 47;
+  const wind = Math.round(weather?.wind_speed ?? 3);
+  const weatherCondition = weather?.description ?? "Agradable";
 
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            try {
-              const response = await fetch(
-                `https://wttr.in/${latitude},${longitude}?format=j1`
-              );
-              const data = await response.json();
-              const temp = parseInt(data.current_condition[0].temp_C);
-              const condition = data.current_condition[0].weatherDesc[0].value;
-              setRealTemperature(temp);
-              setWeatherCondition(condition);
-            } catch (error) {
-              console.error("Error fetching weather:", error);
-              setRealTemperature(22); // Fallback temperature
-              setWeatherCondition("Unknown"); // Fallback condition
-            }
-          },
-          (error) => {
-            if (error.code === error.PERMISSION_DENIED) {
-              console.warn(
-                "Geolocation permission denied. Using default weather."
-              );
-            } else {
-              console.error("Error getting location:", error);
-            }
-            setRealTemperature(22); // Fallback temperature
-            setWeatherCondition("Unknown"); // Fallback condition
-          }
-        );
-      } catch (error) {
-        console.error("Error querying geolocation permission:", error);
-        setRealTemperature(22); // Fallback temperature
-        setWeatherCondition("Unknown"); // Fallback condition
-      }
-    };
-
-    fetchWeather();
-  }, []);
-
-  const weather = getWeatherData(realTemperature, weatherCondition);
-  const humidity = Math.max(
-    10,
-    Math.min(90, Math.round(50 + Math.sin(Date.now() / 60000) * 10))
-  );
-  const wind = Math.max(0, Math.round(5 + Math.cos(Date.now() / 90000) * 3));
+  const weatherDisplay = getWeatherData(temperature, weatherCondition);
 
   const forecast = [
     { day: "LUN", icon: Cloud, hi: 30, lo: 21 },
@@ -94,17 +44,12 @@ export default function AnimatedClockWidget({
     { day: "SAB", icon: Cloud, hi: 29, lo: 22 },
   ];
 
-  const parseTime = (timeString: string) => {
-    const [hours, minutes] = timeString.split(":").map(Number);
-    return { hours, minutes };
-  };
+  // Extraer horas y minutos para las manecillas del reloj
+  const hours = currentTime.getHours() % 12;
+  const minutes = currentTime.getMinutes();
 
-  const { hours: parsedHours, minutes: parsedMinutes } = currentTime
-    ? parseTime(currentTime)
-    : { hours: new Date().getHours() % 12, minutes: new Date().getMinutes() };
-
-  const hourDeg = (parsedHours + parsedMinutes / 60) * 30;
-  const minuteDeg = parsedMinutes * 6;
+  const hourDeg = (hours + minutes / 60) * 30;
+  const minuteDeg = minutes * 6;
 
   return (
     <SimpleCard
@@ -116,7 +61,7 @@ export default function AnimatedClockWidget({
           <div
             className={`text-4xl md:text-5xl font-bold font-mono tracking-wider mb-3 ${colors.text}`}
           >
-            {currentTime || "00:00"}
+            {formattedTime}
           </div>
 
           <div
@@ -171,17 +116,12 @@ export default function AnimatedClockWidget({
           </div>
 
           <div className={`text-xs font-medium mt-3 ${colors.dateText}`}>
-            {currentDate ||
-              new Date().toLocaleDateString("es-ES", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
+            {formattedDate}
           </div>
 
-          {selectedTimezone && (
+          {timeData && (
             <div className={`text-xs mt-2 ${colors.timezoneText}`}>
-              {selectedTimezone.region} • {selectedTimezone.offset}
+              {timeData.location_name} • {timeData.timezone_name}
             </div>
           )}
         </div>
@@ -201,14 +141,14 @@ export default function AnimatedClockWidget({
                 <p
                   className={`text-lg md:text-xl font-bold ${colors.weatherAdvice}`}
                 >
-                  {weather.label}
+                  {weatherDisplay.label}
                 </p>
               </div>
               <div className="text-right">
                 <p
                   className={`text-2xl md:text-3xl font-bold ${colors.weatherTemperature}`}
                 >
-                  {realTemperature}°C
+                  {temperature}°C
                 </p>
               </div>
             </div>
@@ -216,7 +156,7 @@ export default function AnimatedClockWidget({
             <p
               className={`text-xs md:text-sm italic leading-relaxed ${colors.weatherAdvice}`}
             >
-              {weather.advice}
+              {weatherDisplay.advice}
             </p>
 
             <div className="flex gap-3 mt-2">

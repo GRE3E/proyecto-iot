@@ -8,6 +8,7 @@ import NavButton from "../components/UI/NavButton";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useEnergyData } from "../hooks/useEnergyData";
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos";
+import { useWeatherData } from "../hooks/useWeatherData";
 import EnergyStatistics from "../components/statistics/EnergyStatistics";
 import TemperatureStatistics from "../components/statistics/TemperatureStatistics";
 import HumidityStatistics from "../components/statistics/HumidityStatistics";
@@ -20,26 +21,24 @@ interface Device {
   on: boolean;
 }
 
-export default function Inicio({
-  temperature = 24,
-  humidity = 45,
-}: {
-  temperature?: number;
-  humidity?: number;
-  devices?: Device[];
-} = {}) {
+export default function Inicio() {
   const [expandedCard, setExpandedCard] = useState<
     "energy" | "temp" | "humidity" | "devices" | null
   >("energy");
   const { colors } = useThemeByTime();
   const { energyHistory, loading: energyLoading } = useEnergyData();
   const { devices } = useGestionDispositivos();
+  const { weather } = useWeatherData();
 
   const activeDeviceCount = devices.filter((d) => d.on).length;
 
   const currentEnergy =
     energyHistory.length > 0 ? energyHistory[energyHistory.length - 1] : 0;
   const energyValue = energyLoading ? "Cargando..." : currentEnergy.toFixed(2);
+
+  // Usar datos del hook de clima o valores por defecto
+  const temperature = weather?.temperature ?? 24;
+  const humidity = weather?.humidity ?? 45;
 
   return (
     <div
@@ -49,7 +48,7 @@ export default function Inicio({
         title="Bienvenido"
         icon={<Home className="w-8 md:w-10 h-8 md:w-10 text-white" />}
       />
-      <AnimatedClockWidget temperature={temperature} />
+      <AnimatedClockWidget />
 
       <div>
         <h2

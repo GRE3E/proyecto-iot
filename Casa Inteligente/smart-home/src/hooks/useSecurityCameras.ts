@@ -10,7 +10,7 @@ interface CameraBackendInfo {
   recognition_enabled: boolean;
 }
 
-const API_BASE_URL = "http://localhost:8000"; // Asegúrate de que esta URL sea correcta
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function getAuthToken(): string | null {
   // Asume que el token JWT se guarda en localStorage después del login

@@ -263,7 +263,8 @@ class RoutineHandler:
                                 type="routine_execution",
                                 title="Rutina automática ejecutada",
                                 message=notification_message,
-                                status="new"
+                                status="new",
+                                is_global=True # Notificación global para rutinas automáticas
                             )
                         )
                             # This 'except' block was duplicated and is now removed.
@@ -336,7 +337,8 @@ class RoutineHandler:
                             type="routine_execution",
                             title=f"Rutina ejecutada: {matching_routine.name}",
                             message=f"Acciones realizadas: {actions_str}",
-                            status="new"
+                            status="new",
+                            is_global=True # Notificación global para rutinas ejecutadas por nombre
                         )
                     )
                     

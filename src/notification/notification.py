@@ -83,68 +83,69 @@ async def get_notifications_logic(
 ) -> NotificationsListResponse:
     """Devuelve la lista de notificaciones, con filtros opcionales."""
     try:
-        # 1. Consulta para UserNotifications específicas del usuario
-        user_specific_query = select(Notification, UserNotification).join(UserNotification).where(UserNotification.user_id == current_user.id)
+        # 1. Obtener todas las notificaciones relevantes para el usuario
+        # Esto incluye:
+        #   a) Notificaciones específicas del usuario (donde existe UserNotification)
+        #   b) Notificaciones globales (donde Notification.is_global es True)
+        
+        # Subconsulta para obtener los IDs de notificaciones específicas del usuario
+        user_specific_notification_ids_q = select(UserNotification.notification_id).where(
+            UserNotification.user_id == current_user.id
+        )
+        user_specific_notification_ids = (await db.execute(user_specific_notification_ids_q)).scalars().all()
+
+        # Consulta principal para obtener las notificaciones
+        query = select(Notification).outerjoin(
+            UserNotification,
+            (Notification.id == UserNotification.notification_id) & (UserNotification.user_id == current_user.id)
+        ).where(
+            (Notification.is_global == True) | (Notification.id.in_(user_specific_notification_ids))
+        )
 
         if type:
-            user_specific_query = user_specific_query.where(Notification.type == type)
+            query = query.where(Notification.type == type)
         if since:
             try:
                 since_dt = datetime.fromisoformat(since)
-                user_specific_query = user_specific_query.where(Notification.timestamp >= since_dt)
+                query = query.where(Notification.timestamp >= since_dt)
             except ValueError:
                 raise HTTPException(status_code=400, detail="Formato de fecha 'since' inválido. Use ISO 8601.")
-        if status:
-            user_specific_query = user_specific_query.where(UserNotification.status == status)
-
-        user_specific_notifications = (await db.execute(user_specific_query)).all()
-
-        # 2. Consulta para Notificaciones globales sin UserNotification para el usuario actual
-        global_notifications_query = select(Notification).outerjoin(UserNotification, (Notification.id == UserNotification.notification_id) & (UserNotification.user_id == current_user.id))
-        global_notifications_query = global_notifications_query.where(Notification.is_global == True)
-        global_notifications_query = global_notifications_query.where(UserNotification.id == None) # Donde no hay UserNotification para este usuario
-
-        if type:
-            global_notifications_query = global_notifications_query.where(Notification.type == type)
-        if since:
-            try:
-                since_dt = datetime.fromisoformat(since)
-                global_notifications_query = global_notifications_query.where(Notification.timestamp >= since_dt)
-            except ValueError:
-                pass # Ya manejado arriba
-        # Si se filtra por status, las globales sin UserNotification siempre se consideran 'new'
-        if status and status != "new":
-            global_notifications_query = global_notifications_query.where(False) # No incluir si el status no es 'new'
-
-        global_notifications = (await db.execute(global_notifications_query)).scalars().all()
-
-        # Combinar y procesar resultados
-        combined_notifications = []
-        seen_notification_ids = set()
-
-        for n, un in user_specific_notifications:
-            if n.id not in seen_notification_ids:
-                combined_notifications.append(NotificationResponse(
-                    id=n.id,
-                    timestamp=n.timestamp,
-                    type=n.type,
-                    title=n.title,
-                    message=n.message,
-                    status=un.status,
-                ))
-                seen_notification_ids.add(n.id)
         
-        for n in global_notifications:
-            if n.id not in seen_notification_ids:
-                combined_notifications.append(NotificationResponse(
-                    id=n.id,
-                    timestamp=n.timestamp,
-                    type=n.type,
-                    title=n.title,
-                    message=n.message,
-                    status="new", # Estado por defecto para globales sin UserNotification
-                ))
-                seen_notification_ids.add(n.id)
+        # Ejecutar la consulta para obtener todas las notificaciones relevantes
+        result = await db.execute(query)
+        notifications_raw = result.unique().scalars().all() # Usar unique() para evitar duplicados si hay múltiples UserNotifications (aunque no debería pasar con el join)
+
+        combined_notifications = []
+        for n in notifications_raw:
+            # Intentar obtener el UserNotification para esta notificación y usuario
+            user_notification_q = select(UserNotification).where(
+                UserNotification.user_id == current_user.id,
+                UserNotification.notification_id == n.id
+            )
+            user_notification = (await db.execute(user_notification_q)).scalars().first()
+
+            current_status = "new"
+            if user_notification:
+                current_status = user_notification.status
+            elif status and status != "new":
+                # Si se filtra por un status que no es 'new' y no hay UserNotification,
+                # esta notificación no debería incluirse a menos que sea global y se busque 'new'.
+                # Ya filtramos por (is_global OR user_specific_notification_ids),
+                # así que si llegamos aquí y se busca un status diferente de 'new', la omitimos.
+                continue
+            
+            # Aplicar filtro por status si se especificó
+            if status and current_status != status:
+                continue
+
+            combined_notifications.append(NotificationResponse(
+                id=n.id,
+                timestamp=n.timestamp,
+                type=n.type,
+                title=n.title,
+                message=n.message,
+                status=current_status,
+            ))
 
         # Ordenar por timestamp descendente
         combined_notifications.sort(key=lambda x: x.timestamp, reverse=True)
@@ -197,6 +198,7 @@ async def create_notification_logic(
             type=notification_data.type,
             title=notification_data.title,
             message=notification_data.message,
+            is_global=notification_data.is_global # Set the is_global flag
         )
         db.add(new_notification)
         await db.flush() # Para obtener el ID de la notificación antes del commit

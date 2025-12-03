@@ -9,8 +9,6 @@ import logging
 import asyncio
 import torch
 from sqlalchemy import select
-from src.ai.sound_processor.noise_suppressor import suppress_noise
-import os
 
 logger = logging.getLogger("SpeakerRecognitionModule")
 
@@ -25,9 +23,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         self._online = True
         self._registered_users: List[User] = []
         self._executor = ThreadPoolExecutor(max_workers=4)
-        self.identification_threshold: float = 0.25
-        self.registration_threshold: float = 0.2
-        self.identification_margin: float = 0.05
+        self.identification_threshold: float = 0.35 # Ajustado para ser más permisivo
+        self.registration_threshold: float = 0.35 # Ajustado para ser más permisivo
+        self.identification_margin: float = 0.04
 
     async def _load_registered_users(self) -> None:
         """
@@ -63,12 +61,10 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         Lógica síncrona para registrar un hablante.
         """
         try:
-            denoised_audio_path = suppress_noise(audio_path)
-            if denoised_audio_path is None:
-                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
-                return None
-            wav = preprocess_wav(denoised_audio_path)
+            wav = preprocess_wav(audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
+            # Asegurar que el embedding sea L2-normalizado para una comparación robusta
+            new_embedding = new_embedding / np.linalg.norm(new_embedding)
             new_embedding_str = json.dumps(new_embedding.tolist())
             logger.debug(f"Nuevo embedding generado para {name}: {new_embedding_str}")
             
@@ -87,8 +83,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                         logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando comparación.")
                         continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
-                    similarity = np.dot(new_embedding, registered_embedding) / \
-                                 (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    # Asegurar que el embedding registrado también sea L2-normalizado
+                    registered_embedding = registered_embedding / np.linalg.norm(registered_embedding)
+                    similarity = np.dot(new_embedding, registered_embedding)
                     distance = 1 - similarity
                     logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
                     
@@ -101,9 +98,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.error(f"Error al registrar hablante: {e}")
             return None
         finally:
-            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
-                os.remove(denoised_audio_path)
-                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
+            pass
 
     async def register_speaker(self, name: str, audio_path: str, is_owner: bool = False) -> Optional[str]:
         """
@@ -120,12 +115,10 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
         """
         logger.info(f"Actualizando voz para el usuario ID: {user_id}")
         try:
-            denoised_audio_path = suppress_noise(audio_path)
-            if denoised_audio_path is None:
-                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
-                return None
-            wav = preprocess_wav(denoised_audio_path)
+            wav = preprocess_wav(audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
+            # Asegurar que el embedding sea L2-normalizado para una comparación robusta
+            new_embedding = new_embedding / np.linalg.norm(new_embedding)
             new_embedding_str = json.dumps(new_embedding.tolist())
             logger.debug(f"Nuevo embedding generado para el usuario ID {user_id}: {new_embedding_str}")
             
@@ -142,8 +135,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                         logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando comparación.")
                         continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
-                    similarity = np.dot(new_embedding, registered_embedding) / \
-                                 (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    # Asegurar que el embedding registrado también sea L2-normalizado
+                    registered_embedding = registered_embedding / np.linalg.norm(registered_embedding)
+                    similarity = np.dot(new_embedding, registered_embedding)
                     distance = 1 - similarity
                     logger.debug(f"Comparando nuevo embedding con usuario {user.nombre}: distancia = {distance:.4f}")
 
@@ -156,46 +150,40 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.error(f"Error al actualizar la voz del hablante para el usuario ID {user_id}: {e}")
             return None
         finally:
-            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
-                os.remove(denoised_audio_path)
-                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
+            pass
 
-    async def _identify_speaker_sync(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
+    def _identify_speaker_sync_blocking(self, audio_path: str, registered_users: List[User]) -> Tuple[Optional[User], Optional[np.ndarray]]:
         """
-        Lógica asíncrona para identificar un hablante.
+        Lógica síncrona para identificar un hablante, ejecutada en un ThreadPoolExecutor.
         """
-        await self._load_registered_users()
         if not self.is_online():
             logger.warning("El módulo de reconocimiento de hablante está fuera de línea.")
             return None, None
         
         try:
-            denoised_audio_path = suppress_noise(audio_path)
-            if denoised_audio_path is None:
-                logger.error(f"No se pudo suprimir el ruido del audio: {audio_path}")
-                return None
-            wav = preprocess_wav(denoised_audio_path)
+            wav = preprocess_wav(audio_path)
             new_embedding = self._encoder.embed_utterance(wav)
+            # Asegurar que el embedding sea L2-normalizado para una comparación robusta
+            new_embedding = new_embedding / np.linalg.norm(new_embedding)
         except Exception as e:
             logger.error(f"Error al generar embedding para el audio: {e}")
             return None, None
         finally:
-            if 'denoised_audio_path' in locals() and denoised_audio_path and os.path.exists(denoised_audio_path):
-                os.remove(denoised_audio_path)
-                logger.debug(f"Archivo temporal eliminado: {denoised_audio_path}")
+            pass
 
-        if not self._registered_users:
+        if not registered_users:
             logger.info("No se encontraron usuarios registrados. Devolviendo solo el embedding generado.")
             return None, new_embedding
 
         distances = []
-        for user in self._registered_users:
+        for user in registered_users:
             if user.speaker_embedding is None:
                 logger.debug(f"Usuario {user.nombre} no tiene speaker_embedding, saltando identificación.")
                 continue
             registered_embedding = np.array(json.loads(user.speaker_embedding))
-            similarity = np.dot(new_embedding, registered_embedding) / \
-                         (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+            # Asegurar que el embedding registrado también sea L2-normalizado
+            registered_embedding = registered_embedding / np.linalg.norm(registered_embedding)
+            similarity = np.dot(new_embedding, registered_embedding)
             distance = 1 - similarity
             logger.debug(f"Comparando con {user.nombre}: distancia = {distance:.4f}")
             distances.append((user, distance))
@@ -216,7 +204,7 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.info("Hablante Desconocido")
             return None, new_embedding
 
-    def identify_speaker(self, audio_path: str):
+    async def identify_speaker(self, audio_path: str) -> Tuple[Optional[User], Optional[np.ndarray]]:
         """
         Identifica un hablante a partir de una muestra de audio de manera asíncrona.
         
@@ -224,27 +212,28 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             audio_path (str): La ruta al archivo de audio para identificar al hablante.
         
         Returns:
-            concurrent.futures.Future: Un objeto Future que representa el resultado de la operación.
+            Tuple[Optional[User], Optional[np.ndarray]]: Una tupla con el usuario identificado y su embedding, o None si no se identifica.
         """
-
-        return self._executor.submit(asyncio.run, self._identify_speaker_sync(audio_path))
+        await self._load_registered_users() # Asegurarse de que los usuarios estén cargados
+        loop = asyncio.get_running_loop()
+        identified_user, new_embedding = await loop.run_in_executor(
+            self._executor,
+            self._identify_speaker_sync_blocking,
+            audio_path,
+            self._registered_users
+        )
+        return identified_user, new_embedding
 
     async def register_speaker_multi(self, name: str, audio_paths: List[str], is_owner: bool = False) -> Optional[str]:
-        denoised_audio_paths = []
         try:
-            for path in audio_paths:
-                denoised_path = suppress_noise(path)
-                if denoised_path is None:
-                    logger.error(f"No se pudo suprimir el ruido del audio: {path}")
-                    return None
-                denoised_audio_paths.append(denoised_path)
-
-            wavs = [preprocess_wav(p) for p in denoised_audio_paths]
+            wavs = [preprocess_wav(p) for p in audio_paths]
             if hasattr(self._encoder, "embed_speaker"):
                 new_embedding = self._encoder.embed_speaker(wavs)
             else:
                 parts = [self._encoder.embed_utterance(w) for w in wavs]
                 new_embedding = np.mean(parts, axis=0)
+            # Asegurar que el embedding sea L2-normalizado para una comparación robusta
+            new_embedding = new_embedding / np.linalg.norm(new_embedding)
             new_embedding_str = json.dumps(new_embedding.tolist())
             async with get_db() as db:
                 await self._load_registered_users()
@@ -255,7 +244,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     if user.speaker_embedding is None:
                         continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
-                    similarity = np.dot(new_embedding, registered_embedding) / (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    # Asegurar que el embedding registrado también sea L2-normalizado
+                    registered_embedding = registered_embedding / np.linalg.norm(registered_embedding)
+                    similarity = np.dot(new_embedding, registered_embedding)
                     distance = 1 - similarity
                     if distance < self.registration_threshold:
                         return None
@@ -264,27 +255,18 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.error(f"Error en register_speaker_multi: {e}")
             return None
         finally:
-            for dp in denoised_audio_paths:
-                if os.path.exists(dp):
-                    os.remove(dp)
-                    logger.debug(f"Archivo temporal eliminado: {dp}")
+            pass
 
     async def update_speaker_voice_multi(self, user_id: int, audio_paths: List[str]) -> Optional[str]:
-        denoised_audio_paths = []
         try:
-            for path in audio_paths:
-                denoised_path = suppress_noise(path)
-                if denoised_path is None:
-                    logger.error(f"No se pudo suprimir el ruido del audio: {path}")
-                    return None
-                denoised_audio_paths.append(denoised_path)
-
-            wavs = [preprocess_wav(p) for p in denoised_audio_paths]
+            wavs = [preprocess_wav(p) for p in audio_paths]
             if hasattr(self._encoder, "embed_speaker"):
                 new_embedding = self._encoder.embed_speaker(wavs)
             else:
                 parts = [self._encoder.embed_utterance(w) for w in wavs]
                 new_embedding = np.mean(parts, axis=0)
+            # Asegurar que el embedding sea L2-normalizado para una comparación robusta
+            new_embedding = new_embedding / np.linalg.norm(new_embedding)
             new_embedding_str = json.dumps(new_embedding.tolist())
             async with get_db():
                 await self._load_registered_users()
@@ -294,7 +276,9 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
                     if user.speaker_embedding is None:
                         continue
                     registered_embedding = np.array(json.loads(user.speaker_embedding))
-                    similarity = np.dot(new_embedding, registered_embedding) / (np.linalg.norm(new_embedding) * np.linalg.norm(registered_embedding))
+                    # Asegurar que el embedding registrado también sea L2-normalizado
+                    registered_embedding = registered_embedding / np.linalg.norm(registered_embedding)
+                    similarity = np.dot(new_embedding, registered_embedding)
                     distance = 1 - similarity
                     if distance < self.registration_threshold:
                         return None
@@ -303,8 +287,5 @@ Permite registrar nuevos hablantes y identificar hablantes existentes a partir d
             logger.error(f"Error en update_speaker_voice_multi: {e}")
             return None
         finally:
-            for dp in denoised_audio_paths:
-                if os.path.exists(dp):
-                    os.remove(dp)
-                    logger.debug(f"Archivo temporal eliminado: {dp}")
+            pass
         

@@ -179,8 +179,7 @@ async def identify_speaker(audio_file: UploadFile = File(...)):
                 content = await audio_file.read()
                 file_object.write(content)
             
-            future_identified_user = utils._speaker_module.identify_speaker(str(file_location))
-            identified_user, _ = future_identified_user.result()
+            identified_user, _ = await utils._speaker_module.identify_speaker(str(file_location))
 
         if identified_user is None:
             raise HTTPException(status_code=404, detail="Usuario no identificado")

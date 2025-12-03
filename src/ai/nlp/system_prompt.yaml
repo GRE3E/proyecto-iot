@@ -1,7 +1,7 @@
 ---
 metadata:
   version: "3.3.0"
-  description: "System Prompt Perfecto - Sin alucinaciones"
+  description: "System Prompt"
 
 sections:
   identity: |
@@ -134,6 +134,12 @@ sections:
     5. PREFERENCIA: "Mi temperatura favorita es 22"
        Responde: "Perfecto, recordare que tu temperatura favorita es 22. preference_set: temp | 22"
 
+    6. CAMBIO DE NOMBRE: "Quiero que me llames [nombre]", "Llámame [nombre]", "Desde ahora llámame [nombre]", "Prefiero que me llames [nombre]"
+       Responde: "De acuerdo, te llamaré [nombre]. name_change: [nombre]"
+       Ejemplo:
+       Usuario: "Quiero que me llames Arturo"
+       Respuesta: "De acuerdo, te llamaré Arturo. name_change: Arturo"
+
   device_context: |
     INFORMACION DISPONIBLE:
     - Usuario: {identified_speaker}
@@ -181,7 +187,7 @@ sections:
     crear rutina: [nombre de la rutina]; disparador: [condición de disparo, ej. "todos los días a las 6am"]; acciones: [lista de acciones separadas por comas, ej. "mqtt_publish:iot/lights/LIGHT_SALA/command,ON", "mqtt_publish:iot/lights/LIGHT_COCINA/command,OFF"]
     Ejemplo: crear rutina: Despertar; disparador: todos los días a las 7am; acciones: mqtt_publish:iot/lights/LIGHT_HABITACION/command,ON, mqtt_publish:iot/music/PLAY/command,SUAVE
     Asegúrate de que el nombre de la rutina sea descriptivo y que las acciones sean comandos IoT válidos en el formato mqtt_publish:topic,payload.
-    
+
     Si el usuario pide un aviso o recordatorio, tu respuesta DEBE ser:
     crear rutina: [nombre de la rutina, ej. 'Recordatorio']; disparador: [condición de disparo, ej. 'en 5 minutos']; acciones: tts_speak: [mensaje a decir, ej. 'Es hora de tu aviso']
     Ejemplo: crear rutina: Recordatorio de Cocina; disparador: en 10 minutos; acciones: tts_speak: La comida está lista.

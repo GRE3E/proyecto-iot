@@ -38,7 +38,7 @@ async def send_arduino_command(command: ArduinoCommandSend, current_user: User =
 
             if current_status and current_status.lower() == requested_state.lower():
                 logger.info(f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}")
-                await manager.broadcast(json.dumps({"device_name": device_name, "status": requested_state, "message": "El dispositivo ya está en el estado solicitado"}))
+                await manager.broadcast(json.dumps({"type": "device_status_update", "device_name": device_name, "status": requested_state, "message": "El dispositivo ya está en el estado solicitado"}))
                 return {"status": f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}", "topic": command.mqtt_topic, "payload": command.command_payload}
         else:
             await device_manager.update_device_state(
@@ -48,7 +48,7 @@ async def send_arduino_command(command: ArduinoCommandSend, current_user: User =
                 device_type=device_type
             )
             logger.info(f"Creado nuevo dispositivo {device_name} de tipo {device_type} con estado inicial {requested_state}")
-            await manager.broadcast(json.dumps({"device_name": device_name, "device_type": device_type, "status": requested_state, "message": "Nuevo dispositivo creado"}))
+            await manager.broadcast(json.dumps({"type": "device_created", "device_name": device_name, "device_type": device_type, "status": requested_state, "message": "Nuevo dispositivo creado"}))
 
         success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
 
@@ -61,7 +61,7 @@ async def send_arduino_command(command: ArduinoCommandSend, current_user: User =
         
         updated_device_state = await device_manager.get_device_state(session, device_name, device_type)
         if updated_device_state:
-            await manager.broadcast(json.dumps({"device_name": updated_device_state.device_name, "device_type": updated_device_state.device_type, "state": json.loads(updated_device_state.state_json), "message": "Estado del dispositivo actualizado"}))
+            await manager.broadcast(json.dumps({"type": "device_state_updated", "device_name": updated_device_state.device_name, "device_type": updated_device_state.device_type, "state": json.loads(updated_device_state.state_json), "message": "Estado del dispositivo actualizado"}))
 
         return {"status": "Comando enviado y estado del dispositivo actualizado", "topic": command.mqtt_topic, "payload": command.command_payload}
 

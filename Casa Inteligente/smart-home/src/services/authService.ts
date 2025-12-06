@@ -30,27 +30,43 @@ const isExpiringSoon = (t?: string, thresholdSec = 30) => {
   return p.exp - now <= thresholdSec;
 };
 
+let refreshPromise: Promise<string | null> | null = null;
+let isRefreshing = false;
+
+async function refreshTokens(): Promise<string | null> {
+  const rt = localStorage.getItem("refresh_token");
+  if (!rt) return null;
+  if (refreshPromise) return refreshPromise;
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const response = await axiosInstance.post<LoginResponse>(REFRESH_URL, {
+        refresh_token: rt,
+      });
+      const { access_token, refresh_token: newRefresh } = response.data;
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", newRefresh);
+      axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+      return access_token;
+    } catch (e) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      window.location.href = "/login";
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
 export async function getValidAccessToken(): Promise<string | null> {
   const token = localStorage.getItem("access_token");
-  const refreshToken = localStorage.getItem("refresh_token");
-  if (!token) return null;
+  if (!token) return await refreshTokens();
   if (!isExpiringSoon(token)) return token;
-  if (!refreshToken) return token;
-  try {
-    const resp = await axiosInstance.post<LoginResponse>(REFRESH_URL, {
-      refresh_token: refreshToken,
-    });
-    const { access_token, refresh_token: newRefresh } = resp.data;
-    localStorage.setItem("access_token", access_token);
-    localStorage.setItem("refresh_token", newRefresh);
-    axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
-    return access_token;
-  } catch {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    window.location.href = "/login";
-    return null;
-  }
+  const newToken = await refreshTokens();
+  return newToken || token;
 }
 
 axiosInstance.interceptors.request.use(
@@ -58,26 +74,9 @@ axiosInstance.interceptors.request.use(
     const url = config.url || "";
     const isRefresh = url.includes(REFRESH_URL);
     const token = localStorage.getItem("access_token");
-    const refreshToken = localStorage.getItem("refresh_token");
     if (!isRefresh && token) {
-      if (isExpiringSoon(token) && refreshToken && !isRefreshing) {
-        try {
-          isRefreshing = true;
-          const resp = await axiosInstance.post<LoginResponse>(REFRESH_URL, {
-            refresh_token: refreshToken,
-          });
-          const { access_token, refresh_token: newRefresh } = resp.data;
-          localStorage.setItem("access_token", access_token);
-          localStorage.setItem("refresh_token", newRefresh);
-          axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
-        } catch {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          window.location.href = "/login";
-          throw new axios.Cancel("refresh_failed");
-        } finally {
-          isRefreshing = false;
-        }
+      if (isExpiringSoon(token) && !isRefreshing) {
+        await refreshTokens();
       }
       config.headers.Authorization = `Bearer ${
         localStorage.getItem("access_token") || token
@@ -87,12 +86,6 @@ axiosInstance.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-
-let isRefreshing = false;
-let failedQueue: {
-  resolve: (value: unknown) => void;
-  reject: (reason?: any) => void;
-}[] = [];
 
 axiosInstance.interceptors.response.use(
   (response) => response,
@@ -117,64 +110,13 @@ axiosInstance.interceptors.response.use(
       !originalRequest._retry &&
       !isRefreshCall
     ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return axiosInstance(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
-      const refreshToken = localStorage.getItem("refresh_token");
-      if (!refreshToken) {
-        console.error(
-          "authService: No hay refresh_token en localStorage. Redirigiendo al login."
-        );
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        window.location.href = "/login";
-        return Promise.reject(error);
+      const newToken = await refreshTokens();
+      if (newToken) {
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axiosInstance(originalRequest);
       }
-
-      // console.log('authService: Valor del refresh_token antes de la llamada a la API:', refreshToken);
-      // console.log('authService: Intentando refrescar token. Refresh token:', refreshToken);
-      return new Promise(async (resolve, reject) => {
-        try {
-          const response = await axiosInstance.post<LoginResponse>(
-            REFRESH_URL,
-            {
-              refresh_token: refreshToken,
-            }
-          );
-          // console.log('authService: Respuesta exitosa de refresh-token:', response.data);
-          const { access_token, refresh_token: newRefreshToken } =
-            response.data;
-          // console.log('authService: Nuevos tokens recibidos - access_token:', access_token ? 'Presente' : 'Ausente', 'newRefreshToken:', newRefreshToken ? 'Presente' : 'Ausente');
-          localStorage.setItem("access_token", access_token);
-          localStorage.setItem("refresh_token", newRefreshToken);
-          // console.log('authService: Nuevos tokens guardados en localStorage.');
-
-          axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
-          failedQueue.forEach((prom) => prom.resolve(access_token));
-          resolve(axiosInstance(originalRequest));
-        } catch (refreshError) {
-          // console.error('authService: Error refrescando token o refresh_token inválido:', refreshError);
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          failedQueue.forEach((prom) => prom.reject(refreshError));
-          window.location.href = "/login";
-          reject(refreshError);
-        } finally {
-          failedQueue = [];
-          isRefreshing = false;
-        }
-      });
+      return Promise.reject(error);
     }
 
     return Promise.reject(error);

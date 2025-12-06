@@ -9,17 +9,83 @@ export const axiosInstance = axios.create({
   },
 });
 
+const REFRESH_URL = "/auth/auth/refresh-token";
+const decodeJwt = (t?: string) => {
+  try {
+    if (!t) return null;
+    const parts = t.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+    return payload;
+  } catch {
+    return null;
+  }
+};
+const isExpiringSoon = (t?: string, thresholdSec = 30) => {
+  const p = decodeJwt(t);
+  if (!p || typeof p.exp !== "number") return false;
+  const now = Math.floor(Date.now() / 1000);
+  return p.exp - now <= thresholdSec;
+};
+
+export async function getValidAccessToken(): Promise<string | null> {
+  const token = localStorage.getItem("access_token");
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!token) return null;
+  if (!isExpiringSoon(token)) return token;
+  if (!refreshToken) return token;
+  try {
+    const resp = await axiosInstance.post<LoginResponse>(REFRESH_URL, {
+      refresh_token: refreshToken,
+    });
+    const { access_token, refresh_token: newRefresh } = resp.data;
+    localStorage.setItem("access_token", access_token);
+    localStorage.setItem("refresh_token", newRefresh);
+    axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+    return access_token;
+  } catch {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    window.location.href = "/login";
+    return null;
+  }
+}
+
 axiosInstance.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    const url = config.url || "";
+    const isRefresh = url.includes(REFRESH_URL);
     const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (!isRefresh && token) {
+      if (isExpiringSoon(token) && refreshToken && !isRefreshing) {
+        try {
+          isRefreshing = true;
+          const resp = await axiosInstance.post<LoginResponse>(REFRESH_URL, {
+            refresh_token: refreshToken,
+          });
+          const { access_token, refresh_token: newRefresh } = resp.data;
+          localStorage.setItem("access_token", access_token);
+          localStorage.setItem("refresh_token", newRefresh);
+          axiosInstance.defaults.headers.common.Authorization = `Bearer ${access_token}`;
+        } catch {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          window.location.href = "/login";
+          throw new axios.Cancel("refresh_failed");
+        } finally {
+          isRefreshing = false;
+        }
+      }
+      config.headers.Authorization = `Bearer ${
+        localStorage.getItem("access_token") || token
+      }`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 let isRefreshing = false;
@@ -34,9 +100,7 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
 
     // Si el error es 401 y no es una solicitud de refresh-token y no hemos reintentado
-    const isRefreshCall = (originalRequest?.url || "").includes(
-      "/auth/auth/refresh-token"
-    );
+    const isRefreshCall = (originalRequest?.url || "").includes(REFRESH_URL);
     const isLoginCall = (originalRequest?.url || "").includes(
       "/auth/auth/login"
     );
@@ -83,8 +147,10 @@ axiosInstance.interceptors.response.use(
       return new Promise(async (resolve, reject) => {
         try {
           const response = await axiosInstance.post<LoginResponse>(
-            "/auth/auth/refresh-token",
-            { refresh_token: refreshToken }
+            REFRESH_URL,
+            {
+              refresh_token: refreshToken,
+            }
           );
           // console.log('authService: Respuesta exitosa de refresh-token:', response.data);
           const { access_token, refresh_token: newRefreshToken } =

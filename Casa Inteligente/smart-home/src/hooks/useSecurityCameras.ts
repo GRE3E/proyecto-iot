@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getValidAccessToken } from "../services/authService";
 
 interface CameraBackendInfo {
   id: string;
@@ -12,9 +13,8 @@ interface CameraBackendInfo {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-function getAuthToken(): string | null {
-  // Asume que el token JWT se guarda en localStorage después del login
-  return localStorage.getItem("access_token");
+async function getToken(): Promise<string | null> {
+  return await getValidAccessToken();
 }
 
 export function useSecurityCameras() {
@@ -23,18 +23,23 @@ export function useSecurityCameras() {
   const [cameraStates, setCameraStates] = useState<Record<string, boolean>>({});
 
   const fetchCameras = useCallback(async () => {
-    const token = getAuthToken();
+    const token = await getToken();
     if (!token) {
       console.error("No hay token de autenticación disponible.");
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/cameras`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      let response = await fetch(`${API_BASE_URL}/cameras`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.status === 401) {
+        const newToken = await getToken();
+        if (!newToken) throw new Error("Sesión expirada");
+        response = await fetch(`${API_BASE_URL}/cameras`, {
+          headers: { Authorization: `Bearer ${newToken}` },
+        });
+      }
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -60,7 +65,7 @@ export function useSecurityCameras() {
     async (cameraId: string) => {
       if (!systemOn) return;
 
-      const token = getAuthToken();
+      const token = await getToken();
       if (!token) {
         console.error("No hay token de autenticación disponible.");
         return;
@@ -71,7 +76,7 @@ export function useSecurityCameras() {
       const endpoint = newCameraState ? "start" : "stop";
 
       try {
-        const response = await fetch(
+        let response = await fetch(
           `${API_BASE_URL}/cameras/${cameraId}/${endpoint}`,
           {
             method: "POST",
@@ -79,9 +84,24 @@ export function useSecurityCameras() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ recognition_enabled: false }), // Puedes ajustar esto si necesitas controlar el reconocimiento
+            body: JSON.stringify({ recognition_enabled: false }),
           }
         );
+        if (response.status === 401) {
+          const newToken = await getToken();
+          if (!newToken) throw new Error("Sesión expirada");
+          response = await fetch(
+            `${API_BASE_URL}/cameras/${cameraId}/${endpoint}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${newToken}`,
+              },
+              body: JSON.stringify({ recognition_enabled: false }),
+            }
+          );
+        }
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

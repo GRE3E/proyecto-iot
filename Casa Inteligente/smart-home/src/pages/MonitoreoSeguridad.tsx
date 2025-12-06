@@ -17,13 +17,10 @@ import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useSecurityCameras } from "../hooks/useSecurityCameras";
 import { useCameraStream } from "../hooks/useCameraStream";
 import { Wifi, WifiOff } from "lucide-react";
+import { getValidAccessToken } from "../services/authService";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-
-function getAuthToken(): string | null {
-  return localStorage.getItem("access_token");
-}
 
 interface CameraStreamViewProps {
   cameraId: string;
@@ -196,12 +193,10 @@ export default function MonitoreoSeguridad() {
     }));
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
+      let token = await getValidAccessToken();
+      if (!token) throw new Error("No hay token de autenticación");
 
-      const response = await fetch(
+      let response = await fetch(
         `${API_BASE_URL}/cameras/${cameraId}/snapshot-recognize`,
         {
           method: "POST",
@@ -212,9 +207,23 @@ export default function MonitoreoSeguridad() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+      if (response.status === 401) {
+        token = await getValidAccessToken();
+        if (!token)
+          throw new Error("Sesión expirada. Inicie sesión nuevamente.");
+        response = await fetch(
+          `${API_BASE_URL}/cameras/${cameraId}/snapshot-recognize`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
       }
+
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
 
       const result = await response.json();
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getValidAccessToken } from "../services/authService";
 
 interface UseCameraStreamOptions {
   cameraId: string;
@@ -9,8 +10,8 @@ interface UseCameraStreamOptions {
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-function getAuthToken(): string | null {
-  return localStorage.getItem("access_token");
+async function getToken(): Promise<string | null> {
+  return await getValidAccessToken();
 }
 
 export function useCameraStream({
@@ -37,11 +38,7 @@ export function useCameraStream({
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError("No authentication token available");
-      return;
-    }
+    // Token se obtiene dentro de startStream para evitar await en el tope del efecto
 
     // Create new abort controller for this stream
     abortControllerRef.current = new AbortController();
@@ -55,18 +52,29 @@ export function useCameraStream({
     // Start streaming
     const startStream = async () => {
       try {
-        const response = await fetch(streamUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const tokenInitial = await getToken();
+        if (!tokenInitial) {
+          setError("No authentication token available");
+          setIsLoading(false);
+          return;
+        }
+        let response = await fetch(streamUrl, {
+          headers: { Authorization: `Bearer ${tokenInitial}` },
           signal,
         });
 
         if (!response.ok) {
           if (response.status === 401) {
-            throw new Error("Authentication failed. Please login again.");
+            const newToken = await getToken();
+            if (!newToken)
+              throw new Error("Authentication failed. Please login again.");
+            response = await fetch(streamUrl, {
+              headers: { Authorization: `Bearer ${newToken}` },
+              signal,
+            });
           }
-          throw new Error(`Failed to start stream: ${response.status}`);
+          if (!response.ok)
+            throw new Error(`Failed to start stream: ${response.status}`);
         }
 
         if (!response.body) {

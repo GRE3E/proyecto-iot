@@ -3,6 +3,7 @@ from typing import Optional, Dict, List, Any
 from collections import defaultdict
 from enum import Enum
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 logger = logging.getLogger("PatternAnalyzer")
 
@@ -90,12 +91,85 @@ class PatternAnalyzer:
 
         return sequences
 
+    async def detect_repeated_actions(self, db: AsyncSession, user_id: int, min_frequency: int = 3) -> List[Dict[str, Any]]:
+        """Detecta acciones que se han repetido al menos min_frequency veces a la misma hora"""
+        events = await self.tracker.get_user_events(db, user_id)
+        
+        if len(events) < min_frequency:
+            return []
+        
+        # Obtener rutinas confirmadas del usuario para evitar duplicados
+        from src.db.models import Routine
+        result = await db.execute(
+            select(Routine).filter(
+                Routine.user_id == user_id,
+                Routine.confirmed == True
+            )
+        )
+        confirmed_routines = result.scalars().all()
+        
+        # Crear un set de patrones ya confirmados (intent::hour)
+        confirmed_patterns = set()
+        for routine in confirmed_routines:
+            trigger = routine.trigger
+            if trigger.get('type') == 'action_based':
+                intent = trigger.get('intent', '')
+                hour = trigger.get('hour', -1)
+                confirmed_patterns.add(f"{intent}::{hour}")
+        
+        # Agrupar por intent + action + hour (comando completo a la misma hora)
+        action_counts = defaultdict(lambda: {"count": 0, "events": []})
+        
+        for event in events:
+            # Solo considerar eventos que tienen una acción/comando
+            if not event.action or event.action.strip() == "":
+                continue
+            
+            # Obtener la hora del evento
+            hour = event.context.get('hour', event.timestamp.hour)
+            
+            # Clave: intent::action::hour
+            key = f"{event.intent}::{event.action}::{hour}"
+            action_counts[key]["count"] += 1
+            action_counts[key]["events"].append(event)
+        
+        patterns = []
+        for key, data in action_counts.items():
+            if data["count"] >= min_frequency:
+                parts = key.split("::", 2)  # Dividir en 3 partes máximo
+                intent = parts[0]
+                action = parts[1]
+                hour = int(parts[2])
+                
+                # Verificar si ya existe una rutina confirmada con este patrón
+                pattern_key = f"{intent}::{hour}"
+                if pattern_key in confirmed_patterns:
+                    logger.info(f"Patrón {intent} a las {hour}:00 ya tiene rutina confirmada - omitiendo")
+                    continue
+                
+                sample_event = data["events"][0]
+                
+                pattern = {
+                    "type": "action_based",
+                    "intent": intent,
+                    "action": action,
+                    "hour": hour,  # Incluir la hora en el patrón
+                    "device_type": sample_event.device_type,
+                    "location": sample_event.location,
+                    "frequency": data["count"],
+                    "confidence": min(data["count"] / len(events), 1.0)
+                }
+                patterns.append(pattern)
+        
+        return patterns
+
     async def detect_all_patterns(self, db: AsyncSession, user_id: int) -> Dict[str, List[Dict[str, Any]]]:
         events = await self.tracker.get_user_events(db, user_id)
         patterns = {
             "time_patterns": [],
             "location_patterns": [],
-            "sequential_patterns": []
+            "sequential_patterns": [],
+            "repeated_action_patterns": []
         }
 
         intents = set(e.intent for e in events)
@@ -112,6 +186,7 @@ class PatternAnalyzer:
                 patterns["location_patterns"].append(pattern)
 
         patterns["sequential_patterns"] = await self.detect_sequential_patterns(db, user_id)
+        patterns["repeated_action_patterns"] = await self.detect_repeated_actions(db, user_id)
 
         return patterns
         

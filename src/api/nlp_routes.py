@@ -557,6 +557,7 @@ async def suggest_new_routines(
                 min_confidence=min_confidence
             )
             
+            # Convertir a dict (iot_commands ya está cargado por selectinload)
             response = [RoutineResponse.model_validate(r.to_dict()) for r in suggested]
             logger.info(f"Se sugirieron {len(response)} rutinas para usuario {current_user.id}")
             

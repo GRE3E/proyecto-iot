@@ -48,7 +48,15 @@ class RoutineManager:
 
         db.add(routine)
         await db.commit()
-        await db.refresh(routine)
+        
+        # Recargar con eager loading de iot_commands
+        result = await db.execute(
+            select(Routine)
+            .options(selectinload(Routine.iot_commands))
+            .filter(Routine.id == routine.id)
+        )
+        routine = result.scalars().first()
+        
         logger.info(f"Rutina creada: {routine_name} (ID: {routine.id})")
         return routine
 
@@ -101,6 +109,27 @@ class RoutineManager:
             logger.info(f"Rutina rechazada y eliminada: {routine.name} (ID: {routine_id})")
             return True
         return False
+
+    async def delete_unconfirmed_routines(self, db: AsyncSession, user_id: int) -> int:
+        """
+        Elimina todas las rutinas no confirmadas de un usuario.
+        Esto se usa antes de generar nuevas sugerencias para evitar duplicados.
+        """
+        result = await db.execute(
+            select(Routine).filter(
+                Routine.user_id == user_id,
+                Routine.confirmed == False
+            )
+        )
+        routines = result.scalars().all()
+        count = len(routines)
+        
+        for routine in routines:
+            await db.delete(routine)
+        
+        await db.commit()
+        logger.info(f"Eliminadas {count} sugerencias no confirmadas del usuario {user_id}")
+        return count
 
     async def update_routine(
         self, 
@@ -412,6 +441,33 @@ class RoutineManager:
         elif pattern_type == "event_based":
             sequence = " → ".join(pattern.get("sequence", ["acción"]))
             return f"Rutina: {sequence}"
+        elif pattern_type == "action_based":
+            # Patrón basado en acción repetida a una hora específica
+            intent = pattern.get("intent", "acción")
+            hour = pattern.get("hour", 0)
+            device_type = pattern.get("device_type", "")
+            location = pattern.get("location", "")
+            frequency = pattern.get("frequency", 0)
+            
+            # Construir nombre descriptivo
+            name_parts = [f"Rutina: {intent}"]
+            
+            # Agregar contexto si existe
+            if device_type and location:
+                name_parts.append(f"({device_type}) en {location}")
+            elif device_type:
+                name_parts.append(f"({device_type})")
+            elif location:
+                name_parts.append(f"en {location}")
+            
+            # Agregar hora
+            hour_str = f"a las {hour}:00" if isinstance(hour, int) else f"a las {hour}"
+            name_parts.append(hour_str)
+            
+            # Agregar frecuencia
+            name_parts.append(f"(repetida {frequency} veces)")
+            
+            return " ".join(name_parts)
 
         return "Rutina automática"
         

@@ -48,20 +48,35 @@ class MemoryBrain:
         user_id: int, 
         min_confidence: float = 0.5
     ) -> List[Routine]:
+        # Primero, eliminar sugerencias anteriores no confirmadas
+        await self.routine_manager.delete_unconfirmed_routines(db, user_id)
+        
         patterns = await self.analyze_user(db, user_id)
         suggested_routines = []
 
-        for pattern in patterns.get("time_patterns", []):
-            if pattern.get("confidence", 0) >= min_confidence:
-                routine = await self.routine_manager.create_routine_from_pattern(
-                    db, user_id, pattern, confirmed=False
-                )
-                suggested_routines.append(routine)
+        # DESHABILITADO: time_patterns y location_patterns son demasiado genéricos
+        # Solo usamos repeated_action_patterns que incluyen hora + acción específica
+        # for pattern in patterns.get("time_patterns", []):
+        #     if pattern.get("confidence", 0) >= min_confidence:
+        #         routine = await self.routine_manager.create_routine_from_pattern(
+        #             db, user_id, pattern, confirmed=False
+        #         )
+        #         suggested_routines.append(routine)
 
-        for pattern in patterns.get("location_patterns", []):
+        # for pattern in patterns.get("location_patterns", []):
+        #     if pattern.get("confidence", 0) >= min_confidence:
+        #         routine = await self.routine_manager.create_routine_from_pattern(
+        #             db, user_id, pattern, confirmed=False
+        #         )
+        #         suggested_routines.append(routine)
+
+        # Solo sugerir patrones basados en acción+hora repetida
+        for pattern in patterns.get("repeated_action_patterns", []):
             if pattern.get("confidence", 0) >= min_confidence:
+                # Para acciones repetidas, crear rutina con las acciones directamente
+                actions = [pattern.get("action")]
                 routine = await self.routine_manager.create_routine_from_pattern(
-                    db, user_id, pattern, confirmed=False
+                    db, user_id, pattern, actions=actions, confirmed=False
                 )
                 suggested_routines.append(routine)
 

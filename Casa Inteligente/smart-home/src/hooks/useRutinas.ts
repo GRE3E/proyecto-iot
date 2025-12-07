@@ -224,7 +224,8 @@ export function useRutinas() {
     try {
       setIsLoadingList(true);
       setError(null);
-      const res = await axiosInstance.get("/nlp/routines");
+      // Solo cargar rutinas confirmadas, las no confirmadas son "sugerencias"
+      const res = await axiosInstance.get("/nlp/routines?confirmed_only=true");
       const list = Array.isArray(res.data) ? res.data : [];
       setRutinas(list.map(mapRoutineFromBackend));
     } catch (err) {
@@ -470,20 +471,57 @@ export function useRutinas() {
     try {
       setIsLoadingSuggestions(true);
       setError(null);
-      const res = await axiosInstance.post(
-        `/nlp/routines/suggest?min_confidence=${0.5}`
+
+      // Primero, obtener las sugerencias existentes (rutinas no confirmadas)
+      const res = await axiosInstance.get("/nlp/routines?confirmed_only=false");
+      const existingList = Array.isArray(res.data) ? res.data : [];
+
+      // Filtrar solo las no confirmadas
+      const unconfirmedRoutines = existingList.filter(
+        (r: any) => r.confirmed === false
       );
-      const list = Array.isArray(res.data) ? res.data : [];
-      const mapped: RoutineSuggestion[] = list.map((r: any) => ({
-        id: String(r.id),
-        name: String(r.name || "Rutina"),
-        trigger: mapTriggerFromBackend(r.trigger || {}),
-        confidence: Number(r.confidence || 0),
-        actions: Array.isArray(r.iot_commands)
-          ? r.iot_commands.map((n: any) => ({ id: uuidv4(), name: String(n) }))
-          : [],
-      }));
-      setSuggestions(mapped);
+
+      // Si ya hay sugerencias, usarlas
+      if (unconfirmedRoutines.length > 0) {
+        const mapped: RoutineSuggestion[] = unconfirmedRoutines.map(
+          (r: any) => ({
+            id: String(r.id),
+            name: String(r.name || "Rutina"),
+            trigger: mapTriggerFromBackend(r.trigger || {}),
+            confidence: Number(r.confidence || 0),
+            actions: Array.isArray(r.iot_commands)
+              ? r.iot_commands.map((n: any) => ({
+                  id: uuidv4(),
+                  name: String(n),
+                }))
+              : Array.isArray(r.actions)
+              ? r.actions.map((a: any) => ({ id: uuidv4(), name: String(a) }))
+              : [],
+          })
+        );
+        setSuggestions(mapped);
+      } else {
+        // Solo generar nuevas sugerencias si no hay ninguna
+        const suggestRes = await axiosInstance.post(
+          `/nlp/routines/suggest?min_confidence=${0.5}`
+        );
+        const list = Array.isArray(suggestRes.data) ? suggestRes.data : [];
+        const mapped: RoutineSuggestion[] = list.map((r: any) => ({
+          id: String(r.id),
+          name: String(r.name || "Rutina"),
+          trigger: mapTriggerFromBackend(r.trigger || {}),
+          confidence: Number(r.confidence || 0),
+          actions: Array.isArray(r.iot_commands)
+            ? r.iot_commands.map((n: any) => ({
+                id: uuidv4(),
+                name: String(n),
+              }))
+            : Array.isArray(r.actions)
+            ? r.actions.map((a: any) => ({ id: uuidv4(), name: String(a) }))
+            : [],
+        }));
+        setSuggestions(mapped);
+      }
     } catch (err) {
       setError("Error al generar sugerencias");
     } finally {

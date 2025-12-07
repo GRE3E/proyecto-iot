@@ -3,6 +3,7 @@ import logging
 import asyncio
 import threading
 import time
+from collections import defaultdict
 
 logger = logging.getLogger("MQTTClient")
 
@@ -19,8 +20,10 @@ class MQTTClient:
 
         self.is_connected = False
         self._online_event = asyncio.Event()
-        self.subscriptions = {"iot/system/console": self._log_arduino_console_output,
-                                "iot/system/confirmations": self._log_confirmation_output}
+        self.subscriptions = defaultdict(list)
+        self.subscriptions["iot/system/console"].append(self._log_arduino_console_output)
+        self.subscriptions["iot/system/confirmations"].append(self._log_confirmation_output)
+        self.subscriptions["iot/sensors/+/status"].append(self._log_arduino_console_output)
         self.loop = asyncio.get_event_loop()
 
         self.reconnect_delay_sec = 5
@@ -98,7 +101,7 @@ class MQTTClient:
             return False
 
     def subscribe(self, topic: str, callback) -> bool:
-        self.subscriptions[topic] = callback
+        self.subscriptions[topic].append(callback)
         if self.is_connected:
             try:
                 self.client.subscribe(topic)
@@ -106,6 +109,20 @@ class MQTTClient:
                 return True
             except Exception as e:
                 logger.error(f"Error al suscribirse: {e}")
+        return False
+
+    def unsubscribe(self, topic: str, callback) -> bool:
+        if topic in self.subscriptions and callback in self.subscriptions[topic]:
+            self.subscriptions[topic].remove(callback)
+            if not self.subscriptions[topic]: # Si no quedan callbacks para este tópico, desuscribirse del broker
+                if self.is_connected:
+                    try:
+                        self.client.unsubscribe(topic)
+                        logger.info(f"Desuscrito de {topic}")
+                        return True
+                    except Exception as e:
+                        logger.error(f"Error al desuscribirse: {e}")
+            return True # Se eliminó la callback, pero puede que queden otras
         return False
 
     def _on_message(self, client, userdata, msg):
@@ -128,8 +145,8 @@ class MQTTClient:
                     logger.warning("Database session factory or device manager not available for state update.")
 
             if msg.topic in self.subscriptions:
-                callback = self.subscriptions[msg.topic]
-                callback(msg.topic, msg.payload.decode())
+                for callback in self.subscriptions[msg.topic]:
+                    callback(msg.topic, msg.payload.decode())
             else:
                 logger.debug(f"Received message on topic: {msg.topic} with payload: {msg.payload.decode()}")
         except Exception as e:

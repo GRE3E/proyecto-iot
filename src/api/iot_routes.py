@@ -6,7 +6,7 @@ import logging
 from src.api.utils import get_mqtt_client
 from src.iot import device_manager
 import json
-from src.db.models import IoTCommand as DBLoTCommand, EnergyConsumption, User
+from src.db.models import IoTCommand as DBLoTCommand, EnergyConsumption, User, TemperatureHistory
 from sqlalchemy import select
 from src.websocket.connection_manager import manager
 from datetime import datetime, timedelta
@@ -26,8 +26,17 @@ async def send_arduino_command(command: ArduinoCommandSend, current_user: User =
     device_type, device_name, requested_state = device_manager._extract_device_info_from_topic(command.mqtt_topic, command.command_payload)
 
     if not device_name or not device_type:
-        logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {command.mqtt_topic}")
-        raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
+        # Si no se puede extraer información válida, verificar si es un comando de estado (status/get)
+        if command.mqtt_topic.endswith("/status/get"):
+            logger.info(f"Comando de estado detectado para {command.mqtt_topic}. Publicando sin guardar en DB.")
+            success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+            if not success:
+                logger.error(f"Fallo al enviar comando MQTT de estado a {command.mqtt_topic} con payload {command.command_payload}")
+                raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT de estado.")
+            return {"status": "Comando de estado enviado exitosamente", "topic": command.mqtt_topic, "payload": command.command_payload}
+        else:
+            logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {command.mqtt_topic}")
+            raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
 
     async with get_db() as session:
         current_device_state = await device_manager.get_device_state(session, device_name, device_type)
@@ -207,6 +216,25 @@ async def get_energy_data(
         energy_history = result.scalars().all()
 
         return energy_history
+
+@iot_router.get("/temperature/history", response_model=List[float])
+async def get_temperature_history(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial de temperatura de las últimas 24 horas.
+    """
+    async with get_db() as db:
+        time_24_hours_ago = datetime.now() - timedelta(hours=24)
+        result = await db.execute(
+            select(TemperatureHistory.temperature)
+            .filter(
+                TemperatureHistory.timestamp >= time_24_hours_ago
+            )
+            .order_by(TemperatureHistory.timestamp)
+        )
+        history = result.scalars().all()
+        return history
 
 @iot_router.get("/device_count_history", response_model=List[int])
 async def get_device_count_history_route(

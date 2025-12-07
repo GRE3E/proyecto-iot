@@ -75,7 +75,7 @@ int getLuzIndex(String nombre) {
 int getPuertaIndex(String nombre) {
   nombre.toUpperCase();
   for (int i = 0; i < 8; i++) {
-    if (nombre.indexOf(puertas[i].name) != -1) {
+    if (nombre == puertas[i].name) {
       return puertas[i].index;
     }
   }
@@ -178,6 +178,7 @@ void reconnect() {
       client.subscribe("iot/doors/+/status/get");
       client.subscribe("iot/actuators/VENTILADOR/command");
       client.subscribe("iot/actuators/VENTILADOR/status/get");
+      client.subscribe("iot/sensors/TEMPERATURA/status/get");
       client.subscribe("iot/system/command");
       client.subscribe("iot/system/console/get"); // Nuevo: Suscripción para obtener la consola
       
@@ -264,6 +265,34 @@ void leerEstadoVentilador() {
 }
 
 // ========================================
+// LEER ESTADO DE LA TEMPERATURA
+// ========================================
+void leerEstadoTemperatura() {
+  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
+  delay(50);
+  String datos = "";
+  while (Wire.available()) {
+    datos += (char)Wire.read();
+  }
+
+  if (datos.length() > 5) {
+    int c1 = datos.indexOf(',');
+    if (c1 != -1 && c1 > 2) {
+      String temp = datos.substring(2, c1);
+      client.publish("iot/sensors/TEMPERATURA/status", temp.c_str());
+      publicarConfirmacion("SENSOR", "TEMPERATURA", "STATUS_READ", temp + "C", true);
+      consolePrint("Temperatura: " + temp + "C");
+    } else {
+      consolePrint("ERROR: Formato de datos de temperatura invalido");
+      publicarConfirmacion("SENSOR", "TEMPERATURA", "STATUS_READ", "INVALID_FORMAT", false);
+    }
+  } else {
+    consolePrint("ERROR: No se recibieron datos de temperatura");
+    publicarConfirmacion("SENSOR", "TEMPERATURA", "STATUS_READ", "NO_DATA", false);
+  }
+}
+
+// ========================================
 // PUBLICAR BUFFER SERIAL
 // ========================================
 void publicarBufferSerial() {
@@ -317,6 +346,12 @@ void procesarComando(String cmd) {
     }
   }
   
+  // === CONSULTA DE ESTADO DE TEMPERATURA ===
+  if (cmd.indexOf("IOT/SENSORS/TEMPERATURA/STATUS/GET") != -1) {
+    leerEstadoTemperatura();
+    return;
+  }
+
   // === CONSULTA DE ESTADO DE VENTILADOR ===
   if (cmd.indexOf("IOT/ACTUATORS/VENTILADOR/STATUS/GET") != -1) {
     leerEstadoVentilador();

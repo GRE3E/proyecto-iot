@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.db.models import DeviceState, DeviceCountHistory, EnergyConsumption
+from src.db.models import DeviceState, DeviceCountHistory, EnergyConsumption, TemperatureHistory, User
 from src.api.iot_schemas import DeviceStateCreate
 import json
 from datetime import datetime, timedelta
@@ -42,6 +42,10 @@ def _extract_device_info_from_topic(mqtt_topic: str, command_payload: str) -> Tu
     if len(topic_parts) >= 3:
         device_name_raw = topic_parts[2]
         base_device_name = device_name_raw
+
+        # Excluir todos los comandos de solicitud de estado (/status/get) y los mensajes de estado de sensores del guardado en DB
+        if mqtt_topic.endswith("/status/get") or (len(topic_parts) >= 4 and topic_parts[1] == "sensors" and topic_parts[3] == "status"):
+            return None, None, state_value
 
         if topic_parts[1] == "lights":
             device_type = "luz"
@@ -277,6 +281,31 @@ async def delete_energy_consumption_history_for_user(db: AsyncSession, user_id: 
     await db.commit()
     logger.info(f"Historial de consumo de energía eliminado para el usuario {user_id}.")
 
+async def log_temperature_history(db: AsyncSession, device_name: str, temperature: float):
+    """
+    Registra el historial de temperatura. Asigna el registro al primer usuario propietario encontrado.
+    """
+    # Buscar un usuario propietario (admin) para asignar el registro
+    result = await db.execute(select(User).filter(User.is_owner == True))
+    owner = result.scalars().first()
+
+    if not owner:
+        # Fallback: intentar con cualquier usuario si no hay owner (caso raro)
+        result = await db.execute(select(User))
+        owner = result.scalars().first()
+    
+    if owner:
+        new_record = TemperatureHistory(
+            user_id=owner.id,
+            device_name=device_name,
+            temperature=temperature
+        )
+        db.add(new_record)
+        await db.commit()
+        logger.info(f"Temperatura registrada: {temperature}°C para {device_name} (User ID: {owner.id})")
+    else:
+        logger.warning(f"No se encontró usuario para asociar el registro de temperatura de {device_name}")
+
 async def process_mqtt_message_and_update_state(session: AsyncSession, mqtt_topic: str, command_payload: str):
     """
     Procesa un mensaje MQTT, extrae la información del dispositivo y actualiza su estado en la base de datos.
@@ -317,6 +346,11 @@ async def process_mqtt_message_and_update_state(session: AsyncSession, mqtt_topi
         if device_type == "sensor":
             try:
                 state_json["value"] = float(state_value) if state_value.replace('.','',1).replace('-','',1).isdigit() else state_value
+                
+                # Si es un sensor de temperatura y tiene un valor numérico válido, registrar historial
+                if "TEMPERATURA" in device_name.upper() and isinstance(state_json["value"], (int, float)):
+                    await log_temperature_history(session, device_name, state_json["value"])
+
             except (ValueError, AttributeError):
                 state_json["value"] = state_value
         

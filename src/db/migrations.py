@@ -207,3 +207,50 @@ async def drop_music_indexes(db: AsyncSession) -> None:
         await db.rollback()
         raise
     
+
+async def create_temperature_indexes(db: AsyncSession) -> None:
+    indexes = [
+        """
+        CREATE INDEX IF NOT EXISTS idx_temperature_history_user_id 
+        ON temperature_history(user_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_temperature_history_timestamp 
+        ON temperature_history(timestamp DESC)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_temperature_history_device_name 
+        ON temperature_history(device_name)
+        """,
+    ]
+
+    try:
+        for index_sql in indexes:
+            await db.execute(text(index_sql))
+            logger.info(f"Índice creado: {index_sql.strip()[:50]}...")
+        await db.commit()
+        logger.info("Índices de historial de temperatura creados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al crear índices de historial de temperatura: {e}")
+        await db.rollback()
+        raise
+
+
+async def drop_temperature_indexes(db: AsyncSession) -> None:
+    indexes = [
+        "idx_temperature_history_user_id",
+        "idx_temperature_history_timestamp",
+        "idx_temperature_history_device_name",
+    ]
+
+    try:
+        for index_name in indexes:
+            await db.execute(text(f"DROP INDEX IF EXISTS {index_name}"))
+            logger.info(f"Índice eliminado: {index_name}")
+        await db.commit()
+        logger.info("Todos los índices de historial de temperatura eliminados")
+    except Exception as e:
+        logger.error(f"Error al eliminar índices de historial de temperatura: {e}")
+        await db.rollback()
+        raise
+    

@@ -27,7 +27,6 @@
     "face_recognition": true,
     "music_manager": true
   },
-  "memory_size": 50,
   "timezone": "America/Lima",
   "debug": true
 }

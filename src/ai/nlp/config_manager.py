@@ -105,7 +105,6 @@ class ConfigManager:
                 "administrar_comandos_iot"
             ],
             "modules": self._get_default_modules_config(),
-            "memory_size": 50,
             "timezone": "America/Lima",
             "debug": False
         }

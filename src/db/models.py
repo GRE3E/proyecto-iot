@@ -208,6 +208,7 @@ class User(Base):
     energy_consumptions: Mapped[List["EnergyConsumption"]] = relationship("EnergyConsumption", back_populates="user", cascade="all, delete-orphan")
     device_count_history: Mapped[List["DeviceCountHistory"]] = relationship("DeviceCountHistory", back_populates="user", cascade="all, delete-orphan")
     user_notifications: Mapped[List["UserNotification"]] = relationship("UserNotification", back_populates="user", cascade="all, delete-orphan")
+    temperature_history: Mapped[List["TemperatureHistory"]] = relationship("TemperatureHistory", back_populates="user", cascade="all, delete-orphan")
 
     def has_permission(self, permission_name: str) -> bool:
         """
@@ -407,6 +408,29 @@ class ContextEvent(Base):
     def __repr__(self) -> str:
         return f"<ContextEvent(id={self.id}, user_id={self.user_id}, intent='{self.intent}', action='{self.action}')>"
     
+
+class TemperatureHistory(Base):
+    __tablename__ = "temperature_history"
+    """
+    Modelo para almacenar el historial de temperatura.
+
+    Atributos:
+        id (int): Identificador único del registro de temperatura.
+        user_id (int): ID del usuario al que pertenece este registro.
+        timestamp (datetime): Marca de tiempo del registro de temperatura.
+        temperature (float): Valor de la temperatura en grados Celsius.
+        device_name (str): Nombre del dispositivo que registró la temperatura.
+    """
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    temperature = Column(Float, nullable=False)
+    device_name = Column(String(100), nullable=False)
+
+    user: Mapped["User"] = relationship("User", back_populates="temperature_history")
+
+    def __repr__(self) -> str:
+        return f"<TemperatureHistory(id={self.id}, user_id={self.user_id}, device_name='{self.device_name}', temperature={self.temperature})>"
 
 
 class Notification(Base):

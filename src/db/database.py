@@ -78,4 +78,16 @@ async def create_all_tables() -> None:
             logger.info("Índices de música creados exitosamente")
     except Exception as e:
         logger.error(f"Error al crear índices de música: {e}")
+        await db.rollback()
+        raise
+    
+    try:
+        from src.db.migrations import create_temperature_indexes
+        async with SessionLocal() as db:
+            await create_temperature_indexes(db)
+            logger.info("Índices de historial de temperatura creados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al crear índices de historial de temperatura: {e}")
+        await db.rollback()
+        raise
         

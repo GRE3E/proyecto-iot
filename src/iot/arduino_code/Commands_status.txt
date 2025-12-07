@@ -126,6 +126,13 @@
     "mqtt_topic": "iot/actuators/VENTILADOR/status/get"
   },
   {
+    "name": "Estado Temperatura",
+    "description": "Obtiene la temperatura actual.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/sensors/TEMPERATURA/status/get"
+  },
+  {
     "name": "Obtener Consola del Sistema",
     "description": "Obtiene el contenido de la consola del sistema.",
     "command_type": "mqtt",

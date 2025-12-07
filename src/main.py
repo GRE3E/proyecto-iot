@@ -13,7 +13,7 @@ from src.api.utils import initialize_all_modules, _hotword_module, _mqtt_client
 from src.api.utils import (
     shutdown_ollama_manager, shutdown_hotword_module, shutdown_mqtt_client,
     shutdown_speaker_module, shutdown_nlp_module, shutdown_stt_module,
-    shutdown_tts_module, shutdown_face_recognition_module
+    shutdown_tts_module, shutdown_face_recognition_module, get_mqtt_client
 )
 from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
@@ -82,6 +82,9 @@ async def startup_event() -> None:
     app.state.mqtt_client = _mqtt_client
     app.state.iot_data = {}
 
+    # Iniciar tarea periódica para la temperatura (cada 30 min)
+    asyncio.create_task(periodic_temperature_check())
+
     if _hotword_module and not _hotword_module.is_online():
         logger.warning("HotwordDetector no está en línea. Verifique configuración.")
 
@@ -110,5 +113,30 @@ async def shutdown_event() -> None:
         logger.info("Cerrando motor de la base de datos...")
 
     logger.info("Aplicación cerrada correctamente")
+
+async def periodic_temperature_check():
+    """
+    Tarea en segundo plano que solicita el estado de la temperatura cada 30 minutos.
+    """
+    while True:
+        try:
+            logger.info("Ejecutando chequeo periódico de temperatura...")
+            mqtt_client = get_mqtt_client()
+            if mqtt_client and mqtt_client.is_connected:
+                # Publicar comando para obtener el estado de la temperatura
+                # Ajusta el tópico según tu configuración real de Arduino
+                topic = "iot/sensors/TEMPERATURA/status/get" 
+                await mqtt_client.publish(topic, "GET")
+                logger.info(f"Solicitud de temperatura enviada a {topic}")
+            else:
+                logger.warning("MQTT Client no conectado. Omitiendo chequeo de temperatura.")
+            
+            # Esperar 30 minutos (30 * 60 segundos)
+            await asyncio.sleep(1800) 
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error en tarea periódica de temperatura: {e}")
+            await asyncio.sleep(60) # Reintentar en 1 minuto si falla
 
 app.include_router(router, prefix="")

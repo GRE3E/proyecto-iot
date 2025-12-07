@@ -14,8 +14,6 @@ import TemperatureStatistics from "../components/statistics/TemperatureStatistic
 import HumidityStatistics from "../components/statistics/HumidityStatistics";
 import DevicesStatistics from "../components/statistics/DevicesStatistics";
 
-
-
 export default function Inicio() {
   const [expandedCard, setExpandedCard] = useState<
     "energy" | "temp" | "humidity" | "devices" | null

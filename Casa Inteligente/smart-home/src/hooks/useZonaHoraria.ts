@@ -12,7 +12,7 @@ export interface TimezoneConfig {
 }
 
 export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
-  "América": [
+  América: [
     {
       region: "Argentina",
       timezone: "America/Argentina/Buenos_Aires",
@@ -291,7 +291,8 @@ export const TIMEZONE_DATA: Record<string, TimezoneConfig[]> = {
 };
 
 export function useZonaHoraria() {
-  const [selectedTimezone, setSelectedTimezone] = useState<TimezoneConfig | null>(null);
+  const [selectedTimezone, setSelectedTimezone] =
+    useState<TimezoneConfig | null>(null);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
 
@@ -357,18 +358,28 @@ export function useZonaHoraria() {
     localStorage.setItem("userTimezone", JSON.stringify(timezoneConfig));
 
     try {
-      const response = await axiosInstance.put('/nlp/config/timezone', {
+      const response = await axiosInstance.put("/nlp/config/timezone", {
         timezone: timezoneConfig.timezone,
       });
       if (response.status >= 200 && response.status < 300) {
         console.log("Zona horaria actualizada exitosamente en el servidor.");
       } else {
-        const errorMessage = (response.data && (response.data.detail || JSON.stringify(response.data))) || `status ${response.status}`;
-        console.error('Error al actualizar la zona horaria en el servidor:', errorMessage);
+        const errorMessage =
+          (response.data &&
+            (response.data.detail || JSON.stringify(response.data))) ||
+          `status ${response.status}`;
+        console.error(
+          "Error al actualizar la zona horaria en el servidor:",
+          errorMessage
+        );
       }
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || 'Error desconocido';
-      console.error('Error al actualizar la zona horaria en el servidor:', errorMessage);
+      const errorMessage =
+        error?.response?.data?.detail || error?.message || "Error desconocido";
+      console.error(
+        "Error al actualizar la zona horaria en el servidor:",
+        errorMessage
+      );
     }
   }, []);
 
@@ -389,8 +400,8 @@ export function useZonaHoraria() {
         if (found) return found;
       }
       try {
-        const parts = timezoneString.split('/');
-        const regionName = parts[1] ? parts[1].replace('_', ' ') : parts[0];
+        const parts = timezoneString.split("/");
+        const regionName = parts[1] ? parts[1].replace("_", " ") : parts[0];
         return {
           region: regionName,
           timezone: timezoneString,

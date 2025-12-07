@@ -1,8 +1,8 @@
 "use client";
 
 import { Thermometer } from "lucide-react";
-import { useMemo } from "react";
 import { useThemeByTime } from "../../hooks/useThemeByTime";
+import { useTemperatureData } from "../../hooks/useTemperatureData";
 
 interface TemperatureStatisticsProps {
   temperature: number;
@@ -12,22 +12,20 @@ export default function TemperatureStatistics({
   temperature,
 }: TemperatureStatisticsProps) {
   const { colors } = useThemeByTime();
-
-  const temperatureHistory = useMemo(() => {
-    return Array.from({ length: 24 }, (_, i) => {
-      const baseValue = 22 + Math.sin(i * 0.4) * 3;
-      const variation = Math.random() * 2 - 1;
-      return Math.round((baseValue + variation) * 10) / 10;
-    });
-  }, []);
+  const { temperatureHistory } = useTemperatureData();
 
   const avgTemp =
-    Math.round(
-      (temperatureHistory.reduce((a, b) => a + b) / temperatureHistory.length) *
-        10
-    ) / 10;
-  const maxTemp = Math.max(...temperatureHistory);
-  const minTemp = Math.min(...temperatureHistory);
+    temperatureHistory.length > 0
+      ? Math.round(
+          (temperatureHistory.reduce((a, b) => a + b) /
+            temperatureHistory.length) *
+            10
+        ) / 10
+      : 0;
+  const maxTemp =
+    temperatureHistory.length > 0 ? Math.max(...temperatureHistory) : 0;
+  const minTemp =
+    temperatureHistory.length > 0 ? Math.min(...temperatureHistory) : 0;
 
   const getSectionTheme = (type: "temp") => {
     const themeMap = {
@@ -43,6 +41,13 @@ export default function TemperatureStatistics({
   };
 
   const renderChart = (type: "temp", data: number[]) => {
+    if (data.length === 0) {
+      return (
+        <div className="text-center text-gray-500">
+          No hay datos de temperatura disponibles.
+        </div>
+      );
+    }
     const chartColorMap = {
       temp: "#f97316",
     };

@@ -29,10 +29,15 @@ export default function Login({ onNavigate }: LoginProps) {
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setUsername(e.target.value);
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setPassword(e.target.value);
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\s/g, "");
+    setUsername(value);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\s/g, "");
+    setPassword(value);
+  };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) =>
     handleKeyPress(e);
   const togglePasswordVisibility = () => setShowPassword(!showPassword);

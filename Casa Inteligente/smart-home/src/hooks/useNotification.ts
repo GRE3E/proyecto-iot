@@ -37,8 +37,21 @@ export function useNotifications(
       .catch(() => {});
   }, [options?.apiBase, options?.token, options?.limit, options?.offset]);
 
+  // Only fetch notifications when receiving notification-related WebSocket messages
   useEffect(() => {
     if (!wsMessage) return;
+
+    // Only fetch notifications for notification-related messages
+    // Ignore music_update, device_update, etc.
+    const notificationTypes = [
+      "notification",
+      "new_notification",
+      "notification_update",
+    ];
+    if (!notificationTypes.includes(wsMessage.type)) {
+      return;
+    }
+
     fetchNotifications(options?.apiBase, options?.token, {
       limit: options?.limit,
       offset: options?.offset,
@@ -48,7 +61,13 @@ export function useNotifications(
         setNotifications(list);
       })
       .catch(() => {});
-  }, [wsMessage, options?.apiBase, options?.token, options?.limit, options?.offset]);
+  }, [
+    wsMessage,
+    options?.apiBase,
+    options?.token,
+    options?.limit,
+    options?.offset,
+  ]);
 
   const remove = async (id: number) => {
     const success = await updateNotificationStatus(

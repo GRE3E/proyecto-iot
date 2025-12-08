@@ -296,15 +296,16 @@ export function useRutinas() {
         return { valid: false, message: "El nombre es obligatorio" };
       if (form.triggerType === "NLP" && !form.nlpPhrase.trim())
         return { valid: false, message: "La frase activadora es obligatoria" };
+      // Para rutinas de tiempo, no es necesario seleccionar días (se ejecuta todos los días por defecto)
+      // Solo validar que tenga una hora válida
       if (
         form.triggerType === "Tiempo" &&
         form.relativeMinutes <= 0 &&
-        form.timeDays.length === 0 &&
-        !form.timeDate
+        !form.timeHour
       )
         return {
           valid: false,
-          message: "Selecciona al menos un día o una fecha",
+          message: "Especifica una hora para la rutina",
         };
       if (
         form.actionIds.length === 0 &&
@@ -345,6 +346,9 @@ export function useRutinas() {
           command_ids,
           actions,
         };
+
+        console.log("Creating routine with payload:", payload);
+
         const res = await axiosInstance.post("/nlp/routines", payload);
         const routine = mapRoutineFromBackend(res.data);
         setRutinas((prev) => [routine, ...prev]);
@@ -354,7 +358,12 @@ export function useRutinas() {
           routine,
         };
       } catch (e: any) {
-        return { success: false, message: "Error al crear la rutina" };
+        console.error("Error creating routine:", e);
+        const errorMessage =
+          e.response?.data?.detail ||
+          e.response?.data?.message ||
+          "Error al crear la rutina";
+        return { success: false, message: errorMessage };
       }
     },
     [validateForm, buildTrigger]

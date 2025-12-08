@@ -6,7 +6,6 @@ import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useAuth } from "../hooks/useAuth";
 import PageHeader from "../components/UI/PageHeader";
 import SimpleCard from "../components/UI/Card";
-import SimpleButton from "../components/UI/Button";
 import {
   Music,
   AlertCircle,
@@ -22,6 +21,7 @@ import {
   Calendar,
   Plus,
 } from "lucide-react";
+import { formatTime, formatDate } from "../utils/timeFormat";
 
 export default function MusicaPage() {
   const {
@@ -65,6 +65,9 @@ export default function MusicaPage() {
         user?.user?.username || "Desconocido"
       );
       setNombreCancion("");
+    } catch (error) {
+      console.error("Error al agregar canción:", error);
+      setValidationError("Error al agregar la canción");
     } finally {
       setAgregando(false);
     }
@@ -75,19 +78,6 @@ export default function MusicaPage() {
       await detenerCancion();
     } catch (error) {
       console.error("Error al detener la canción:", error);
-    }
-  };
-
-  const formatearTiempo = (segundos: number) => {
-    const mins = Math.floor(segundos / 60);
-    const segs = segundos % 60;
-    return `${mins}:${segs < 10 ? "0" : ""}${segs}`;
-  };
-  const formatearFecha = (iso?: string) => {
-    try {
-      return iso ? new Date(iso).toLocaleString() : "";
-    } catch {
-      return "";
     }
   };
 
@@ -150,25 +140,32 @@ export default function MusicaPage() {
                     outline-none focus:ring-2 focus:ring-purple-500 
                     ${colors.mutedText.replace("text-", "placeholder-")} 
                     text-sm border ${
-                      validationError ? "border-red-500" : "border-purple-500/20"
+                      validationError
+                        ? "border-red-500"
+                        : "border-purple-500/20"
                     } disabled:opacity-50 transition-all backdrop-blur-sm`}
                   />
                   {validationError && (
-                    <p className="text-red-400 text-xs mt-1">{validationError}</p>
+                    <p className="text-red-400 text-xs mt-1">
+                      {validationError}
+                    </p>
                   )}
                 </div>
-                <SimpleButton
+                <button
                   type="submit"
-                  className="!w-auto !p-3 !text-sm"
-                  active={true}
-                  disabled={agregando}
+                  disabled={agregando || !nombreCancion.trim()}
+                  className={`p-3 rounded-xl transition-all flex items-center justify-center ${
+                    agregando || !nombreCancion.trim()
+                      ? "bg-purple-500/50 cursor-not-allowed"
+                      : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-lg hover:shadow-purple-500/50"
+                  }`}
                 >
                   {agregando ? (
-                    <Loader size={16} className="animate-spin" />
+                    <Loader size={16} className="animate-spin text-white" />
                   ) : (
-                    <Plus size={16} />
+                    <Plus size={16} className="text-white" />
                   )}
-                </SimpleButton>
+                </button>
               </div>
             </form>
           </SimpleCard>
@@ -245,7 +242,7 @@ export default function MusicaPage() {
                             >
                               <Calendar className="w-3 h-3 text-purple-300" />
                               <span className={`text-xs ${colors.mutedText}`}>
-                                {formatearFecha(estado.cancionActual.createdAt)}
+                                {formatDate(estado.cancionActual.createdAt)}
                               </span>
                             </span>
                           )}
@@ -327,11 +324,11 @@ export default function MusicaPage() {
                   </div>
                   <div className="flex justify-between text-xs font-mono px-1">
                     <span className={`${colors.mutedText}`}>
-                      {formatearTiempo(estado.tiempoActual)}
+                      {formatTime(estado.tiempoActual)}
                     </span>
                     <span className={`${colors.mutedText}`}>
                       {estado.cancionActual
-                        ? formatearTiempo(estado.cancionActual.duracion)
+                        ? formatTime(estado.cancionActual.duracion)
                         : "0:00"}
                     </span>
                   </div>
@@ -435,25 +432,32 @@ export default function MusicaPage() {
                     outline-none focus:ring-2 focus:ring-purple-500 
                     ${colors.mutedText.replace("text-", "placeholder-")} 
                     text-sm border ${
-                      validationError ? "border-red-500" : "border-purple-500/20"
+                      validationError
+                        ? "border-red-500"
+                        : "border-purple-500/20"
                     } disabled:opacity-50 transition-all backdrop-blur-sm`}
                   />
                   {validationError && (
-                    <p className="text-red-400 text-xs mt-1">{validationError}</p>
+                    <p className="text-red-400 text-xs mt-1">
+                      {validationError}
+                    </p>
                   )}
                 </div>
-                <SimpleButton
+                <button
                   type="submit"
-                  className="!w-auto !p-3 !text-sm"
-                  active={true}
-                  disabled={agregando}
+                  disabled={agregando || !nombreCancion.trim()}
+                  className={`p-3 rounded-xl transition-all flex items-center justify-center ${
+                    agregando || !nombreCancion.trim()
+                      ? "bg-purple-500/50 cursor-not-allowed"
+                      : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-lg hover:shadow-purple-500/50"
+                  }`}
                 >
                   {agregando ? (
-                    <Loader size={16} className="animate-spin" />
+                    <Loader size={16} className="animate-spin text-white" />
                   ) : (
-                    <Plus size={16} />
+                    <Plus size={16} className="text-white" />
                   )}
-                </SimpleButton>
+                </button>
               </div>
             </form>
           </SimpleCard>
@@ -514,7 +518,7 @@ export default function MusicaPage() {
                                 className={`text-[10px] ${colors.mutedText}`}
                               >
                                 {" "}
-                                {formatearFecha(cancion.createdAt)}{" "}
+                                {formatDate(cancion.createdAt)}{" "}
                               </span>
                             </span>
                           )}
@@ -551,51 +555,32 @@ export default function MusicaPage() {
                   .map((cancion) => (
                     <div
                       key={cancion.id}
-                      className={`flex items-center justify-between p-3 rounded-lg transition-all border-l-3 ${colors.cardBg} border-transparent hover:bg-white/5`}
+                      className={`flex items-start gap-2 p-2 rounded-lg transition-all ${colors.cardBg} hover:bg-white/5`}
                     >
-                      <div className="flex items-center gap-3">
-                        {cancion.thumbnail && (
-                          <img
-                            src={cancion.thumbnail}
-                            alt="Miniatura"
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`${colors.text} font-semibold text-sm truncate`}
-                          >
-                            {cancion.titulo}
-                          </p>
-                          <p
-                            className={`${colors.mutedText} text-xs truncate mt-0.5`}
-                          >
-                            {cancion.artista}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-1 mt-1">
-                            {cancion.agregadoPor && (
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-500/30 bg-white/5`}
-                              >
-                                <User className="w-3 h-3 text-purple-300" />
-                                <span className={`text-[10px] ${colors.text}`}>
-                                  {cancion.agregadoPor}
-                                </span>
-                              </span>
-                            )}
-                            {cancion.createdAt && (
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-500/30 bg-white/5`}
-                              >
-                                <Calendar className="w-3 h-3 text-purple-300" />
-                                <span
-                                  className={`text-[10px] ${colors.mutedText}`}
-                                >
-                                  {formatearFecha(cancion.createdAt)}
-                                </span>
-                              </span>
-                            )}
-                          </div>
+                      {cancion.thumbnail && (
+                        <img
+                          src={cancion.thumbnail}
+                          alt="Miniatura"
+                          className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`${colors.text} font-semibold text-xs truncate`}
+                        >
+                          {cancion.titulo}
+                        </p>
+                        <p
+                          className={`${colors.mutedText} text-[10px] truncate`}
+                        >
+                          {cancion.artista}
+                        </p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {cancion.agregadoPor && (
+                            <span className={`text-[9px] ${colors.mutedText}`}>
+                              {cancion.agregadoPor}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
@@ -606,20 +591,20 @@ export default function MusicaPage() {
                           try {
                             await agregarCancion(
                               query,
-                              user?.nombre || "Desconocido"
+                              user?.user?.username || "Desconocido"
                             );
                           } finally {
                             setReproduciendoHistorialId(null);
                           }
                         }}
-                        className="text-purple-400 hover:text-purple-300 transition-all hover:scale-110 transform p-2 rounded-full hover:bg-white/5 flex-shrink-0"
+                        className="text-purple-400 hover:text-purple-300 transition-all hover:scale-110 p-1.5 rounded-full hover:bg-white/5 flex-shrink-0"
                         aria-label={`Reproducir ${cancion.titulo}`}
                         disabled={reproduciendoHistorialId === cancion.id}
                       >
                         {reproduciendoHistorialId === cancion.id ? (
-                          <Loader size={20} className="animate-spin" />
+                          <Loader size={14} className="animate-spin" />
                         ) : (
-                          <Play size={20} />
+                          <Play size={14} fill="currentColor" />
                         )}
                       </button>
                     </div>

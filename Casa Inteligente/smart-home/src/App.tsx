@@ -1,6 +1,7 @@
 "use client";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useThemeByTime } from "./hooks/useThemeByTime";
+import { usePreloadPage } from "./hooks/usePreloadPage";
 import {
   Home,
   Settings,
@@ -42,6 +43,9 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { colors, theme } = useThemeByTime();
   console.log("Valor de theme:", theme);
+
+  // Precargar página seleccionada durante la transición
+  usePreloadPage(selectedMenu, 100);
 
   const menuItems = [
     { name: "Inicio", icon: Home },

@@ -19,7 +19,9 @@ import {
 import SimpleButton from "../components/UI/Button";
 import SimpleCard from "../components/UI/Card";
 import Modal from "../components/UI/Modal";
+import ToastContainer from "../components/UI/ToastContainer";
 import { useThemeByTime } from "../hooks/useThemeByTime";
+import { useToast } from "../hooks/useToast";
 import {
   useRutinas,
   type FormState,
@@ -32,6 +34,7 @@ type FilterStatus = "todos" | "confirmadas" | "noConfirmadas";
 
 export default function Rutinas() {
   const { colors } = useThemeByTime();
+  const { toasts, showSuccess, showError, removeToast } = useToast();
   const {
     rutinas,
     suggestions,
@@ -85,14 +88,12 @@ export default function Rutinas() {
         routine.trigger.type === "NLP"
           ? "NLP"
           : routine.trigger.type === "Tiempo"
-            ? "Tiempo"
-            : "Evento",
-      nlpPhrase:
-        routine.trigger.type === "NLP" ? routine.trigger.phrase : "",
+          ? "Tiempo"
+          : "Evento",
+      nlpPhrase: routine.trigger.type === "NLP" ? routine.trigger.phrase : "",
       timeHour:
         routine.trigger.type === "Tiempo" ? routine.trigger.hour : "08:00",
-      timeDays:
-        routine.trigger.type === "Tiempo" ? routine.trigger.days : [],
+      timeDays: routine.trigger.type === "Tiempo" ? routine.trigger.days : [],
       timeDate:
         routine.trigger.type === "Tiempo"
           ? (routine.trigger as any).date || ""
@@ -102,9 +103,7 @@ export default function Rutinas() {
       deviceEvent:
         routine.trigger.type === "Evento" ? routine.trigger.event : "",
       actionIds: routine.actions.map((a) => a.id),
-      ttsMessages: routine.actions.map((a) =>
-        a.name.replace("tts_speak:", "")
-      ),
+      ttsMessages: routine.actions.map((a) => a.name.replace("tts_speak:", "")),
     };
 
     setFormData(mapped);
@@ -120,9 +119,12 @@ export default function Rutinas() {
         : await createRutina(formData);
 
       if (result.success) {
+        showSuccess(result.message || "Rutina guardada correctamente");
         setIsFormOpen(false);
         setEditingId(null);
         setFormData(INITIAL_FORM);
+      } else {
+        showError(result.message || "Error al guardar la rutina");
       }
     } finally {
       setIsSavingForm(false);
@@ -165,8 +167,12 @@ export default function Rutinas() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("¿Eliminar esta rutina?")) {
-      await deleteRutina(id);
+    if (!confirm("¿Estás seguro de eliminar esta rutina?")) return;
+    const result = await deleteRutina(id);
+    if (result.success) {
+      showSuccess("Rutina eliminada correctamente");
+    } else {
+      showError("Error al eliminar la rutina");
     }
   };
 
@@ -290,11 +296,13 @@ export default function Rutinas() {
                           </p>
                         )}
                       </div>
-                      <div className={`px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                        rutina.confirmed
-                          ? colors.successChip
-                          : colors.warningChip
-                      }`}>
+                      <div
+                        className={`px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                          rutina.confirmed
+                            ? colors.successChip
+                            : colors.warningChip
+                        }`}
+                      >
                         {rutina.confirmed ? "Confirmada" : "Pendiente"}
                       </div>
                     </div>
@@ -306,7 +314,9 @@ export default function Rutinas() {
 
                     {rutina.actions.length > 0 && (
                       <div>
-                        <p className={`text-sm font-semibold mb-1 ${colors.mutedText}`}>
+                        <p
+                          className={`text-sm font-semibold mb-1 ${colors.mutedText}`}
+                        >
                           Acciones:
                         </p>
                         <div className="flex flex-wrap gap-1">
@@ -398,7 +408,6 @@ export default function Rutinas() {
       {/* Contenido Sugerencias */}
       {activeSection === "sugerencias" && (
         <div className="space-y-4">
-
           {isLoadingSuggestions && suggestions.length === 0 ? (
             <SimpleCard className="p-8 text-center">
               <div className="w-8 h-8 border-4 border-slate-400 border-t-cyan-500 rounded-full animate-spin mx-auto mb-2" />
@@ -420,7 +429,9 @@ export default function Rutinas() {
                           {suggestion.name}
                         </h3>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${colors.chipBg}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded whitespace-nowrap ${colors.chipBg}`}
+                      >
                         {Math.round(suggestion.confidence * 100)}%
                       </span>
                     </div>
@@ -449,8 +460,8 @@ export default function Rutinas() {
                           suggestion.confidence >= 0.7
                             ? "bg-green-500"
                             : suggestion.confidence >= 0.5
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
                         }`}
                         style={{
                           width: `${suggestion.confidence * 100}%`,
@@ -500,13 +511,17 @@ export default function Rutinas() {
         <div className="space-y-6 pr-1">
           {/* Información General */}
           <div className="space-y-4 pb-4 border-b border-slate-700/50">
-            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+            <h3
+              className={`text-base font-bold flex items-center gap-2 ${colors.text}`}
+            >
               <ListTodo className="w-5 h-5" />
               Información General
             </h3>
 
             <div>
-              <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+              <label
+                className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+              >
                 Nombre de la rutina
               </label>
               <input
@@ -521,7 +536,9 @@ export default function Rutinas() {
             </div>
 
             <div>
-              <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+              <label
+                className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+              >
                 Descripción (opcional)
               </label>
               <textarea
@@ -550,13 +567,17 @@ export default function Rutinas() {
 
           {/* Disparador */}
           <div className="space-y-4 pb-4 border-b border-slate-700/50">
-            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+            <h3
+              className={`text-base font-bold flex items-center gap-2 ${colors.text}`}
+            >
               <Mic className="w-5 h-5" />
               Disparador
             </h3>
 
             <div>
-              <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+              <label
+                className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+              >
                 Tipo de activación
               </label>
               <select
@@ -578,7 +599,9 @@ export default function Rutinas() {
             {/* NLP */}
             {formData.triggerType === "NLP" && (
               <div>
-                <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                <label
+                  className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                >
                   ¿Qué frase activará esta rutina?
                 </label>
                 <input
@@ -597,7 +620,9 @@ export default function Rutinas() {
             {formData.triggerType === "Tiempo" && (
               <div className="space-y-3">
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                  >
                     Hora
                   </label>
                   <input
@@ -611,7 +636,9 @@ export default function Rutinas() {
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                  >
                     Días
                   </label>
                   <div className="grid grid-cols-4 gap-2">
@@ -632,7 +659,9 @@ export default function Rutinas() {
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                  >
                     Fecha específica (opcional)
                   </label>
                   <input
@@ -651,7 +680,9 @@ export default function Rutinas() {
             {formData.triggerType === "Evento" && (
               <div className="space-y-3">
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                  <label
+                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                  >
                     Dispositivo
                   </label>
                   <select
@@ -671,7 +702,9 @@ export default function Rutinas() {
 
                 {selectedDevice && (
                   <div>
-                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    <label
+                      className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                    >
                       Evento
                     </label>
                     <select
@@ -695,7 +728,9 @@ export default function Rutinas() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    <label
+                      className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                    >
                       Operador
                     </label>
                     <select
@@ -716,7 +751,9 @@ export default function Rutinas() {
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}>
+                    <label
+                      className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                    >
                       Valor
                     </label>
                     <input
@@ -741,7 +778,9 @@ export default function Rutinas() {
 
           {/* Acciones */}
           <div className="space-y-4 pb-4 border-b border-slate-700/50">
-            <h3 className={`text-base font-bold flex items-center gap-2 ${colors.text}`}>
+            <h3
+              className={`text-base font-bold flex items-center gap-2 ${colors.text}`}
+            >
               <Zap className="w-5 h-5" />
               Acciones
             </h3>
@@ -849,12 +888,15 @@ export default function Rutinas() {
               {isSavingForm
                 ? "Guardando..."
                 : editingId
-                  ? "Actualizar"
-                  : "Crear Rutina"}
+                ? "Actualizar"
+                : "Crear Rutina"}
             </SimpleButton>
           </div>
         </div>
       </Modal>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

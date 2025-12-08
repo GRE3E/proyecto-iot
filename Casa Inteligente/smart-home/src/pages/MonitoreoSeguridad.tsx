@@ -17,10 +17,7 @@ import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useSecurityCameras } from "../hooks/useSecurityCameras";
 import { useCameraStream } from "../hooks/useCameraStream";
 import { Wifi, WifiOff } from "lucide-react";
-import { getValidAccessToken } from "../services/authService";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { axiosInstance } from "../services/authService";
 
 interface CameraStreamViewProps {
   cameraId: string;
@@ -43,13 +40,15 @@ function CameraStreamView({
   isRecognizing = false,
   recognitionResult,
 }: CameraStreamViewProps) {
+  // Only use camera stream when explicitly active
   const { imageUrl, error, isLoading } = useCameraStream({
     cameraId,
-    enabled: isActive,
+    enabled: isActive, // This ensures stream only starts when camera is toggled ON
   });
 
   const showRecognitionButton = cameraId === "door" && isActive;
 
+  // Show disabled state when camera is off
   if (!isActive) {
     return (
       <>
@@ -193,45 +192,19 @@ export default function MonitoreoSeguridad() {
     }));
 
     try {
-      let token = await getValidAccessToken();
-      if (!token) throw new Error("No hay token de autenticación");
-
-      let response = await fetch(
-        `${API_BASE_URL}/cameras/${cameraId}/snapshot-recognize`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
+      // Use axiosInstance which handles token refresh automatically
+      const response = await axiosInstance.post(
+        `/cameras/${cameraId}/snapshot-recognize`
       );
 
-      if (response.status === 401) {
-        token = await getValidAccessToken();
-        if (!token)
-          throw new Error("Sesión expirada. Inicie sesión nuevamente.");
-        response = await fetch(
-          `${API_BASE_URL}/cameras/${cameraId}/snapshot-recognize`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-      }
-
-      if (!response.ok) throw new Error(`Error: ${response.status}`);
-
-      const result = await response.json();
+      const result = response.data;
 
       setRecognitionState((prev) => ({
         ...prev,
         [cameraId]: { isRecognizing: false, result },
       }));
 
+      // Clear result after 5 seconds
       setTimeout(() => {
         setRecognitionState((prev) => ({
           ...prev,
@@ -251,6 +224,7 @@ export default function MonitoreoSeguridad() {
         },
       }));
 
+      // Clear error after 5 seconds
       setTimeout(() => {
         setRecognitionState((prev) => ({
           ...prev,

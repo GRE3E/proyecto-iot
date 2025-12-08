@@ -52,7 +52,7 @@ export default function Modal({
           {/* Panel */}
           <motion.div
             key="modal-panel"
-            className={`relative w-[94%] ${panelClassName} rounded-2xl p-6 ${colors.cardBg} shadow-lg ${colors.text} ${className}`}
+            className={`relative w-[94%] ${panelClassName} rounded-2xl p-6 bg-slate-900 shadow-lg ${colors.text} ${className}`}
             initial={{ y: 20, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 12, scale: 0.98, opacity: 0 }}
@@ -79,6 +79,6 @@ export default function Modal({
         </motion.div>
       )}
     </AnimatePresence>,
-    document.body 
+    document.body
   );
 }

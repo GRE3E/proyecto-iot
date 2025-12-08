@@ -69,11 +69,11 @@ export default function AnimatedClockWidget() {
     return Sun; // Despejado
   };
 
-  // Generar pronóstico desde datos del API
+  // Generar pronóstico desde datos del API (5 días max con API gratuita)
   const forecast = weather?.daily
-    ? weather.daily.time.slice(0, 6).map((date, index) => {
+    ? weather.daily.time.map((date, index) => {
         const dateObj = new Date(date);
-        const dayNames = ["DOM", "LUN", "MAR", "MIE", "JUV", "VIE", "SAB"];
+        const dayNames = ["DOM", "LUN", "MAR", "MIE", "JUE", "VIE", "SAB"];
         const day = dayNames[dateObj.getDay()];
         const icon = getWeatherIcon(weather.daily!.weather_code[index]);
         const hi = Math.round(weather.daily!.temperature_2m_max[index]);
@@ -81,13 +81,12 @@ export default function AnimatedClockWidget() {
         return { day, icon, hi, lo };
       })
     : [
-        // Fallback si no hay datos del API
+        // Fallback si no hay datos del API (5 días)
         { day: "LUN", icon: Cloud, hi: 30, lo: 21 },
         { day: "MAR", icon: Sun, hi: 32, lo: 22 },
-        { day: "MIER", icon: Sun, hi: 31, lo: 21 },
-        { day: "JUV", icon: CloudRain, hi: 28, lo: 20 },
+        { day: "MIE", icon: Sun, hi: 31, lo: 21 },
+        { day: "JUE", icon: CloudRain, hi: 28, lo: 20 },
         { day: "VIE", icon: Sun, hi: 30, lo: 21 },
-        { day: "SAB", icon: Cloud, hi: 29, lo: 22 },
       ];
 
   // Extraer horas y minutos para las manecillas del reloj
@@ -226,29 +225,49 @@ export default function AnimatedClockWidget() {
           {/* Forecast */}
           <div className={`mt-3 pt-3 border-t ${colors.forecastBorder}`}>
             <p
-              className={`text-xs font-semibold uppercase tracking-widest mb-2.5 ${colors.text}`}
+              className={`text-xs md:text-sm font-semibold uppercase tracking-widest mb-3 ${colors.text}`}
             >
               Pronóstico
             </p>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide md:overflow-visible"
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${forecast.length}, 1fr)`,
+                gap: "0.5rem",
+              }}
+            >
               {forecast.map((f, i) => {
                 const Icon = f.icon;
                 return (
                   <div
                     key={i}
-                    className={`flex flex-col items-center text-center ${colors.forecastCardBg} rounded-lg py-2 px-1 border ${colors.forecastCardBorder} hover:shadow-lg transition-all backdrop-blur-sm`}
+                    className={`flex-shrink-0 min-w-14 flex flex-col items-center text-center ${colors.forecastCardBg} rounded-xl py-3 px-2 md:px-3 border ${colors.forecastCardBorder} hover:shadow-xl hover:scale-105 transition-all duration-200 backdrop-blur-sm bg-gradient-to-b from-white/5 to-transparent`}
                   >
                     <p
-                      className={`text-xs font-semibold ${colors.forecastDay}`}
+                      className={`text-xs md:text-sm font-bold ${colors.forecastDay} mb-1`}
                     >
                       {f.day}
                     </p>
-                    <Icon
-                      className={`w-3 h-3 md:w-4 md:h-4 ${colors.forecastIcon} my-1`}
-                    />
-                    <p className={`text-xs font-bold ${colors.forecastTemp}`}>
-                      {f.lo}° / {f.hi}°
-                    </p>
+                    <div
+                      className={`p-1.5 md:p-2 rounded-full bg-gradient-to-br from-white/10 to-transparent my-1.5`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 md:w-6 md:h-6 ${colors.forecastIcon} drop-shadow-sm`}
+                      />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <p
+                        className={`text-xs md:text-sm font-bold ${colors.forecastTemp}`}
+                      >
+                        {f.hi}°
+                      </p>
+                      <p
+                        className={`text-[10px] md:text-xs ${colors.mutedText}`}
+                      >
+                        {f.lo}°
+                      </p>
+                    </div>
                   </div>
                 );
               })}

@@ -15,10 +15,12 @@ import {
   AlertCircle,
   X,
   Mic,
+  Wifi,
 } from "lucide-react";
 import SimpleButton from "../components/UI/Button";
 import SimpleCard from "../components/UI/Card";
 import Modal from "../components/UI/Modal";
+import ConfirmModal from "../components/UI/ConfirmModal";
 import ToastContainer from "../components/UI/ToastContainer";
 import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useToast } from "../hooks/useToast";
@@ -63,6 +65,21 @@ export default function Rutinas() {
   const [formData, setFormData] = useState<FormState>(INITIAL_FORM);
   const [isSavingForm, setIsSavingForm] = useState(false);
 
+  // Estado para el modal de confirmación
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: "danger" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    variant: "danger",
+  });
+
   const filteredRutinas = rutinas.filter((r) => {
     if (filterStatus === "confirmadas") return r.confirmed;
     if (filterStatus === "noConfirmadas") return !r.confirmed;
@@ -102,8 +119,22 @@ export default function Rutinas() {
         routine.trigger.type === "Evento" ? routine.trigger.deviceId : "",
       deviceEvent:
         routine.trigger.type === "Evento" ? routine.trigger.event : "",
-      actionIds: routine.actions.map((a) => a.id),
-      ttsMessages: routine.actions.map((a) => a.name.replace("tts_speak:", "")),
+      // Separar acciones IoT de mensajes TTS
+      // Buscar IDs de comandos IoT comparando nombres con availableActions
+      // Las acciones TTS empiezan con "tts_speak:"
+      actionIds: routine.actions
+        .filter((a) => !a.name.startsWith("tts_speak:"))
+        .map((a) => {
+          // Buscar el ID real del comando IoT por nombre
+          const matchedAction = availableActions.find(
+            (avail) => avail.name.toLowerCase() === a.name.toLowerCase()
+          );
+          return matchedAction?.id || a.id;
+        })
+        .filter((id) => availableActions.some((a) => a.id === id)),
+      ttsMessages: routine.actions
+        .filter((a) => a.name.startsWith("tts_speak:"))
+        .map((a) => a.name.replace("tts_speak:", "").trim()),
     };
 
     setFormData(mapped);
@@ -167,13 +198,22 @@ export default function Rutinas() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar esta rutina?")) return;
-    const result = await deleteRutina(id);
-    if (result.success) {
-      showSuccess("Rutina eliminada correctamente");
-    } else {
-      showError("Error al eliminar la rutina");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Eliminar rutina",
+      message:
+        "¿Estás seguro de eliminar esta rutina? Esta acción no se puede deshacer.",
+      variant: "danger",
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        const result = await deleteRutina(id);
+        if (result.success) {
+          showSuccess("Rutina eliminada correctamente");
+        } else {
+          showError("Error al eliminar la rutina");
+        }
+      },
+    });
   };
 
   const selectedDevice = DEVICE_OPTIONS.find((d) => d.id === formData.deviceId);
@@ -320,14 +360,25 @@ export default function Rutinas() {
                           Acciones:
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {rutina.actions.slice(0, 3).map((action, i) => (
-                            <span
-                              key={i}
-                              className={`text-xs px-2 py-1 rounded ${colors.chipBg}`}
-                            >
-                              {action.name.replace("tts_speak:", "")}
-                            </span>
-                          ))}
+                          {rutina.actions.slice(0, 3).map((action, i) => {
+                            const isTTS = action.name.startsWith("tts_speak:");
+                            const displayName = isTTS
+                              ? action.name.replace("tts_speak:", "").trim()
+                              : action.name;
+                            return (
+                              <span
+                                key={i}
+                                className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${colors.chipBg}`}
+                              >
+                                {isTTS ? (
+                                  <Mic className="w-3 h-3" />
+                                ) : (
+                                  <Wifi className="w-3 h-3" />
+                                )}
+                                {displayName}
+                              </span>
+                            );
+                          })}
                           {rutina.actions.length > 3 && (
                             <span
                               className={`text-xs px-2 py-1 rounded ${colors.chipBg}`}
@@ -480,9 +531,19 @@ export default function Rutinas() {
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm("¿Descartar?")) {
-                          rejectSuggestion(suggestion.id);
-                        }
+                        setConfirmModal({
+                          isOpen: true,
+                          title: "Descartar sugerencia",
+                          message: "¿Deseas descartar esta sugerencia?",
+                          variant: "warning",
+                          onConfirm: () => {
+                            setConfirmModal((prev) => ({
+                              ...prev,
+                              isOpen: false,
+                            }));
+                            rejectSuggestion(suggestion.id);
+                          },
+                        });
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${colors.dangerChip} hover:opacity-80`}
                     >
@@ -590,9 +651,8 @@ export default function Rutinas() {
                 }
                 className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
               >
-                <option value="NLP">🎤 Comando de voz</option>
-                <option value="Tiempo">⏰ Programado</option>
-                <option value="Evento">📡 Evento de dispositivo</option>
+                <option value="NLP">Comando de voz</option>
+                <option value="Tiempo">Programado</option>
               </select>
             </div>
 
@@ -617,64 +677,210 @@ export default function Rutinas() {
             )}
 
             {/* Tiempo */}
-            {formData.triggerType === "Tiempo" && (
-              <div className="space-y-3">
-                <div>
-                  <label
-                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
-                  >
-                    Hora
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.timeHour}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timeHour: e.target.value })
-                    }
-                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                  />
-                </div>
+            {formData.triggerType === "Tiempo" &&
+              (() => {
+                // Preseleccionar día y fecha actual si están vacíos
+                const currentDayNames = [
+                  "Domingo",
+                  "Lunes",
+                  "Martes",
+                  "Miércoles",
+                  "Jueves",
+                  "Viernes",
+                  "Sábado",
+                ];
+                const today = new Date();
+                const currentDayName = currentDayNames[today.getDay()];
+                const currentDateStr = today.toISOString().split("T")[0];
 
-                <div>
-                  <label
-                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
-                  >
-                    Días
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {DAY_LABELS.map((day) => (
-                      <button
-                        key={day}
-                        onClick={() => handleToggleDay(day)}
-                        className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
-                          formData.timeDays.includes(day)
-                            ? `bg-gradient-to-r ${colors.primary} text-white`
-                            : `${colors.chipBg} ${colors.chipText}`
-                        }`}
+                // Estado local para modo de tiempo
+                const useRelativeTime = formData.relativeMinutes > 0;
+
+                return (
+                  <div className="space-y-4">
+                    {/* Selector de modo de tiempo */}
+                    <div>
+                      <label
+                        className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
                       >
-                        {day.slice(0, 3)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        ¿Cuándo ejecutar?
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, relativeMinutes: 0 })
+                          }
+                          className={`py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                            !useRelativeTime
+                              ? `bg-gradient-to-r ${colors.primary} text-white`
+                              : `${colors.chipBg} ${colors.chipText}`
+                          }`}
+                        >
+                          Hora específica
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              relativeMinutes: 5,
+                              timeHour: "",
+                            })
+                          }
+                          className={`py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                            useRelativeTime
+                              ? `bg-gradient-to-r ${colors.primary} text-white`
+                              : `${colors.chipBg} ${colors.chipText}`
+                          }`}
+                        >
+                          En X minutos
+                        </button>
+                      </div>
+                    </div>
 
-                <div>
-                  <label
-                    className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
-                  >
-                    Fecha específica (opcional)
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.timeDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timeDate: e.target.value })
-                    }
-                    className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
-                  />
-                </div>
-              </div>
-            )}
+                    {/* Opciones de tiempo relativo */}
+                    {useRelativeTime && (
+                      <div>
+                        <label
+                          className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                        >
+                          Ejecutar en:
+                        </label>
+                        <div className="grid grid-cols-4 gap-2 mb-2">
+                          {[5, 10, 15, 30].map((mins) => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  relativeMinutes: mins,
+                                })
+                              }
+                              className={`py-2 px-2 rounded-lg text-sm font-semibold transition-all ${
+                                formData.relativeMinutes === mins
+                                  ? `bg-gradient-to-r ${colors.primary} text-white`
+                                  : `${colors.chipBg} ${colors.chipText}`
+                              }`}
+                            >
+                              {mins} min
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="1440"
+                            value={formData.relativeMinutes}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                relativeMinutes: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className={`flex-1 px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                          />
+                          <span className={`text-sm ${colors.mutedText}`}>
+                            minutos
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1 ${colors.mutedText}`}>
+                          Se ejecutará a las{" "}
+                          {(() => {
+                            const execTime = new Date(
+                              Date.now() + formData.relativeMinutes * 60 * 1000
+                            );
+                            return execTime.toLocaleTimeString("es-PE", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            });
+                          })()}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Hora específica */}
+                    {!useRelativeTime && (
+                      <div>
+                        <label
+                          className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                        >
+                          Hora
+                        </label>
+                        <input
+                          type="time"
+                          value={formData.timeHour}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              timeHour: e.target.value,
+                            })
+                          }
+                          className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                        />
+                      </div>
+                    )}
+
+                    {/* Días */}
+                    <div>
+                      <label
+                        className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                      >
+                        Días
+                      </label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {DAY_LABELS.map((day) => {
+                          // Preseleccionar día actual si timeDays está vacío
+                          const isSelected =
+                            formData.timeDays.length === 0
+                              ? day === currentDayName
+                              : formData.timeDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                // Si es la primera selección, inicializar con el día actual si está vacío
+                                if (formData.timeDays.length === 0) {
+                                  setFormData({ ...formData, timeDays: [day] });
+                                } else {
+                                  handleToggleDay(day);
+                                }
+                              }}
+                              className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+                                isSelected
+                                  ? `bg-gradient-to-r ${colors.primary} text-white`
+                                  : `${colors.chipBg} ${colors.chipText}`
+                              }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Fecha */}
+                    <div>
+                      <label
+                        className={`block text-sm font-semibold mb-2 ${colors.mutedText}`}
+                      >
+                        Fecha
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.timeDate || currentDateStr}
+                        onChange={(e) =>
+                          setFormData({ ...formData, timeDate: e.target.value })
+                        }
+                        className={`w-full px-4 py-2 rounded-lg ${colors.inputBg} ${colors.inputBorder} border focus:outline-none focus:ring-2 focus:ring-cyan-500 ${colors.text}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
 
             {/* Evento */}
             {formData.triggerType === "Evento" && (
@@ -794,6 +1000,7 @@ export default function Rutinas() {
                   {availableActions.map((action) => (
                     <button
                       key={action.id}
+                      type="button"
                       onClick={() => handleToggleAction(action.id)}
                       className={`w-full flex items-center justify-between p-3 rounded-lg font-medium transition-all border ${
                         formData.actionIds.includes(action.id)
@@ -801,7 +1008,10 @@ export default function Rutinas() {
                           : `${colors.cardBg} ${colors.text} border-slate-700/50 hover:border-slate-600/80 hover:bg-slate-800/40`
                       }`}
                     >
-                      <span className="text-sm">{action.name}</span>
+                      <span className="text-sm flex items-center gap-2">
+                        <Wifi className="w-4 h-4" />
+                        {action.name}
+                      </span>
                       <div
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                           formData.actionIds.includes(action.id)
@@ -897,6 +1107,16 @@ export default function Rutinas() {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
+
+      {/* Modal de confirmación */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

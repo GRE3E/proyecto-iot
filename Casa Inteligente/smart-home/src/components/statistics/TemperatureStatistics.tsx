@@ -41,18 +41,48 @@ export default function TemperatureStatistics({
   };
 
   const renderChart = (type: "temp", data: number[]) => {
-    if (data.length === 0) {
-      return (
-        <div className="text-center text-gray-500">
-          No hay datos de temperatura disponibles.
-        </div>
-      );
-    }
     const chartColorMap = {
       temp: "#f97316",
     };
     const chartColor = chartColorMap[type];
     const gradientId = `${type}Gradient`;
+
+    // Si no hay datos, mostrar gráfico vacío con mensaje
+    if (data.length === 0) {
+      return (
+        <svg viewBox="0 0 1000 300" className="w-full h-full">
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={chartColor} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={chartColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <line
+              key={i}
+              x1="50"
+              y1={50 + i * 50}
+              x2="950"
+              y2={50 + i * 50}
+              stroke={chartColor}
+              strokeWidth="1"
+              opacity="0.1"
+            />
+          ))}
+          <text
+            x="500"
+            y="160"
+            textAnchor="middle"
+            fill={chartColor}
+            opacity="0.5"
+            fontSize="24"
+            fontWeight="500"
+          >
+            Sin datos disponibles
+          </text>
+        </svg>
+      );
+    }
 
     return (
       <svg viewBox="0 0 1000 300" className="w-full h-full">

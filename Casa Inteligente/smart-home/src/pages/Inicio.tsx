@@ -9,6 +9,7 @@ import { useThemeByTime } from "../hooks/useThemeByTime";
 import { useEnergyData } from "../hooks/useEnergyData";
 import { useGestionDispositivos } from "../hooks/useGestionDispositivos";
 import { useWeatherData } from "../hooks/useWeatherData";
+import { useTemperatureData } from "../hooks/useTemperatureData";
 import EnergyStatistics from "../components/statistics/EnergyStatistics";
 import TemperatureStatistics from "../components/statistics/TemperatureStatistics";
 import HumidityStatistics from "../components/statistics/HumidityStatistics";
@@ -22,6 +23,7 @@ export default function Inicio() {
   const { energyHistory, loading: energyLoading } = useEnergyData();
   const { devices } = useGestionDispositivos();
   const { weather } = useWeatherData();
+  const { currentTemperature, temperatureHistory } = useTemperatureData();
 
   const activeDeviceCount = devices.filter((d) => d.on).length;
 
@@ -29,8 +31,14 @@ export default function Inicio() {
     energyHistory.length > 0 ? energyHistory[energyHistory.length - 1] : 0;
   const energyValue = energyLoading ? "Cargando..." : currentEnergy.toFixed(2);
 
-  // Usar datos del hook de clima o valores por defecto
-  const temperature = weather?.temperature ?? 24;
+  // Usar temperatura del sensor MQTT, con fallback al API de clima
+  const temperature =
+    currentTemperature ??
+    (temperatureHistory.length > 0
+      ? temperatureHistory[temperatureHistory.length - 1]
+      : null) ??
+    weather?.temperature ??
+    24;
   const humidity = weather?.humidity ?? 45;
 
   return (

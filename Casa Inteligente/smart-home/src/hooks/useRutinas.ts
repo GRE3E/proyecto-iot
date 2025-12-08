@@ -200,10 +200,8 @@ export function useRutinas() {
     const actionsFromTexts: RoutineAction[] = Array.isArray(r?.actions)
       ? r.actions.map((s: any) => {
           const txt = String(s);
-          const label = txt.startsWith("tts_speak:")
-            ? txt.replace("tts_speak:", "").trim()
-            : txt;
-          return { id: uuidv4(), name: label };
+          // Mantener el prefijo tts_speak: para poder distinguir TTS de IoT
+          return { id: uuidv4(), name: txt };
         })
       : [];
     const actions = [...actionsFromCommands, ...actionsFromTexts];

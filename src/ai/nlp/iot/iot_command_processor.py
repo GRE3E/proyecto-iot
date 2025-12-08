@@ -10,9 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from src.db.models import IoTCommand
 from src.iot.mqtt_client import MQTTClient
-from src.ai.nlp.iot_command_cache import IoTCommandCache
+from src.ai.nlp.iot.iot_command_cache import IoTCommandCache
 import json
-from src.iot.device_manager import get_device_state, _extract_device_info_from_topic
+from src.iot.device_manager import get_device_state, _extract_device_info_from_topic, get_known_locations, get_all_device_types
+from src.ai.common.constants import IoTConstants
 
 logger = logging.getLogger("IoTCommandProcessor")
 
@@ -29,12 +30,38 @@ class IoTCommandProcessor:
         self._max_commands_per_minute = 10
         self._command_counter = defaultdict(list)
         
+        # Dynamic Entity Lists
+        self.device_types = []
+        self.known_locations = locations # Start with regex locations, will augment from DB
+        
         logger.info(f"IoTCommandProcessor inicializado con throttling: "
                    f"{self._min_interval_seconds}s minimo, "
                    f"{self._max_commands_per_minute} comandos/minuto maximo")
         
     async def initialize(self, db: AsyncSession):
         """Inicializa el procesador de comandos IoT, pre-cargando la cache."""
+        
+        # 1. Cargar entidades dinámicas (Tipos y Ubicaciones)
+        try:
+            db_types = await get_all_device_types(db)
+            if db_types:
+                self.device_types = [t.lower() for t in db_types]
+                
+            db_locations = await get_known_locations(db)
+            if db_locations:
+                # Merge with existing config locations, avoiding duplicates
+                existing_locs = set(self.known_locations)
+                for loc in db_locations:
+                    existing_locs.add(loc.lower())
+                self.known_locations = list(existing_locs)
+                
+            logger.info(f"Entidades dinámicas cargadas: {len(self.device_types)} tipos, {len(self.known_locations)} ubicaciones.")
+        except Exception as e:
+            logger.error(f"Error cargando entidades dinámicas: {e}")
+            # Fallback to constants if DB fails
+            self.device_types = IoTConstants.DEVICE_TYPES
+            self.known_locations = IoTConstants.LOCATIONS
+
         logger.info("Pre-cargando cache de comandos IoT...")
         try:
             result = await db.execute(select(models.IoTCommand))
@@ -147,10 +174,8 @@ class IoTCommandProcessor:
     def _extract_device_info_from_prompt(self, prompt: str, response: str) -> Tuple[str, str, bool]:
         """Extrae tipo de dispositivo y ubicacion del prompt y respuesta del LLM,
         indicando si la ubicacion fue encontrada en el prompt original."""
-        device_types = ["luz", "puerta", "ventilador", "sensor", "clima", "actuador", "valve", 
-                       "lamp", "light", "door", "fan", "heater", "ac"]
-        locations = ["salon", "sala", "cocina", "dormitorio", "pasillo", "bano", "garaje", "principal", 
-                    "barra", "isla", "lavandera", "invitados", "habitacion", "living", "comedor"]
+        device_types = self.device_types if self.device_types else IoTConstants.DEVICE_TYPES
+        locations = self.known_locations if self.known_locations else IoTConstants.LOCATIONS
         
         prompt_lower = prompt.lower()
         response_lower = response.lower()
@@ -244,7 +269,7 @@ class IoTCommandProcessor:
             if len(similar_commands_by_device_type) > 1:
                 all_possible_locations = set()
                 for cmd in similar_commands_by_device_type:
-                    for loc_keyword in self.locations:
+                    for loc_keyword in self.known_locations:
                         if loc_keyword in cmd.name.lower() or loc_keyword in cmd.mqtt_topic.lower():
                             all_possible_locations.add(loc_keyword)
                 

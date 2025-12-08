@@ -1,11 +1,11 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.database import get_db
-from src.db.models import TemperatureHistory, User
-from src.iot.mqtt_client import MQTTClient  # Asumiendo que existe un cliente MQTT para enviar comandos
-from src.core.config import settings # Para acceder a la configuración, como el ID de usuario por defecto
+from src.db.models import TemperatureHistory
+from src.iot.mqtt_client import MQTTClient
+from src.core.config import settings
 import json
 
 logger = logging.getLogger("TemperatureScheduler")
@@ -14,7 +14,7 @@ class TemperatureScheduler:
     def __init__(self, mqtt_client: MQTTClient, user_id: int = settings.DEFAULT_USER_ID):
         self._is_running = False
         self.mqtt_client = mqtt_client
-        self.user_id = user_id # ID del usuario para asociar los registros de temperatura
+        self.user_id = user_id
 
     async def start(self):
         if self._is_running:

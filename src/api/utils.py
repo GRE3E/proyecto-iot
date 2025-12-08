@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime
 import json
-from src.ai.nlp.nlp_core import NLPModule
+from src.ai.nlp.core.nlp_core import NLPModule
 from src.ai.stt.stt import STTModule
 from src.ai.speaker.speaker import SpeakerRecognitionModule
 from src.ai.tts.tts_module import TTSModule
@@ -17,9 +17,10 @@ import asyncio
 from src.api.schemas import StatusResponse
 from typing import Optional, Dict, Any
 from src.utils.error_handler import ErrorHandler
-from src.ai.nlp.ollama_manager import OllamaManager
+from src.ai.nlp.core.ollama_manager import OllamaManager
 from src.music_manager.manager import MusicManager
-from src.ai.nlp.config_manager import ConfigManager
+from src.ai.nlp.config.config_manager import ConfigManager
+from src.services.audit_service import get_audit_service
 import random
 import string
 
@@ -36,6 +37,8 @@ _face_recognition_module: Optional[FaceRecognitionCore] = None
 _ollama_manager: Optional[OllamaManager] = None
 _config_manager: Optional[ConfigManager] = None
 _music_manager: Optional[MusicManager] = None
+_ollama_host: str = "http://localhost:11434"
+
 
 def get_module_status() -> StatusResponse:
     """
@@ -109,6 +112,14 @@ async def _save_api_log(endpoint: str, request_body: Dict[str, Any], response_da
         db.add(log_entry)
         await db.commit()
         await db.refresh(log_entry)
+        
+        # Guardar también en archivo de auditoría
+        try:
+            audit_service = get_audit_service()
+            audit_service.log_event(endpoint, _sanitize_data(request_body), _sanitize_data(response_data))
+        except Exception as audit_error:
+            logger.error(f"Error al escribir en archivo de auditoría: {audit_error}")
+            
         logger.info(f"API log guardado exitosamente para el endpoint: {endpoint}")
     except Exception as e:
         logger.error(f"Error al guardar log de API para el endpoint {endpoint}: {e}")
@@ -125,9 +136,10 @@ async def initialize_all_modules(config_manager: ConfigManager, ollama_host: str
         ollama_host (str): La URL del host de Ollama
     """
     global _nlp_module, _stt_module, _speaker_module, _hotword_module, _mqtt_client
-    global _hotword_task, _tts_module, _face_recognition_module, _ollama_manager, _config_manager
+    global _hotword_task, _tts_module, _face_recognition_module, _ollama_manager, _config_manager, _ollama_host
     
     _config_manager = config_manager
+    _ollama_host = ollama_host
     logger.info("Inicializando módulos...")
 
     if _config_manager.is_module_enabled("nlp"):
@@ -381,3 +393,109 @@ def generate_random_password(length: int = 12) -> str:
     characters = string.ascii_letters + string.digits + string.punctuation
     password = ''.join(random.choice(characters) for i in range(length))
     return password
+
+async def enable_module(module_name: str) -> bool:
+    """
+    Habilita un módulo dinámicamente.
+    """
+    if not _config_manager:
+        logger.error("ConfigManager no inicializado")
+        return False
+
+    logger.info(f"Solicitud para habilitar módulo: {module_name}")
+    
+    # 1. Actualizar configuración para persistencia
+    _config_manager.set_module_enabled(module_name, True)
+    
+    try:
+        # 2. Inicializar el módulo específico
+        if module_name == "nlp" and not _nlp_module:
+            await initialize_nlp_module_only(_config_manager.get_config(), _ollama_host)
+            # Inyectar dependencias tardías si existen
+            if _mqtt_client:
+                 await _set_nlp_iot_managers()
+            # Asegurar que el scheduler inicie
+            if _nlp_module:
+                 await _nlp_module.start()
+
+        elif module_name == "stt" and not _stt_module:
+            await _initialize_stt_module()
+        
+        elif module_name == "speaker" and not _speaker_module:
+            await _initialize_speaker_module()
+
+        elif module_name == "tts" and not _tts_module:
+            await _initialize_tts_module()
+
+        elif module_name == "face_recognition" and not _face_recognition_module:
+            await _initialize_face_recognition_module()
+
+        elif module_name == "hotword" and not _hotword_module:
+            await _initialize_hotword_module()
+
+        elif module_name == "mqtt" and not _mqtt_client:
+            await _initialize_mqtt_client()
+            # Si NLP ya estaba corriendo, actualizarle el cliente MQTT
+            if _nlp_module:
+                 await _set_nlp_iot_managers()
+        
+        elif module_name == "music_manager" and not _music_manager:
+            await _initialize_music_manager()
+        
+        logger.info(f"Módulo {module_name} habilitado correctamente.")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error habilitando {module_name}: {e}")
+        return False
+
+
+async def disable_module(module_name: str) -> bool:
+    """
+    Deshabilita un módulo dinámicamente y libera recursos.
+    """
+    if not _config_manager:
+        return False
+
+    logger.info(f"Solicitud para deshabilitar módulo: {module_name}")
+    
+    # 1. Actualizar configuración para persistencia
+    _config_manager.set_module_enabled(module_name, False)
+
+    try:
+        # 2. Apagar el módulo específico
+        if module_name == "nlp":
+            await shutdown_nlp_module()
+            # Opcional: Cerrar conexión a Ollama si se desea ahorrar RAM estrictamente
+            await shutdown_ollama_manager()
+            
+        elif module_name == "stt":
+            await shutdown_stt_module()
+            
+        elif module_name == "speaker":
+            await shutdown_speaker_module()
+            
+        elif module_name == "tts":
+            await shutdown_tts_module()
+            
+        elif module_name == "face_recognition":
+            await shutdown_face_recognition_module()
+            
+        elif module_name == "hotword":
+            await shutdown_hotword_module()
+            
+        elif module_name == "mqtt":
+            await shutdown_mqtt_client()
+            
+        elif module_name == "music_manager":
+             global _music_manager
+             _music_manager = None
+             logger.info("MusicManager desreferenciado (no tiene shutdown explícito).")
+    
+        logger.info(f"Módulo {module_name} deshabilitado correctamente.")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error deshabilitando {module_name}: {e}")
+        return False
+

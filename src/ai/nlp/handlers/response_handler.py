@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Dict, Tuple, Any
 from ollama import ResponseError
 from httpx import ConnectError
-from src.ai.nlp.ollama_manager import OllamaManager
+from src.ai.nlp.core.ollama_manager import OllamaManager
 
 logger = logging.getLogger("ResponseHandler")
 

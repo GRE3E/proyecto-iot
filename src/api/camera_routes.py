@@ -1,13 +1,9 @@
 import os
 import tempfile
-from fastapi import APIRouter, HTTPException, Depends, Response
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from typing import Dict
-from sqlalchemy import select
-from src.db.database import get_db
 from src.db.models import User
-from src.auth.jwt_manager import verify_token
-from jose import JWTError
 from src.auth.auth_service import get_current_user
 from src.api.camera_schemas import (
     CameraListResponse,
@@ -61,7 +57,7 @@ async def stop_camera(camera_id: str, current_user: User = Depends(get_current_u
 @camera_router.get("/cameras/{camera_id}/stream")
 async def stream_camera(camera_id: str, current_user: User = Depends(get_current_user)):
     mgr = get_camera_manager()
-    gen = mgr.mjpeg_stream(camera_id)
+    gen = mgr.stream_mjpeg_frames(camera_id)
     return StreamingResponse(gen, media_type="multipart/x-mixed-replace; boundary=frame")
 
 
@@ -84,7 +80,6 @@ async def snapshot_and_recognize(camera_id: str, current_user: User = Depends(ge
         tmp_file.flush()
         tmp_file.close()  # Cerrar el archivo para que pueda ser leído
         
-        # Ahora el archivo existe y puede ser leído
         result = await utils._face_recognition_module.recognize_face(source=tmp_path)
     finally:
         # Borrar el archivo temporal después de usarlo

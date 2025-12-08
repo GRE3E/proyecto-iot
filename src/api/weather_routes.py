@@ -1,10 +1,12 @@
 """
 Rutas de la API para obtener información del clima.
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 import logging
-from src.api.schemas import WeatherRequest, WeatherResponse, CoordinatesUpdate, CoordinatesResponse, TimeResponse
+from src.api.weather_schemas import WeatherResponse, CoordinatesUpdate, CoordinatesResponse, TimeResponse
 from src.utils.weather_utils import fetch_weather_data, get_stored_coordinates, save_coordinates
+from src.auth.jwt_manager import get_current_user
+from src.db.models import User
 import httpx
 
 logger = logging.getLogger("WeatherRoutes")
@@ -15,7 +17,8 @@ weather_router = APIRouter()
 @weather_router.get("/weather", response_model=WeatherResponse)
 async def get_weather(
     latitude: float = Query(..., ge=-90, le=90, description="Latitud geográfica WGS84"),
-    longitude: float = Query(..., ge=-180, le=180, description="Longitud geográfica WGS84")
+    longitude: float = Query(..., ge=-180, le=180, description="Longitud geográfica WGS84"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtiene datos del clima basado en latitud y longitud.
@@ -49,7 +52,10 @@ async def get_weather(
 
 
 @weather_router.put("/weather/coordinates", response_model=CoordinatesResponse)
-async def update_coordinates(coordinates: CoordinatesUpdate):
+async def update_coordinates(
+    coordinates: CoordinatesUpdate,
+    current_user: User = Depends(get_current_user)
+):
     """
     Actualiza las coordenadas guardadas para consultas de clima.
     
@@ -86,7 +92,7 @@ async def update_coordinates(coordinates: CoordinatesUpdate):
 
 
 @weather_router.get("/weather/current", response_model=WeatherResponse)
-async def get_current_weather():
+async def get_current_weather(current_user: User = Depends(get_current_user)):
     """
     Obtiene datos del clima usando las coordenadas guardadas previamente.
     
@@ -123,7 +129,8 @@ async def get_current_weather():
 @weather_router.get("/weather/time", response_model=TimeResponse)
 async def get_time_by_coordinates(
     latitude: float = Query(..., ge=-90, le=90, description="Latitud geográfica WGS84"),
-    longitude: float = Query(..., ge=-180, le=180, description="Longitud geográfica WGS84")
+    longitude: float = Query(..., ge=-180, le=180, description="Longitud geográfica WGS84"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtiene la hora actual basada en coordenadas geográficas.

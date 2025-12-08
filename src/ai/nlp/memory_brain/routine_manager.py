@@ -118,7 +118,7 @@ class RoutineManager:
         result = await db.execute(
             select(Routine).filter(
                 Routine.user_id == user_id,
-                Routine.confirmed == False
+                ~Routine.confirmed
             )
         )
         routines = result.scalars().all()

@@ -23,14 +23,14 @@ async def face_password_recovery(new_password: str, source: str = "camera", imag
         await face_recognizer.load_known_faces()
 
         if source == "camera":
-            recognized_users = await face_recognizer.recognize_from_cam()
+            recognized_users = await face_recognizer.recognize_from_camera()
             if recognized_users:
                 identified_username = recognized_users[0]
         elif source == "file" and image_content:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
                 temp_file.write(image_content)
                 temp_image_file = temp_file.name
-            recognized_users = await face_recognizer.recognize_from_file(temp_image_file)
+            recognized_users = await face_recognizer.recognize_from_image_file(temp_image_file)
             if recognized_users:
                 identified_username = recognized_users[0]
         else:

@@ -17,12 +17,13 @@ from src.api.utils import (
 )
 from .db.database import async_engine, create_all_tables
 from src.utils.logger_config import setup_logging
-from src.ai.nlp.config_manager import ConfigManager
+from src.ai.nlp.config.config_manager import ConfigManager
 from src.auth.default_owner_init import init_default_owner_startup
+from src.services.audit_service import get_audit_service
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RC_DIR = os.path.join(BASE_DIR, "src", "rc")
-CONFIG_PATH = "src/ai/config/config.json"
+CONFIG_PATH = "config/config.json"
 
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, RC_DIR)
@@ -89,6 +90,7 @@ async def startup_event() -> None:
         logger.warning("HotwordDetector no está en línea. Verifique configuración.")
 
     logger.info("Aplicación iniciada correctamente")
+    get_audit_service().log_startup()
 
 @app.on_event("shutdown")
 @ErrorHandler.handle_async_exceptions
@@ -113,6 +115,7 @@ async def shutdown_event() -> None:
         logger.info("Cerrando motor de la base de datos...")
 
     logger.info("Aplicación cerrada correctamente")
+    get_audit_service().log_shutdown()
 
 async def periodic_temperature_check():
     """

@@ -6,15 +6,16 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.ai.nlp.memory_brain.memory_manager import MemoryManager
-from src.ai.nlp.ollama_manager import OllamaManager
-from src.ai.nlp.config_manager import ConfigManager
-from src.ai.nlp.iot_command_processor import IoTCommandProcessor
+from src.ai.nlp.core.ollama_manager import OllamaManager
+from src.ai.nlp.config.config_manager import ConfigManager
+from src.ai.nlp.iot.iot_command_processor import IoTCommandProcessor
 from src.ai.nlp.memory_brain.user_manager import UserManager
-from src.ai.nlp.prompt_loader import load_system_prompt_template
+from src.ai.nlp.prompts.prompt_loader import load_system_prompt_template
 from src.ai.nlp.memory_brain.memory_brain import MemoryBrain
 from src.db.database import get_db
 from src.iot.mqtt_client import MQTTClient
-from src.ai.nlp.device_context import DeviceContextManager, DEVICE_LOCATION_REGEX
+from src.ai.nlp.context.device_context import DeviceContextManager
+from src.ai.common.constants import IoTConstants
 from src.ai.nlp.memory_brain.routine_scheduler import RoutineScheduler
 from src.ai.nlp.handlers import ResponseHandler, RoutineHandler, ContextHandler, ResponseProcessor
 from src.music_manager.music_command_handler import MusicCommandHandler
@@ -25,7 +26,7 @@ logger = logging.getLogger("NLPModule")
 def _find_project_root(current_path: Path) -> Path:
     """Busca la raíz del proyecto"""
     for parent in current_path.parents:
-        if (parent / "main.py").exists() or (parent / "requirements.txt").exists():
+        if (parent / "requirements.txt").exists() or (parent / ".git").exists():
             return parent
     return current_path
 
@@ -44,7 +45,7 @@ class NLPModule:
     def __init__(self, ollama_manager: OllamaManager, config: Dict[str, Any]) -> None:
         """Inicializa configuración, OllamaManager, UserManager y Memory Brain."""
         project_root = _find_project_root(Path(__file__))
-        self._config_path = project_root / "ai" / "config" / "config.json"
+        self._config_path = project_root / "config" / "config.json"
         self._config_manager = ConfigManager(self._config_path)
         self._config = config
         self._ollama_manager = ollama_manager
@@ -68,7 +69,7 @@ class NLPModule:
         self._system_prompt_data = load_system_prompt_template()
         self._system_prompt_template = self._system_prompt_data["template"]
         self._routine_creation_instructions = self._system_prompt_data["routine_creation_instructions"]
-        self._location_keywords = _extract_location_keywords(DEVICE_LOCATION_REGEX)
+        self._location_keywords = _extract_location_keywords(IoTConstants.DEVICE_LOCATION_REGEX)
         
         # Inicializar MemoryBrain
         try:
@@ -82,7 +83,6 @@ class NLPModule:
                 self._routine_scheduler = RoutineScheduler(self._memory_brain.routine_manager)
                 logger.info("RoutineScheduler inicializado en NLPModule")
                 
-                # Ahora sí inicializar los handlers restantes
                 self._context_handler = ContextHandler(
                     config, None, self._memory_manager, self._user_manager, self._memory_brain
                 )
@@ -102,7 +102,7 @@ class NLPModule:
         """Cierra explícitamente los recursos del NLPModule."""
         logger.info("Cerrando NLPModule.")
         if self._ollama_manager:
-            self._ollama_manager.close()
+            await self._ollama_manager.close()
         self._is_closing = True
         if self._routine_scheduler:
             await self._routine_scheduler.stop()

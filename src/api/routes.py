@@ -16,7 +16,11 @@ from src.api.auth_router import router as auth_router
 from src.api.websocket_routes import websocket_router
 from src.api.notifications_routes import notifications_router
 from src.api.weather_routes import weather_router
+from src.api.routines_routes import routines_router
+from src.api.memory_routes import memory_router
+from src.api.config_routes import config_router
 from src.api.sound_processor_routes import sound_processor_router
+from src.api.system_routes import system_router
 from src.api import utils
 from src.auth.auth_service import get_current_user
 from src.auth.device_auth import get_device_api_key
@@ -29,9 +33,13 @@ router.include_router(auth_router, prefix="/auth", tags=["auth"])
 router.include_router(hotword_router, prefix="/hotword", tags=["hotword"])
 router.include_router(tts_router, prefix="/tts", tags=["tts"], dependencies=[Depends(get_device_api_key)])
 router.include_router(nlp_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(routines_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(memory_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(config_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
 router.include_router(stt_router, prefix="/stt", tags=["stt"])
 router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
 router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Depends(get_current_user)])
+router.include_router(system_router, prefix="/system", tags=["system"], dependencies=[Depends(get_current_user)])
 router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
 router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
 router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])

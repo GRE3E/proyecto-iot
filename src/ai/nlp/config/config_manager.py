@@ -21,7 +21,7 @@ class ConfigManager:
         try:
             with open(self._config_path, "r", encoding="utf-8") as f:
                 self._config = json.load(f)
-            logger.info(f"Configuración cargada desde {self._config_path}")
+            logger.info("Configuración cargada")
             
             # Verificar y añadir configuración de módulos si no existe
             if "modules" not in self._config:
@@ -52,7 +52,7 @@ class ConfigManager:
                 del config_to_save["owner_name"]
             with open(self._config_path, "w", encoding="utf-8") as f:
                 json.dump(config_to_save, f, indent=2, ensure_ascii=False)
-            logger.info(f"Configuración guardada en {self._config_path}")
+            logger.info("Configuración guardada")
         except IOError as e:
             logger.error(f"Error de E/S al guardar la configuración en {self._config_path}: {e}")
         except PermissionError as e:
@@ -106,7 +106,14 @@ class ConfigManager:
             ],
             "modules": self._get_default_modules_config(),
             "timezone": "America/Lima",
-            "debug": False
+            "debug": False,
+            "coordinates": {
+                "latitude": -12.0464,
+                "longitude": -77.0428
+            },
+            "stt_model": "small",
+            "tts_model": "tts_models/multilingual/multi-dataset/xtts_v2",
+            "tts_speaker": "Sofia Hellen"
         }
 
     def _validate_timezone(self) -> None:
@@ -137,3 +144,18 @@ class ConfigManager:
             bool: True si el módulo está habilitado, False en caso contrario
         """
         return self._config.get("modules", {}).get(module_name, True)
+
+    def set_module_enabled(self, module_name: str, enabled: bool) -> None:
+        """
+        Habilita o deshabilita un módulo y guarda la configuración.
+        
+        Args:
+            module_name (str): Nombre del módulo a modificar
+            enabled (bool): Nuevo estado del módulo
+        """
+        if "modules" not in self._config:
+            self._config["modules"] = self._get_default_modules_config()
+            
+        self._config["modules"][module_name] = enabled
+        self.save_config()
+        logger.info(f"Módulo '{module_name}' {'habilitado' if enabled else 'deshabilitado'}.")

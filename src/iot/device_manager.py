@@ -151,7 +151,27 @@ async def get_all_device_types(db: AsyncSession) -> list[str]:
     Obtiene todos los tipos de dispositivos únicos.
     """
     result = await db.execute(select(DeviceState.device_type).distinct())
-    return result.scalars().all()
+    return [t for t in result.scalars().all() if t]
+
+async def get_known_locations(db: AsyncSession) -> list[str]:
+    """
+    Obtiene lista de ubicaciones basada en los nombres de dispositivos.
+    Asume que el device_name en DeviceState representa la ubicación (ej: 'KITCHEN').
+    """
+    result = await db.execute(select(DeviceState.device_name).distinct())
+    names = result.scalars().all()
+    # Filtrar nombres vacíos y duplicados, convertir a minúsculas
+    locations = set()
+    for name in names:
+        if name:
+            locations.add(name.lower())
+            if "_" in name:
+                parts = name.split("_")
+                for part in parts:
+                    if len(part) > 2:
+                        locations.add(part.lower())
+                        
+    return list(locations)
 
 async def get_device_state_by_id(session: AsyncSession, device_id: int):
     """
@@ -285,12 +305,10 @@ async def log_temperature_history(db: AsyncSession, device_name: str, temperatur
     """
     Registra el historial de temperatura. Asigna el registro al primer usuario propietario encontrado.
     """
-    # Buscar un usuario propietario (admin) para asignar el registro
-    result = await db.execute(select(User).filter(User.is_owner == True))
+    result = await db.execute(select(User).filter(User.is_owner))
     owner = result.scalars().first()
 
     if not owner:
-        # Fallback: intentar con cualquier usuario si no hay owner (caso raro)
         result = await db.execute(select(User))
         owner = result.scalars().first()
     

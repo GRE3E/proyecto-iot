@@ -22,13 +22,30 @@ class STTModule:
     Permite cargar un modelo Whisper, verificar la disponibilidad de FFmpeg y transcribir
     archivos de audio a texto de forma concurrente.
     """
-    def __init__(self, model_name: str = "small"):
+    def __init__(self, model_name: Optional[str] = None):
         """
         Inicializa el módulo STT.
 
         Args:
             model_name (str): Nombre del modelo Whisper a cargar (ej. "tiny", "base", "small", "medium").
+                            Si no se proporciona, se carga desde la configuración.
         """
+        # Cargar model_name desde config si no se proporciona
+        if model_name is None:
+            try:
+                from pathlib import Path
+                from src.ai.nlp.config.config_manager import ConfigManager
+                
+                project_root = Path(__file__).parent.parent.parent.parent
+                config_path = project_root / "config" / "config.json"
+                config_manager = ConfigManager(config_path)
+                config = config_manager.get_config()
+                model_name = config.get("stt_model", "base")
+                logger.info(f"Modelo STT cargado desde configuración: {model_name}")
+            except Exception as e:
+                logger.warning(f"No se pudo cargar modelo STT desde config: {e}. Usando 'base' por defecto.")
+                model_name = "base"
+        
         self._model = None
         self._online: bool = False
         self.model_name: str = model_name

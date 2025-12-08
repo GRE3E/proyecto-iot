@@ -3,7 +3,6 @@ Utilidades para obtener información del clima desde OpenWeatherMap API.
 """
 import httpx
 import logging
-import json
 import os
 from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
@@ -173,21 +172,28 @@ def _extract_daily_forecast(forecast_list: list) -> Dict[str, Any]:
 
 def get_stored_coordinates() -> Optional[Tuple[float, float]]:
     """
-    Obtiene las coordenadas almacenadas desde el archivo JSON.
+    Obtiene las coordenadas almacenadas desde la configuración.
     
     Returns:
         Tupla (latitude, longitude) si existe, None si no hay coordenadas guardadas
     """
     try:
-        if COORDINATES_FILE.exists():
-            with open(COORDINATES_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                latitude = data.get('latitude')
-                longitude = data.get('longitude')
-                
-                if latitude is not None and longitude is not None:
-                    logger.info(f"Coordenadas cargadas: lat={latitude}, lon={longitude}")
-                    return (float(latitude), float(longitude))
+        from pathlib import Path
+        from src.ai.nlp.config.config_manager import ConfigManager
+        
+        project_root = Path(__file__).parent.parent.parent
+        config_path = project_root / "config" / "config.json"
+        config_manager = ConfigManager(config_path)
+        config = config_manager.get_config()
+        
+        coordinates = config.get('coordinates')
+        if coordinates:
+            latitude = coordinates.get('latitude')
+            longitude = coordinates.get('longitude')
+            
+            if latitude is not None and longitude is not None:
+                logger.info(f"Coordenadas cargadas: lat={latitude}, lon={longitude}")
+                return (float(latitude), float(longitude))
         
         logger.info("No se encontraron coordenadas guardadas")
         return None
@@ -198,7 +204,7 @@ def get_stored_coordinates() -> Optional[Tuple[float, float]]:
 
 def save_coordinates(latitude: float, longitude: float) -> bool:
     """
-    Guarda las coordenadas en un archivo JSON.
+    Guarda las coordenadas en la configuración.
     
     Args:
         latitude: Latitud geográfica WGS84
@@ -208,19 +214,23 @@ def save_coordinates(latitude: float, longitude: float) -> bool:
         True si se guardó exitosamente, False en caso contrario
     """
     try:
-        # Crear directorio si no existe
-        COORDINATES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        from pathlib import Path
+        from src.ai.nlp.config.config_manager import ConfigManager
         
-        data = {
-            "latitude": latitude,
-            "longitude": longitude
-        }
+        project_root = Path(__file__).parent.parent.parent
+        config_path = project_root / "config" / "config.json"
+        config_manager = ConfigManager(config_path)
         
-        with open(COORDINATES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+        config_manager.update_config({
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            }
+        })
         
         logger.info(f"Coordenadas guardadas: lat={latitude}, lon={longitude}")
         return True
     except Exception as e:
         logger.error(f"Error al guardar coordenadas: {e}")
         return False
+

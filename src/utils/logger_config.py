@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
-from src.ai.nlp.config_manager import ConfigManager
+from src.ai.nlp.config.config_manager import ConfigManager
+from src.services.audit_service import get_audit_service
 
 class ColoredFormatter(logging.Formatter):
     """
@@ -86,6 +87,19 @@ class ColoredFormatter(logging.Formatter):
         return f"{asctime} - {module_color}[{record.name}]{self.RESET} {level_color}{message}{self.RESET}"
 
 
+class AuditLogHandler(logging.Handler):
+    """
+    Handler personalizado que redirige los logs al servicio de auditoría
+    para ser escritos en el archivo diario.
+    """
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            get_audit_service().write_raw_line(msg)
+        except Exception:
+            self.handleError(record)
+
+
 def setup_logging():
     """
     Configura el sistema de logging global con colores únicos,
@@ -95,7 +109,7 @@ def setup_logging():
     
     # Determinar el nivel de logging basado en config.json
     project_root = Path(__file__).parent.parent.parent
-    config_path = project_root / "src" / "ai" / "config" / "config.json"
+    config_path = project_root / "config" / "config.json"
     config_manager = ConfigManager(config_path)
     app_config = config_manager.get_config()
     
@@ -109,14 +123,21 @@ def setup_logging():
         root_logger.removeHandler(handler)
 
     # Reducir ruido de librerías externas
-    for noisy in ["httpcore", "httpx", "python_multipart.multipart", "fsspec", "aiosqlite"]:
+    for noisy in ["httpcore", "httpx", "python_multipart.multipart", "fsspec", "aiosqlite", "numba"]:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    # Configurar formato y handler
+    # Configurar formato y handler de consola
     formatter = ColoredFormatter('%(asctime)s - [%(name)s] %(message)s')
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
+
+    # Configurar handler de auditoría (archivo)
+    # Usamos un formatter simple sin colores ANSI
+    file_formatter = logging.Formatter('%(asctime)s - [%(name)s] [%(levelname)s] %(message)s')
+    audit_handler = AuditLogHandler()
+    audit_handler.setFormatter(file_formatter)
+    root_logger.addHandler(audit_handler)
 
     # Bloquear propagación redundante
     logging.getLogger("uvicorn").propagate = False

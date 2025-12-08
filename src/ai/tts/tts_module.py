@@ -24,14 +24,40 @@ class TTSModule:
     Permite cargar un modelo TTS, verificar su estado en línea y generar archivos de audio
     a partir de texto de forma concurrente.
     """
-    def __init__(self, model_name: str = "tts_models/multilingual/multi-dataset/xtts_v2", speaker: str = "Sofia Hellen"):
+    def __init__(self, model_name: str = None, speaker: str = None):
         """
         Inicializa el módulo TTS.
 
         Args:
-            model_name (str): Nombre del modelo TTS a cargar.
-            speaker (str): Nombre del hablante a utilizar para la síntesis de voz.
+            model_name (str): Nombre del modelo TTS a cargar. Si no se proporciona, se carga desde la configuración.
+            speaker (str): Nombre del hablante a utilizar para la síntesis de voz. Si no se proporciona, se carga desde la configuración.
         """
+        # Cargar model_name y speaker desde config si no se proporcionan
+        if model_name is None or speaker is None:
+            try:
+                from pathlib import Path
+                from src.ai.nlp.config.config_manager import ConfigManager
+                
+                project_root = Path(__file__).parent.parent.parent.parent
+                config_path = project_root / "config" / "config.json"
+                config_manager = ConfigManager(config_path)
+                config = config_manager.get_config()
+                
+                if model_name is None:
+                    model_name = config.get("tts_model", "tts_models/multilingual/multi-dataset/xtts_v2")
+                    logger.info(f"Modelo TTS cargado desde configuración: {model_name}")
+                
+                if speaker is None:
+                    speaker = config.get("tts_speaker", "Sofia Hellen")
+                    logger.info(f"Speaker TTS cargado desde configuración: {speaker}")
+                    
+            except Exception as e:
+                logger.warning(f"No se pudo cargar configuración TTS: {e}. Usando valores por defecto.")
+                if model_name is None:
+                    model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
+                if speaker is None:
+                    speaker = "Sofia Hellen"
+        
         self.tts = None
         self.is_online_status: bool = False
         self.model_name: str = model_name

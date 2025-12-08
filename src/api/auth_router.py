@@ -3,7 +3,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 import logging
 from src.db.database import get_db
 from src.auth.auth_service import AuthService, get_current_user
-from src.auth.device_auth import get_device_api_key
 from src.db.models import User
 from .auth_schemas import (
     UserRegister, TokenRefresh, OwnerRegister,
@@ -227,7 +226,7 @@ async def voice_password_recovery_endpoint(audio_file: UploadFile = File(...), n
         audio_content = await audio_file.read()
         success = await voice_password_recovery(audio_content, new_password)
         if success:
-            logger.info(f"Recuperación de contraseña por voz exitosa.")
+            logger.info("Recuperación de contraseña por voz exitosa.")
             return {"message": "Contraseña actualizada exitosamente."}
         else:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Hablante no identificado o error al actualizar la contraseña.")
@@ -251,7 +250,7 @@ async def face_password_recovery_endpoint(new_password: str = Form(...), source:
             success = await face_password_recovery(new_password, source=source)
 
         if success:
-            logger.info(f"Recuperación de contraseña por reconocimiento facial exitosa.")
+            logger.info("Recuperación de contraseña por reconocimiento facial exitosa.")
             return {"message": "Contraseña actualizada exitosamente."}
         else:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Rostro no identificado o error al actualizar la contraseña.")

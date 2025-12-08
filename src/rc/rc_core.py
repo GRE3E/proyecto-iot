@@ -159,9 +159,9 @@ class FaceRecognitionCore:
         try:
             await self.recognizer.load_known_faces()
             if source == "camera":
-                recognized_users = await self.recognizer.recognize_from_cam()
+                recognized_users = await self.recognizer.recognize_from_camera()
             else:
-                recognized_users = await self.recognizer.recognize_from_file(source)
+                recognized_users = await self.recognizer.recognize_from_image_file(source)
             
             if recognized_users:
                 user_name = recognized_users[0]

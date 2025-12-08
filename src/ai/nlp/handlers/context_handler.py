@@ -1,9 +1,10 @@
 import logging
 from typing import Optional, Dict, Any
-from src.ai.nlp.prompt_creator import create_system_prompt
-from src.ai.nlp.prompt_loader import load_system_prompt_template
-from src.ai.nlp.device_context import DeviceContextManager
-from src.ai.nlp.prompt_processor import PromptProcessor
+from src.ai.nlp.prompts.prompt_creator import create_system_prompt
+from src.ai.nlp.prompts.prompt_loader import load_system_prompt_template
+from src.ai.nlp.context.device_context import DeviceContextManager
+from src.ai.nlp.prompts.prompt_processor import PromptProcessor
+from src.ai.common.constants import IoTConstants
 
 logger = logging.getLogger("ContextHandler")
 
@@ -89,10 +90,15 @@ class ContextHandler:
                     # Extraer palabras clave del prompt
                     prompt_lower = prompt.lower()
                     
-                    device_types = ["luz", "puerta", "ventilador", "sensor", "clima", "actuador", "valve", 
-                                    "lamp", "light", "door", "fan", "heater", "ac"]
-                    locations = ["salon", "sala", "cocina", "dormitorio", "pasillo", "bano", "garaje", "principal", 
-                                 "barra", "isla", "lavandera", "invitados", "habitacion", "living", "comedor"]
+                    device_types = IoTConstants.DEVICE_TYPES
+                    locations = IoTConstants.LOCATIONS
+
+                    # Use dynamic entities if available
+                    if hasattr(self, "_iot_command_processor") and self._iot_command_processor:
+                         if self._iot_command_processor.device_types:
+                             device_types = self._iot_command_processor.device_types
+                         if self._iot_command_processor.known_locations:
+                             locations = self._iot_command_processor.known_locations
                     
                     found_device_types = [dt for dt in device_types if dt in prompt_lower]
                     found_locations = [loc for loc in locations if loc in prompt_lower]

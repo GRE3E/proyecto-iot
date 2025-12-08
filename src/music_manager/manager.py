@@ -171,16 +171,16 @@ class MusicManager:
                     logs = result_hist.scalars().all()
                     history = [
                         {
-                            "id": str(l.id),
-                            "title": l.title,
-                            "uploader": l.uploader,
-                            "duration": l.duration,
-                            "thumbnail": l.thumbnail,
-                            "query": l.query,
-                            "started_at": l.started_at.isoformat() if l.started_at else None,
-                            "started_by": {"user_id": l.user_id, "username": l.user_name},
+                            "id": str(log.id),
+                            "title": log.title,
+                            "uploader": log.uploader,
+                            "duration": log.duration,
+                            "thumbnail": log.thumbnail,
+                            "query": log.query,
+                            "started_at": log.started_at.isoformat() if log.started_at else None,
+                            "started_by": {"user_id": log.user_id, "username": log.user_name},
                         }
-                        for l in logs
+                        for log in logs
                     ]
             except Exception as e:
                 logger.warning(f"No se pudo obtener historial global: {e}")

@@ -49,3 +49,6 @@ continuous_audio_*.wav
 data/
 src/ai/hotword/models/
 src/ai/tts/generated_audio/
+src/ai/sound_processor/temp_audio/
+config/config.json
+logs/

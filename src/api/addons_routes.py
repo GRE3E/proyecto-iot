@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from src.ai.nlp.nlp_core import NLPModule
-from src.ai.nlp.ollama_manager import OllamaManager
+from src.ai.nlp.core.nlp_core import NLPModule
+from src.ai.nlp.core.ollama_manager import OllamaManager
 from src.api.addons_schemas import TimezoneUpdate
 import logging
-from src.ai.nlp.config_manager import ConfigManager
+from src.ai.nlp.config.config_manager import ConfigManager
 from pathlib import Path
 
 logger = logging.getLogger("APIRoutes")
@@ -12,7 +12,7 @@ router = APIRouter()
 
 def get_nlp_module():
     project_root = Path(__file__).parent.parent.parent
-    config_path = project_root / "src" / "ai" / "config" / "config.json"
+    config_path = project_root / "config" / "config.json"
     config_manager = ConfigManager(config_path)
     model_config = config_manager.get_config()["model"]
     ollama_manager = OllamaManager(model_config)

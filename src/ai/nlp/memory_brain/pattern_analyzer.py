@@ -103,7 +103,7 @@ class PatternAnalyzer:
         result = await db.execute(
             select(Routine).filter(
                 Routine.user_id == user_id,
-                Routine.confirmed == True
+                Routine.confirmed
             )
         )
         confirmed_routines = result.scalars().all()

@@ -99,7 +99,7 @@ async def get_notifications_logic(
             UserNotification,
             (Notification.id == UserNotification.notification_id) & (UserNotification.user_id == current_user.id)
         ).where(
-            (Notification.is_global == True) | (Notification.id.in_(user_specific_notification_ids))
+            (Notification.is_global) | (Notification.id.in_(user_specific_notification_ids))
         )
 
         if type:

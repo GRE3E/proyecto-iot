@@ -1,15 +1,11 @@
 import logging
-import re
 from typing import Optional, Dict
 from datetime import datetime
+from ...common.constants import IoTConstants
 
 logger = logging.getLogger("DeviceContext")
 
-# Regex para ubicaciones de dispositivos
-DEVICE_LOCATION_REGEX = re.compile(
-    r"\b(salón|salon|sala|cocina|dormitorio|pasillo|comedor|baño|bano|garaje|lavandería|lavanderia|habitación|habitacion|principal|invitados)\b",
-    re.IGNORECASE
-)
+DEVICE_LOCATION_REGEX = IoTConstants.DEVICE_LOCATION_REGEX
 
 class UserDeviceContext:
     """Almacena el contexto de dispositivo del usuario para resolución de ambigüedades"""

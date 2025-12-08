@@ -8,11 +8,12 @@ from src.db.models import MusicPlayLog, User
 logger = logging.getLogger("ResponseProcessor")
 
 MEMORY_SEARCH_REGEX = re.compile(r"memory_search:\s*(.+)")
-PREFERENCE_MARKERS_REGEX = re.compile(r"(preference_set:|memory_search:|name_change:)")
+PREFERENCE_MARKERS_REGEX = re.compile(r"(preference_set:|memory_search:|name_change:|temperature_get)")
 IOT_COMMAND_REGEX = re.compile(r"(iot_command|mqtt_publish):[^\s]+")
 NAME_CHANGE_REGEX = re.compile(r"name_change:\s*(.+)")
 ROUTINE_EXECUTION_REGEX = re.compile(r"(ejecutar|activar|correr)\s+(?:la\s+)?(?:rutina\s+)?(?:de\s+)?(.+)", re.IGNORECASE)
 ROUTINE_LIST_REGEX = re.compile(r"(?:ver|mostrar|listar)\s+(?:mis\s+)?(?:rutinas|programaciones)|routine_list:\s*show", re.IGNORECASE)
+TEMPERATURE_GET_REGEX = re.compile(r"temperature_get", re.IGNORECASE)
 
 class ResponseProcessor:
     """Procesa y transforma respuestas del LLM"""
@@ -68,6 +69,11 @@ class ResponseProcessor:
         routine_result = await self.process_routine_requests(db, user_id, response, token)
         if routine_result:
             return routine_result, None
+        
+        # Procesar consulta de temperatura
+        temp_result = await self.process_temperature_query(response, token)
+        if temp_result:
+            return temp_result, None
         
         # Procesar búsqueda en memoria
         response = await self.process_memory_search(db, user_id, response)
@@ -168,6 +174,58 @@ class ResponseProcessor:
             return result.get("response")
         
         return None
+    
+    async def process_temperature_query(self, response: str, token: str) -> Optional[str]:
+        """Procesa consultas de temperatura actual"""
+        temp_match = TEMPERATURE_GET_REGEX.search(response)
+        if not temp_match:
+            return None
+        
+        logger.info("Consulta de temperatura detectada")
+        
+        try:
+            import httpx
+            
+            # Llamar al endpoint de temperatura
+            async with httpx.AsyncClient() as client:
+                api_response = await client.post(
+                    "http://localhost:8000/iot/temperature/request",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15.0
+                )
+                
+                if api_response.status_code == 200:
+                    data = api_response.json()
+                    if data.get("success") and data.get("temperature") is not None:
+                        temperature = data["temperature"]
+                        # Limpiar la respuesta original y agregar la temperatura
+                        clean_response = re.sub(TEMPERATURE_GET_REGEX, "", response).strip()
+                        if clean_response:
+                            return f"{clean_response} La temperatura actual es de {temperature}°C."
+                        else:
+                            return f"La temperatura actual es de {temperature}°C."
+                    else:
+                        # Timeout del sensor MQTT, intentar obtener última temperatura del historial
+                        logger.info("Sensor no respondió, obteniendo última temperatura del historial")
+                        history_response = await client.get(
+                            "http://localhost:8000/iot/temperature/history",
+                            headers={"Authorization": f"Bearer {token}"},
+                            timeout=5.0
+                        )
+                        if history_response.status_code == 200:
+                            history = history_response.json()
+                            if isinstance(history, list) and len(history) > 0:
+                                last_temp = history[-1]
+                                return f"La última temperatura registrada fue de {last_temp}°C. El sensor no respondió en este momento."
+                        
+                        return "No pude obtener la temperatura en este momento. El sensor no respondió a tiempo."
+                else:
+                    logger.error(f"Error al consultar temperatura: {api_response.status_code}")
+                    return "Hubo un problema al consultar la temperatura. Por favor, intenta de nuevo."
+                    
+        except Exception as e:
+            logger.error(f"Error procesando consulta de temperatura: {e}")
+            return "No pude obtener la temperatura en este momento. Verifica que el sensor esté conectado."
     
     async def process_name_change(self, db: AsyncSession, response: str, user_id: int) -> str:
         """Procesa cambios de nombre en la respuesta"""

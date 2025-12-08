@@ -73,6 +73,8 @@ class ColoredFormatter(logging.Formatter):
         'ErrorHandler': '\033[38;5;166m',               # Naranja quemado (ANSI 166)
         'Websocket': '\033[38;5;111m',                  # Azul claro/Cian (ANSI 111)
         'AppLogger': '\033[38;5;33m',                   # Azul medio (ANSI 33)
+        'WeatherRoutes': '\033[38;5;151m',              # Azul claro/Cian (ANSI 151)
+        'WeatherUtils': '\033[38;5;191m',               # Azul claro/Cian (ANSI 191)
         'MainApp': '\033[38;5;141m',                    # Lavanda (ANSI 141)
         'root': '\033[38;5;245m',                       # Gris claro (ANSI 245)
     }

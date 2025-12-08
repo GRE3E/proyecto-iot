@@ -3,6 +3,7 @@ from typing import List, Union
 from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand, DeviceTypeList, DeviceStateUpdate
 from src.db.database import get_db
 import logging
+import asyncio
 from src.api.utils import get_mqtt_client
 from src.iot import device_manager
 import json
@@ -320,3 +321,116 @@ async def delete_device_state(device_id: int):
         await device_manager.delete_device_state(session, device_id)
         logger.info(f"Estado del dispositivo con ID {device_id} eliminado exitosamente.")
         return {"message": "Estado del dispositivo eliminado exitosamente"}
+
+@iot_router.post("/temperature/request", response_model=dict)
+async def request_temperature(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Solicita la temperatura actual mediante MQTT, la guarda en la base de datos
+    y devuelve el valor obtenido.
+    """
+    mqtt_client = get_mqtt_client()
+    if not mqtt_client or not mqtt_client.is_connected:
+        logger.error("MQTT client no está inicializado o conectado.")
+        raise HTTPException(status_code=503, detail="MQTT client no está conectado.")
+
+    request_topic = "iot/sensors/TEMPERATURA/status/get"
+    response_topic = "iot/sensors/TEMPERATURA/status"
+    device_name = "SensorPrincipal"
+
+    # Crear un Future para esperar la respuesta MQTT
+    response_future = asyncio.get_event_loop().create_future()
+
+    def message_handler(topic, payload):
+        if not response_future.done():
+            try:
+                import re
+                
+                # Si el payload ya es un número (int o float)
+                if isinstance(payload, (int, float)):
+                    response_future.set_result(float(payload))
+                    return
+                
+                # Convertir bytes a string si es necesario
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8')
+                
+                payload_str = str(payload).strip()
+                logger.debug(f"Payload de temperatura recibido: {payload_str}")
+                
+                # Intentar parsear como JSON primero
+                try:
+                    data = json.loads(payload_str)
+                    # Si es un diccionario, buscar la clave de temperatura
+                    if isinstance(data, dict):
+                        temperature = data.get("temperature") or data.get("temp") or data.get("value")
+                        if temperature is not None:
+                            response_future.set_result(float(temperature))
+                            return
+                    # Si json.loads devolvió un número directamente
+                    elif isinstance(data, (int, float)):
+                        response_future.set_result(float(data))
+                        return
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                
+                # Intentar extraer número del formato "Temperatura: XXC" o similar
+                temp_match = re.search(r'(\d+(?:\.\d+)?)\s*[°]?C?', payload_str, re.IGNORECASE)
+                if temp_match:
+                    temperature = float(temp_match.group(1))
+                    response_future.set_result(temperature)
+                    return
+                
+                # Intentar como valor numérico directo
+                temperature = float(payload_str)
+                response_future.set_result(temperature)
+            except Exception as e:
+                logger.error(f"Error parseando payload de temperatura '{payload}': {e}")
+                if not response_future.done():
+                    response_future.set_exception(ValueError(f"Error parseando temperatura: {e}"))
+
+    # Suscribirse al tópico de respuesta
+    mqtt_client.subscribe(response_topic, message_handler)
+
+    try:
+        # Publicar el mensaje de solicitud
+        await mqtt_client.publish(request_topic, "GET")
+        logger.info(f"Solicitud de temperatura enviada a {request_topic}")
+
+        # Esperar la respuesta con timeout de 10 segundos
+        temperature = await asyncio.wait_for(response_future, timeout=10.0)
+        logger.info(f"Temperatura obtenida: {temperature}°C del dispositivo {device_name}")
+
+        # Guardar en la base de datos
+        async with get_db() as db:
+            new_temperature_record = TemperatureHistory(
+                user_id=current_user.id,
+                temperature=temperature,
+                device_name=device_name
+            )
+            db.add(new_temperature_record)
+            await db.commit()
+            await db.refresh(new_temperature_record)
+            logger.info(f"Temperatura {temperature}°C guardada en BD para usuario {current_user.id}")
+
+        return {
+            "success": True,
+            "temperature": temperature,
+            "device_name": device_name,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout esperando respuesta de temperatura de {response_topic}")
+        return {
+            "success": False,
+            "message": "Timeout esperando respuesta del sensor de temperatura",
+            "temperature": None
+        }
+    except Exception as e:
+        logger.error(f"Error al obtener temperatura: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener temperatura: {str(e)}")
+    finally:
+        # Desuscribirse del tópico de respuesta
+        mqtt_client.unsubscribe(response_topic, message_handler)

@@ -134,7 +134,11 @@ sections:
     5. PREFERENCIA: "Mi temperatura favorita es 22"
        Responde: "Perfecto, recordare que tu temperatura favorita es 22. preference_set: temp | 22"
 
-    6. CAMBIO DE NOMBRE: "Quiero que me llames [nombre]", "Llámame [nombre]", "Desde ahora llámame [nombre]", "Prefiero que me llames [nombre]"
+    6. CONSULTA DE TEMPERATURA: "¿Cuál es la temperatura?", "¿Qué temperatura hay?", "¿Cómo está la temperatura?", "Dime la temperatura actual"
+       Responde: "Voy a consultar la temperatura actual. temperature_get"
+       IMPORTANTE: Siempre usa el comando temperature_get cuando el usuario pregunte por la temperatura actual del hogar/casa.
+
+    7. CAMBIO DE NOMBRE: "Quiero que me llames [nombre]", "Llámame [nombre]", "Desde ahora llámame [nombre]", "Prefiero que me llames [nombre]"
        Responde: "De acuerdo, te llamaré [nombre]. name_change: [nombre]"
        Ejemplo:
        Usuario: "Quiero que me llames Arturo"

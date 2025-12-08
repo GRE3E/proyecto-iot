@@ -119,23 +119,106 @@ async def shutdown_event() -> None:
 
 async def periodic_temperature_check():
     """
-    Tarea en segundo plano que solicita el estado de la temperatura cada 30 minutos.
+    Tarea en segundo plano que solicita el estado de la temperatura cada 30 minutos
+    y guarda el resultado en la base de datos.
     """
+    import re
+    import json
+    from src.db.database import get_db
+    from src.db.models import TemperatureHistory
+    
+    DEFAULT_USER_ID = 1  # Usuario por defecto para lecturas periódicas
+    
     while True:
         try:
             logger.info("Ejecutando chequeo periódico de temperatura...")
             mqtt_client = get_mqtt_client()
             if mqtt_client and mqtt_client.is_connected:
-                # Publicar comando para obtener el estado de la temperatura
-                # Ajusta el tópico según tu configuración real de Arduino
-                topic = "iot/sensors/TEMPERATURA/status/get" 
-                await mqtt_client.publish(topic, "GET")
-                logger.info(f"Solicitud de temperatura enviada a {topic}")
+                request_topic = "iot/sensors/TEMPERATURA/status/get"
+                response_topic = "iot/sensors/TEMPERATURA/status"
+                device_name = "SensorPrincipal"
+                
+                # Crear un Future para esperar la respuesta MQTT
+                response_future = asyncio.get_event_loop().create_future()
+                
+                def message_handler(topic, payload):
+                    if not response_future.done():
+                        try:
+                            # Si el payload ya es un número (int o float)
+                            if isinstance(payload, (int, float)):
+                                response_future.set_result(float(payload))
+                                return
+                            
+                            # Convertir bytes a string si es necesario
+                            if isinstance(payload, bytes):
+                                payload = payload.decode('utf-8')
+                            
+                            payload_str = str(payload).strip()
+                            
+                            # Intentar parsear como JSON primero
+                            try:
+                                data = json.loads(payload_str)
+                                if isinstance(data, dict):
+                                    temperature = data.get("temperature") or data.get("temp") or data.get("value")
+                                    if temperature is not None:
+                                        response_future.set_result(float(temperature))
+                                        return
+                                elif isinstance(data, (int, float)):
+                                    response_future.set_result(float(data))
+                                    return
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                            
+                            # Intentar extraer número del formato "Temperatura: XXC" o similar
+                            temp_match = re.search(r'(\d+(?:\.\d+)?)\s*[°]?C?', payload_str, re.IGNORECASE)
+                            if temp_match:
+                                temperature = float(temp_match.group(1))
+                                response_future.set_result(temperature)
+                                return
+                            
+                            # Intentar como valor numérico directo
+                            temperature = float(payload_str)
+                            response_future.set_result(temperature)
+                        except Exception as e:
+                            logger.error(f"Error parseando temperatura periódica '{payload}': {e}")
+                            if not response_future.done():
+                                response_future.set_exception(e)
+                
+                # Suscribirse al tópico de respuesta
+                mqtt_client.subscribe(response_topic, message_handler)
+                
+                try:
+                    # Publicar el mensaje de solicitud
+                    await mqtt_client.publish(request_topic, "GET")
+                    logger.info(f"Solicitud de temperatura enviada a {request_topic}")
+                    
+                    # Esperar la respuesta con timeout de 15 segundos
+                    temperature = await asyncio.wait_for(response_future, timeout=15.0)
+                    logger.info(f"Temperatura periódica obtenida: {temperature}°C")
+                    
+                    # Guardar en la base de datos
+                    async with get_db() as db:
+                        new_temperature_record = TemperatureHistory(
+                            user_id=DEFAULT_USER_ID,
+                            temperature=temperature,
+                            device_name=device_name
+                        )
+                        db.add(new_temperature_record)
+                        await db.commit()
+                        logger.info(f"Temperatura {temperature}°C guardada en BD (periódico)")
+                        
+                except asyncio.TimeoutError:
+                    logger.warning("Timeout esperando respuesta de temperatura (periódico)")
+                except Exception as e:
+                    logger.error(f"Error al procesar temperatura periódica: {e}")
+                finally:
+                    # Desuscribirse del tópico de respuesta
+                    mqtt_client.unsubscribe(response_topic, message_handler)
             else:
                 logger.warning("MQTT Client no conectado. Omitiendo chequeo de temperatura.")
             
             # Esperar 30 minutos (30 * 60 segundos)
-            await asyncio.sleep(1800) 
+            await asyncio.sleep(1800)
         except asyncio.CancelledError:
             break
         except Exception as e:

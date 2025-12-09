@@ -243,7 +243,7 @@ class NLPModule:
             _, iot_commands_db = await self._iot_command_processor.load_commands_from_db(db)
             
             if self._memory_brain and user_id and not context_result["has_negation"]:
-                await self._routine_handler.execute_automatic_routines(user_id, token)
+                asyncio.create_task(self._routine_handler.execute_automatic_routines(user_id, token))
             
             processed_response, extracted_command = await self._response_processor.process_response(
                 db, user_id, full_response_content, token, context_result["has_negation"], iot_commands_db, prompt
@@ -252,17 +252,13 @@ class NLPModule:
             # Actualizar contexto de dispositivo
             self._context_handler.update_device_context(user_id, prompt, extracted_command)
             
-            # Registrar en Memory Brain
+            # Registrar en Memory Brain (Background)
             if self._memory_brain and user_id and db_user:
-                await self._track_in_memory_brain(db, user_id, user_name, prompt, processed_response, extracted_command)
+                asyncio.create_task(self._track_in_memory_brain(user_id, user_name, prompt, processed_response, extracted_command))
             
-            # Actualizar memoria conversacional
+            # Actualizar memoria conversacional (Background)
             if user_id != 0:
-                try:
-                    await self._user_manager.update_memory(db, user_id, prompt, processed_response)
-                except Exception as e:
-                    logger.error(f"Error al actualizar memoria: {e}")
-                    return self._error_response(f"Error interno al actualizar la memoria: {e}", str(e), user_name=user_name, is_owner=is_owner)
+                asyncio.create_task(self._update_user_memory_background(user_id, prompt, processed_response))
 
             return {
                 "identified_speaker": user_name or "Desconocido",
@@ -285,45 +281,54 @@ class NLPModule:
             
         return db_user, db_user.nombre, db_user.is_owner, user_permissions_str, user_preferences_dict
 
-    async def _track_in_memory_brain(self, db: AsyncSession, user_id: int, user_name: str, prompt: str, response: str, extracted_command: Optional[str]):
-        """Registra interacción en Memory Brain"""
-        try:
-            device_type = None
-            location = None
+    async def _track_in_memory_brain(self, user_id: int, user_name: str, prompt: str, response: str, extracted_command: Optional[str]):
+        """Registra interacción en Memory Brain (Ejecutado en background, gestiona su propia sesión)"""
+        async with get_db() as db:
+            try:
+                device_type = None
+                location = None
 
-            if extracted_command:
-                device_type, location, _ = self._iot_command_processor._extract_device_info_from_prompt(
-                    prompt, response
+                if extracted_command:
+                    device_type, location, _ = self._iot_command_processor._extract_device_info_from_prompt(
+                        prompt, response
+                    )
+
+                intent = self._context_handler.extract_intent(prompt)
+
+                await self._memory_brain.track_interaction(
+                    db=db,
+                    user_id=user_id,
+                    user_name=user_name,
+                    intent=intent,
+                    action=extracted_command or "",
+                    context={
+                        "hour": datetime.now().hour,
+                        "day": datetime.now().weekday(),
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    device_type=device_type,
+                    location=location
                 )
 
-            intent = self._context_handler.extract_intent(prompt)
+                event_count = len(await self._memory_brain.context_tracker.get_user_events(db, user_id))
+                if event_count > 0 and event_count % 10 == 0:
+                    suggested_routines = await self._memory_brain.suggest_routines(
+                        db, user_id, min_confidence=0.6
+                    )
+                    if suggested_routines:
+                        routine_suggestions = await self._format_routine_suggestions(suggested_routines)
+                        logger.info(f"Sugerencias de rutina generadas para usuario {user_id}: {routine_suggestions}")
 
-            await self._memory_brain.track_interaction(
-                db=db,
-                user_id=user_id,
-                user_name=user_name,
-                intent=intent,
-                action=extracted_command or "",
-                context={
-                    "hour": datetime.now().hour,
-                    "day": datetime.now().weekday(),
-                    "timestamp": datetime.now().isoformat()
-                },
-                device_type=device_type,
-                location=location
-            )
+            except Exception as e:
+                logger.error(f"Error registrando en Memory Brain: {e}")
 
-            event_count = len(await self._memory_brain.context_tracker.get_user_events(db, user_id))
-            if event_count > 0 and event_count % 10 == 0:
-                suggested_routines = await self._memory_brain.suggest_routines(
-                    db, user_id, min_confidence=0.6
-                )
-                if suggested_routines:
-                    routine_suggestions = await self._format_routine_suggestions(suggested_routines)
-                    logger.info(f"Sugerencias de rutina generadas para usuario {user_id}: {routine_suggestions}")
-
-        except Exception as e:
-            logger.error(f"Error registrando en Memory Brain: {e}")
+    async def _update_user_memory_background(self, user_id: int, prompt: str, response: str):
+        """Actualiza la memoria del usuario en background con su propia sesión."""
+        async with get_db() as db:
+            try:
+                await self._user_manager.update_memory(db, user_id, prompt, response)
+            except Exception as e:
+                logger.error(f"Error background al actualizar memoria de usuario: {e}")
 
     @staticmethod
     def _error_response(

@@ -242,23 +242,20 @@ export function useRutinas() {
         };
       }
       if (form.triggerType === "Tiempo") {
+        let hour = form.timeHour;
+        // Si hay minutos relativos, calculamos la hora absoluta
         if (form.relativeMinutes && form.relativeMinutes > 0) {
           const now = new Date();
           const future = new Date(now.getTime() + form.relativeMinutes * 60000);
           const hh = String(future.getHours()).padStart(2, "0");
           const mm = String(future.getMinutes()).padStart(2, "0");
-          return {
-            trigger: {
-              type: "relative_time_based",
-              hour: `${hh}:${mm}`,
-            },
-            trigger_type: "relative_time_based",
-          };
+          hour = `${hh}:${mm}`;
         }
+
         return {
           trigger: {
             type: "time_based",
-            hour: form.timeHour,
+            hour: hour,
             days: form.timeDays,
             date: form.timeDate || undefined,
           },

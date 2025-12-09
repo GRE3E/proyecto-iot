@@ -680,17 +680,7 @@ export default function Rutinas() {
             {formData.triggerType === "Tiempo" &&
               (() => {
                 // Preseleccionar día y fecha actual si están vacíos
-                const currentDayNames = [
-                  "Domingo",
-                  "Lunes",
-                  "Martes",
-                  "Miércoles",
-                  "Jueves",
-                  "Viernes",
-                  "Sábado",
-                ];
                 const today = new Date();
-                const currentDayName = currentDayNames[today.getDay()];
                 const currentDateStr = today.toISOString().split("T")[0];
 
                 // Estado local para modo de tiempo
@@ -832,23 +822,12 @@ export default function Rutinas() {
                       </label>
                       <div className="grid grid-cols-4 gap-2">
                         {DAY_LABELS.map((day) => {
-                          // Preseleccionar día actual si timeDays está vacío
-                          const isSelected =
-                            formData.timeDays.length === 0
-                              ? day === currentDayName
-                              : formData.timeDays.includes(day);
+                          const isSelected = formData.timeDays.includes(day);
                           return (
                             <button
                               key={day}
                               type="button"
-                              onClick={() => {
-                                // Si es la primera selección, inicializar con el día actual si está vacío
-                                if (formData.timeDays.length === 0) {
-                                  setFormData({ ...formData, timeDays: [day] });
-                                } else {
-                                  handleToggleDay(day);
-                                }
-                              }}
+                              onClick={() => handleToggleDay(day)}
                               className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
                                 isSelected
                                   ? `bg-gradient-to-r ${colors.primary} text-white`
@@ -860,6 +839,13 @@ export default function Rutinas() {
                           );
                         })}
                       </div>
+                      {formData.timeDays.length === 0 && (
+                        <p
+                          className={`text-xs mt-2 ${colors.mutedText} italic`}
+                        >
+                          Se ejecutará todos los días
+                        </p>
+                      )}
                     </div>
 
                     {/* Fecha */}

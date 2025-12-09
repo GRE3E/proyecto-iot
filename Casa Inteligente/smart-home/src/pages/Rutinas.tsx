@@ -622,7 +622,7 @@ export default function Rutinas() {
                   : `${colors.chipBg} ${colors.chipText} hover:bg-slate-700/60`
               }`}
             >
-              ✓ {formData.enabled ? "Habilitada" : "Deshabilitada"}
+              {formData.enabled ? "Habilitada" : "Deshabilitada"}
             </button>
           </div>
 

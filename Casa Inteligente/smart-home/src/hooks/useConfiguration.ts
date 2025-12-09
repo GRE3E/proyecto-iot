@@ -35,13 +35,13 @@ export function useConfiguracion() {
 
   const { startListening: startVR } = useVoiceRecognition({
     transcribePath: "/stt/stt/transcribe/auth",
-    maxDurationMs: 4000,
+    maxDurationMs: 8000,
     onStart: () => {
       setIsListening(true);
       setIsRecording(true);
       setTranscript("");
       setStatusMessage(
-        "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para cambiar tu voz."
+        "🎙️ Escuchando... Di la frase: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente' para cambiar tu voz."
       );
     },
     onEnd: () => {
@@ -59,13 +59,17 @@ export function useConfiguracion() {
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
-      const ok = normalize(txt).includes(normalize("soy parte del hogar"));
+      const ok = normalize(txt).includes(
+        normalize(
+          "Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente"
+        )
+      );
       if (ok) {
         setStatusMessage(`✅ Frase detectada: "${txt}"`);
         setVoiceConfirmed(true);
       } else {
         setStatusMessage(
-          "❌ No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
+          " No se detectó la frase correcta. Por favor di: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente'."
         );
       }
     },
@@ -250,7 +254,7 @@ export function useConfiguracion() {
       setIsListening(true);
       setTranscript("");
       setStatusMessage(
-        "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para registrar tu voz."
+        "🎙️ Escuchando... Di la frase: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente' para registrar tu voz."
       );
     };
 
@@ -260,12 +264,16 @@ export function useConfiguracion() {
       setStatusMessage("🔄 Procesando voz...");
 
       const lower = result.toLowerCase();
-      if (lower.includes("soy parte del hogar")) {
+      if (
+        lower.includes(
+          "hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente"
+        )
+      ) {
         setStatusMessage(`✅ Voz registrada correctamente: "${result}"`);
         setVoiceConfirmed(true);
       } else {
         setStatusMessage(
-          "❌ No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
+          "❌ No se detectó la frase correcta. Por favor di: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente'."
         );
       }
     };
@@ -293,7 +301,7 @@ export function useConfiguracion() {
     }
     setTranscript("");
     setStatusMessage(
-      "🎙️ Escuchando... Di la frase: 'soy parte del hogar' para cambiar tu voz."
+      "🎙️ Escuchando... Di la frase: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente' para cambiar tu voz."
     );
     startVR();
   };
@@ -458,7 +466,7 @@ export function useConfiguracion() {
     }
   };
 
-  // 🔐 Verificación de contraseña para voz/rostro
+  // Verificación de contraseña para voz/rostro
   const [voicePassword, setVoicePassword] = useState("");
   const [voicePasswordVerified, setVoicePasswordVerified] = useState(false);
   const [facePassword, setFacePassword] = useState("");
@@ -470,7 +478,7 @@ export function useConfiguracion() {
         current_password: voicePassword,
       });
       setVoicePasswordVerified(true);
-      setStatusMessage("🔐 Contraseña verificada. Puedes agregar tu voz.");
+      setStatusMessage(" Contraseña verificada. Puedes agregar tu voz.");
     } catch (e: any) {
       setVoicePasswordVerified(false);
       const message =
@@ -485,7 +493,7 @@ export function useConfiguracion() {
         current_password: facePassword,
       });
       setFacePasswordVerified(true);
-      setStatusMessage("🔐 Contraseña verificada. Puedes agregar tu rostro.");
+      setStatusMessage(" Contraseña verificada. Puedes agregar tu rostro.");
       return true;
     } catch (e: any) {
       setFacePasswordVerified(false);

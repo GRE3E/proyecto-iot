@@ -46,7 +46,7 @@ export function useRecuperarContra() {
   const { startListening: startVR, stopListening: stopVR } =
     useVoiceRecognition({
       transcribePath: "/stt/stt/transcribe",
-      maxDurationMs: 4000,
+      maxDurationMs: 8000,
       onStart: () => {
         setBiometricLoading(true);
         setIsRecording(true);
@@ -58,7 +58,7 @@ export function useRecuperarContra() {
       },
       onAudioCaptured: (wav) => {
         voiceWavBlobRef.current = wav;
-        setBiometricStatus("Audio capturado ✓");
+        setBiometricStatus("Audio capturado");
       },
       onAudioProcessed: (resp: any) => {
         const txt = String(resp?.transcribed_text || "").trim();
@@ -69,14 +69,16 @@ export function useRecuperarContra() {
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
         const ok = normalizeTxt(txt).includes(
-          normalizeTxt("soy parte del hogar")
+          normalizeTxt(
+            "Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente"
+          )
         );
         if (ok) {
-          setBiometricStatus("Frase detectada ✓");
+          setBiometricStatus("Frase detectada");
           setVoiceReady(true);
         } else {
           setBiometricStatus(
-            "No se detectó la frase correcta. Por favor di: 'soy parte del hogar'."
+            "No se detectó la frase correcta. Por favor di: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente'."
           );
           setVoiceReady(false);
         }
@@ -124,7 +126,7 @@ export function useRecuperarContra() {
         username.toLowerCase() === "admin" ||
         username.toLowerCase() === "user"
       ) {
-        setSuccess("Usuario validado correctamente ✓");
+        setSuccess("Usuario validado correctamente");
         setTimeout(() => {
           setStep(2);
           setSuccess("");
@@ -148,7 +150,7 @@ export function useRecuperarContra() {
   const startVoiceRecognition = useCallback(() => {
     setError("");
     setBiometricStatus(
-      "Listo para grabar. Di la frase: 'soy parte del hogar'."
+      "Listo para grabar. Di la frase: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente'."
     );
     setBiometricLoading(false);
     voiceWavBlobRef.current = null;
@@ -260,7 +262,7 @@ export function useRecuperarContra() {
   const beginVoiceRecording = useCallback(async () => {
     setError("");
     setBiometricStatus(
-      "Listo para grabar. Di la frase: 'soy parte del hogar'."
+      "Listo para grabar. Di la frase: 'Hola asistente, estoy configurando mi perfil de voz para el sistema de casa inteligente'."
     );
     setBiometricLoading(false);
     setVoiceTranscript("");
@@ -314,7 +316,7 @@ export function useRecuperarContra() {
               },
             }
           );
-          setSuccess("¡Contraseña cambiada exitosamente! ✓");
+          setSuccess("¡Contraseña cambiada exitosamente!");
           setTimeout(() => {
             window.location.href = "/login";
           }, 2000);
@@ -363,7 +365,7 @@ export function useRecuperarContra() {
       } catch {}
       const url = URL.createObjectURL(imageBlob);
       setFaceImageUrl(url);
-      setBiometricStatus("Foto capturada ✓");
+      setBiometricStatus("Foto capturada");
     } catch {
       setError("Error al capturar la foto");
     }
@@ -454,7 +456,7 @@ export function useRecuperarContra() {
         );
       }
 
-      setSuccess("¡Contraseña cambiada exitosamente! ✓");
+      setSuccess("¡Contraseña cambiada exitosamente!");
       setTimeout(() => {
         window.location.href = "/login";
       }, 2000);

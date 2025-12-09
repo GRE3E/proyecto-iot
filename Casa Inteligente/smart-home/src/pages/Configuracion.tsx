@@ -339,7 +339,7 @@ export default function Configuracion() {
               </button>
               {voicePasswordVerified && (
                 <p className="text-green-400 text-xs mt-1">
-                  Contraseña verificada ✓
+                  Contraseña verificada
                 </p>
               )}
             </div>
@@ -347,7 +347,8 @@ export default function Configuracion() {
               Di la siguiente frase para registrar tu voz:
             </p>
             <p className="text-blue-400 font-semibold text-center text-lg">
-              "soy parte del hogar"
+              "Hola asistente, estoy configurando mi perfil de voz para el
+              sistema de casa inteligente"
             </p>
 
             <button
@@ -423,7 +424,7 @@ export default function Configuracion() {
               </button>
               {facePasswordVerified && (
                 <p className="text-green-400 text-xs mt-1">
-                  Contraseña verificada ✓
+                  Contraseña verificada
                 </p>
               )}
             </div>
@@ -462,7 +463,7 @@ export default function Configuracion() {
 
             {faceDetected && (
               <p className="text-green-400 text-sm font-medium">
-                Rostro detectado correctamente ✓
+                Rostro detectado correctamente
               </p>
             )}
 

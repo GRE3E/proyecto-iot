@@ -195,7 +195,8 @@ export default function RecuperarContraseña() {
                             Di la siguiente frase para verificar tu identidad:
                           </p>
                           <p className="text-center text-blue-400 font-semibold text-base">
-                            "soy parte del hogar"
+                            "Hola asistente, estoy configurando mi perfil de voz
+                            para el sistema de casa inteligente"
                           </p>
                           <button
                             onClick={() =>
@@ -557,7 +558,7 @@ export default function RecuperarContraseña() {
                       </button>
                       {recoveryMethod === "face" && faceReady && (
                         <p className="text-center text-blue-300 text-xs xs:text-sm mt-2">
-                          Foto capturada ✓ ¿Seguro que quieres enviar esta foto?
+                          Foto capturada ¿Seguro que quieres enviar esta foto?
                         </p>
                       )}
                     </div>

@@ -70,6 +70,28 @@ class RoutineScheduler:
 
         if trigger_type == "time_based":
             trigger_hour = trigger.get("hour")
+            trigger_days = trigger.get("days")
+            
+            # Verificar días específicos si están configurados
+            if trigger_days and isinstance(trigger_days, list) and len(trigger_days) > 0:
+                # Mapa de dias de la semana (0=Lunes, 6=Domingo para datetime.weekday())
+                # Aseguramos compatibilidad con los nombres guardados por el frontend
+                current_day_index = now.weekday()
+                days_map = {
+                    0: "Lunes",
+                    1: "Martes",
+                    2: "Miércoles",
+                    3: "Jueves",
+                    4: "Viernes",
+                    5: "Sábado",
+                    6: "Domingo"
+                }
+                current_day_name = days_map.get(current_day_index)
+                
+                # Si el día actual no está en la lista de días permitidos, no ejecutar
+                if current_day_name not in trigger_days:
+                    return False
+
             if trigger_hour is not None:
                 try:
                     if isinstance(trigger_hour, str):

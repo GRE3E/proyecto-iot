@@ -98,7 +98,7 @@ def create_system_prompt(
         "language": config["language"],
         "iot_commands": formatted_iot_commands,
         "iot_command_names": ", ".join(iot_command_names),
-        "identified_speaker": user_name,
+        "user_name": user_name,
         "current_date": current_date_formatted,
         "current_time": current_time_formatted,
         "user_preferences": _safe_format_value(user_preferences_dict),

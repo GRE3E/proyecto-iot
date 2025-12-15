@@ -50,7 +50,7 @@ class MQTTClient:
             except Exception:
                 pass
             self.reconnect_delay_sec = 5
-            for topic in self.subscriptions.keys():
+            for topic in list(self.subscriptions.keys()):
                 client.subscribe(topic)
                 logger.info(f"Resuscrito automáticamente a {topic}")
         else:

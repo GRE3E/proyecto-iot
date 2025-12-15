@@ -1,22 +1,21 @@
 import re
+from src.ai.common.definitions import Location, DeviceType
 
 class IoTConstants:
     """Centralized constants for IoT devices and locations."""
     
-    DEVICE_TYPES = [
-        "luz", "puerta", "ventilador", "actuador"
-    ]
+    # Generate lists dynamically from Enums to ensure consistency
+    DEVICE_TYPES = [device.value.lower() for device in DeviceType]
     
-    LOCATIONS = [
-        "garaje", "pasillo", "cocina", "sala", "lavanderia", "lavandería",
-        "habitacion", "habitación", "bano", "baño", 
-        "principal", "invitados"
-    ]
+    # Locations list including normalized versions (unaccented) could be handled here if needed,
+    # but for now we take the Enum values directly.
+    LOCATIONS = [location.value.lower() for location in Location]
 
     # Regex pattern for device locations
     # Matches any of the locations, case-insensitive, as a whole word
+    # Escaping is important if locations contain special regex characters
     DEVICE_LOCATION_REGEX = re.compile(
-        r"\b(" + "|".join(LOCATIONS) + r")\b",
+        r"\b(" + "|".join(map(re.escape, LOCATIONS)) + r")\b",
         re.IGNORECASE
     )
 
@@ -27,6 +26,7 @@ class IoTConstants:
     ]
     
     NEGATION_REGEX = re.compile(
-        r"\b(" + "|".join(NEGATIVE_SENTENCES) + r")\b",
+        r"\b(" + "|".join(map(re.escape, NEGATIVE_SENTENCES)) + r")\b",
         re.IGNORECASE
     )
+

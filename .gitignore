@@ -52,3 +52,4 @@ src/ai/tts/generated_audio/
 src/ai/sound_processor/temp_audio/
 config/config.json
 logs/
+murphy_q4km.gguf

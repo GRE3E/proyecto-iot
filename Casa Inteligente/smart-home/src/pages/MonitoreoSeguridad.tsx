@@ -1,6 +1,5 @@
-"use client";
-
-import { useState } from "react";
+// ... imports
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -10,6 +9,7 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  DoorOpen,
 } from "lucide-react";
 import SimpleCard from "../components/UI/Card";
 import PageHeader from "../components/UI/PageHeader";
@@ -19,11 +19,80 @@ import { useCameraStream } from "../hooks/useCameraStream";
 import { Wifi, WifiOff } from "lucide-react";
 import { axiosInstance } from "../services/authService";
 
+// --- Door Control Modal Component ---
+interface DoorControlModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  isProcessing: boolean;
+}
+
+function DoorControlModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  isProcessing,
+}: DoorControlModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full overflow-hidden"
+      >
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-full bg-cyan-500/20">
+              <DoorOpen className="w-6 h-6 text-cyan-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white">{title}</h3>
+          </div>
+          <p className="text-slate-300 mb-6">{message}</p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={isProcessing}
+              className="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isProcessing}
+              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Abriendo...
+                </>
+              ) : (
+                <>
+                  <DoorOpen className="w-4 h-4" />
+                  Sí, Abrir Puerta
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 interface CameraStreamViewProps {
   cameraId: string;
   isActive: boolean;
   label: string;
   onRecognize?: () => void;
+  onManualDoorOpen?: () => void; // New prop
   isRecognizing?: boolean;
   recognitionResult?: {
     success: boolean;
@@ -37,6 +106,7 @@ function CameraStreamView({
   isActive,
   label,
   onRecognize,
+  onManualDoorOpen,
   isRecognizing = false,
   recognitionResult,
 }: CameraStreamViewProps) {
@@ -46,7 +116,7 @@ function CameraStreamView({
     enabled: isActive, // This ensures stream only starts when camera is toggled ON
   });
 
-  const showRecognitionButton = cameraId === "door" && isActive;
+  const showControls = cameraId === "door" && isActive;
 
   // Show disabled state when camera is off
   if (!isActive) {
@@ -101,8 +171,8 @@ function CameraStreamView({
       />
       <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-transparent animate-pulse" />
 
-      {showRecognitionButton && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
+      {showControls && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex gap-3">
           <button
             onClick={onRecognize}
             disabled={isRecognizing}
@@ -123,6 +193,14 @@ function CameraStreamView({
                 Reconocer Rostro
               </>
             )}
+          </button>
+
+          <button
+            onClick={onManualDoorOpen}
+            className="px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all duration-200 bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg hover:shadow-emerald-500/50"
+          >
+            <DoorOpen className="w-4 h-4" />
+            Abrir
           </button>
         </div>
       )}
@@ -185,6 +263,57 @@ export default function MonitoreoSeguridad() {
     };
   }>({});
 
+  // Door Control State
+  const [mainDoorId, setMainDoorId] = useState<number | null>(null);
+  const [showDoorModal, setShowDoorModal] = useState(false);
+  const [modalContent, setModalContent] = useState({ title: "", message: "" });
+  const [isOpeningDoor, setIsOpeningDoor] = useState(false);
+
+  // Fetch Main Door ID
+  useEffect(() => {
+    const fetchDoorId = async () => {
+      try {
+        const response = await axiosInstance.get("/iot/device_states");
+        const door = response.data.find(
+          (d: any) => d.device_name === "DOOR_PRINCIPAL"
+        );
+        if (door) {
+          setMainDoorId(door.id);
+        }
+      } catch (error) {
+        console.error("Error fetching device states:", error);
+      }
+    };
+    fetchDoorId();
+  }, []);
+
+  const handleOpenDoor = async () => {
+    if (!mainDoorId) return;
+    setIsOpeningDoor(true);
+    try {
+      await axiosInstance.put(`/iot/device_states/${mainDoorId}`, {
+        new_state: { status: "OPEN" },
+      });
+      // Close modal immediately or show success feedback?
+      // Let's close modal and maybe show a toast or rely on camera feed observing the door
+      setShowDoorModal(false);
+    } catch (error) {
+      console.error("Error opening door:", error);
+      // Could show error state in modal
+    } finally {
+      setIsOpeningDoor(false);
+    }
+  };
+
+  const handleManualDoorClick = () => {
+    setModalContent({
+      title: "Abrir Puerta Principal",
+      message:
+        "¿Estás seguro de que deseas abrir la puerta principal sin reconocimiento?",
+    });
+    setShowDoorModal(true);
+  };
+
   const handleRecognize = async (cameraId: string) => {
     setRecognitionState((prev) => ({
       ...prev,
@@ -203,6 +332,21 @@ export default function MonitoreoSeguridad() {
         ...prev,
         [cameraId]: { isRecognizing: false, result },
       }));
+
+      // If recognition successful and users found, prompt to open door
+      if (
+        result.success &&
+        result.recognized_users &&
+        result.recognized_users.length > 0
+      ) {
+        setModalContent({
+          title: "Usuario Reconocido",
+          message: `Se ha reconocido a ${result.recognized_users.join(
+            ", "
+          )}. ¿Deseas abrir la puerta principal?`,
+        });
+        setShowDoorModal(true);
+      }
 
       // Clear result after 5 seconds
       setTimeout(() => {
@@ -243,14 +387,25 @@ export default function MonitoreoSeguridad() {
         icon={<Shield className={`w-8 md:w-10 h-8 md:h-10 ${colors.icon}`} />}
       />
 
+      <DoorControlModal
+        isOpen={showDoorModal}
+        onClose={() => setShowDoorModal(false)}
+        onConfirm={handleOpenDoor}
+        title={modalContent.title}
+        message={modalContent.message}
+        isProcessing={isOpeningDoor}
+      />
+
       <div className="mt-6 px-6">
         <AnimatePresence mode="wait">
+          {/* ... existing content ... */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
+            {/* ... Header and Status Card ... */}
             <div className="flex items-center gap-3 mb-6">
               <Camera className={`w-6 h-6 ${colors.cyanIcon}`} />
               <h4 className={`text-2xl font-bold ${colors.text}`}>
@@ -265,6 +420,7 @@ export default function MonitoreoSeguridad() {
                   : `${colors.cardBg} ${colors.border}`
               }`}
             >
+              {/* ... Status Card Content ... */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
                   <Power
@@ -381,6 +537,7 @@ export default function MonitoreoSeguridad() {
                           isActive={isActive}
                           label={camera.label}
                           onRecognize={() => handleRecognize(camera.id)}
+                          onManualDoorOpen={handleManualDoorClick} // Pass handler
                           isRecognizing={
                             recognitionState[camera.id]?.isRecognizing || false
                           }

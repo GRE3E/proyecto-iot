@@ -1,0 +1,142 @@
+[
+  {
+    "name": "Estado Luz Garaje",
+    "description": "Obtiene el estado de la luz del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_GARAJE/status/get"
+  },
+  {
+    "name": "Estado Luz Pasillo",
+    "description": "Obtiene el estado de la luz del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_PASILLO/status/get"
+  },
+  {
+    "name": "Estado Luz Habitación Invitados",
+    "description": "Obtiene el estado de la luz de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/status/get"
+  },
+  {
+    "name": "Estado Luz Baño Invitados",
+    "description": "Obtiene el estado de la luz del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/status/get"
+  },
+  {
+    "name": "Estado Luz Lavandería",
+    "description": "Obtiene el estado de la luz de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/status/get"
+  },
+  {
+    "name": "Estado Luz Baño Principal",
+    "description": "Obtiene el estado de la luz del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/status/get"
+  },
+  {
+    "name": "Estado Luz Habitación Principal",
+    "description": "Obtiene el estado de la luz de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/status/get"
+  },
+  {
+    "name": "Estado Luz Cocina",
+    "description": "Obtiene el estado de la luz de la cocina.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_COCINA/status/get"
+  },
+  {
+    "name": "Estado Luz Sala",
+    "description": "Obtiene el estado de la luz de la sala.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/lights/LIGHT_SALA/status/get"
+  },
+  {
+    "name": "Estado Puerta Principal",
+    "description": "Obtiene el estado de la puerta principal.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/status/get"
+  },
+  {
+    "name": "Estado Puerta Garaje",
+    "description": "Obtiene el estado de la puerta del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_GARAJE/status/get"
+  },
+  {
+    "name": "Estado Puerta Pasillo",
+    "description": "Obtiene el estado de la puerta del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_PASILLO/status/get"
+  },
+  {
+    "name": "Estado Puerta Habitación Invitados",
+    "description": "Obtiene el estado de la puerta de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/status/get"
+  },
+  {
+    "name": "Estado Puerta Baño Invitados",
+    "description": "Obtiene el estado de la puerta del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/status/get"
+  },
+  {
+    "name": "Estado Puerta Lavandería",
+    "description": "Obtiene el estado de la puerta de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/status/get"
+  },
+  {
+    "name": "Estado Puerta Baño Principal",
+    "description": "Obtiene el estado de la puerta del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/status/get"
+  },
+  {
+    "name": "Estado Puerta Habitación Principal",
+    "description": "Obtiene el estado de la puerta de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/status/get"
+  },
+  {
+    "name": "Estado Ventilador",
+    "description": "Obtiene el estado del ventilador.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/actuators/VENTILADOR/status/get"
+  },
+  {
+    "name": "Estado Temperatura",
+    "description": "Obtiene la temperatura actual.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/sensors/TEMPERATURA/status/get"
+  },
+  {
+    "name": "Obtener Consola del Sistema",
+    "description": "Obtiene el contenido de la consola del sistema.",
+    "command_type": "mqtt",
+    "command_payload": "",
+    "mqtt_topic": "iot/system/console/get"
+  }
+]

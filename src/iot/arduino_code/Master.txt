@@ -1,0 +1,278 @@
+// ========================================
+// ARDUINO MASTER
+// ========================================
+#include <Wire.h>
+
+#define SLAVE_LUCES_ADDRESS 8
+#define SLAVE_SENSORES_ADDRESS 9
+#define SLAVE_PUERTAS_ADDRESS 10
+
+struct DeviceMap {
+  String name;
+  int index;
+};
+
+DeviceMap luces[] = {
+  {"GARAJE", 0},
+  {"PASILLO", 1},
+  {"HABITACION_INVITADOS", 2},
+  {"BANO_INVITADOS", 3},
+  {"LAVANDERIA", 4},
+  {"BANO_PRINCIPAL", 5},
+  {"HABITACION_PRINCIPAL", 6},
+  {"COCINA", 7},
+  {"SALA", 8}
+};
+
+DeviceMap puertas[] = {
+  {"PRINCIPAL", 0},
+  {"GARAJE", 1},
+  {"PASILLO", 2},
+  {"HABITACION_INVITADOS", 3},
+  {"BANO_INVITADOS", 4},
+  {"LAVANDERIA", 5},
+  {"BANO_PRINCIPAL", 6},
+  {"HABITACION_PRINCIPAL", 7}
+};
+
+String serialBuffer = "";
+unsigned long ultimaLectura = 0;
+const unsigned long intervaloLectura = 5000;
+
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  Wire.setClock(100000);
+  
+  consolePrint("=== Arduino MASTER I2C ===");
+  consolePrint("Sistema de control domotico");
+  consolePrint("Comandos: 'encender luz SALA', 'abrir puerta PRINCIPAL', etc.");
+  consolePrint("\nDispositivos disponibles:");
+  consolePrint("\nLuces:");
+  for (int i = 0; i < 9; i++) {
+    consolePrint("  - " + luces[i].name);
+  }
+  consolePrint("\nPuertas:");
+  for (int i = 0; i < 8; i++) {
+    consolePrint("  - " + puertas[i].name);
+  }
+  consolePrint("\nActuadores:");
+  consolePrint("  - VENTILADOR");
+  consolePrint("\nSistema listo\n");
+}
+
+void loop() {
+  leerSerial();
+  if (millis() - ultimaLectura >= intervaloLectura) {
+    ultimaLectura = millis();
+    leerYEnviarEstados();
+  }
+}
+
+void leerSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (serialBuffer.length() > 0) {
+        procesarComando(serialBuffer);
+        serialBuffer = "";
+      }
+    } else if (serialBuffer.length() < 100) {
+      serialBuffer += c;
+    }
+  }
+}
+
+int getLuzIndex(String nombre) {
+  nombre.toUpperCase();
+  for (int i = 0; i < 9; i++) {
+    if (nombre.indexOf(luces[i].name) != -1) {
+      return luces[i].index;
+    }
+  }
+  return -1;
+}
+
+int getPuertaIndex(String nombre) {
+  nombre.toUpperCase();
+  for (int i = 0; i < 8; i++) {
+    if (nombre.indexOf(puertas[i].name) != -1) {
+      return puertas[i].index;
+    }
+  }
+  return -1;
+}
+
+String getLuzName(int index) {
+  if (index >= 0 && index < 9) return luces[index].name;
+  return "DESCONOCIDA";
+}
+
+String getPuertaName(int index) {
+  if (index >= 0 && index < 8) return puertas[index].name;
+  return "DESCONOCIDA";
+}
+
+void procesarComando(String cmd) {
+  cmd.trim();
+  if (cmd.length() == 0) return;
+  
+  cmd.toUpperCase();
+  
+  consolePrint("\n[PROCESANDO]: " + cmd);
+  
+  if (cmd.indexOf("LUZ") != -1 || cmd.indexOf("LIGHT") != -1 || cmd.indexOf("LAMPARA") != -1) {
+    int luzIndex = getLuzIndex(cmd);
+    
+    if (luzIndex == -1) {
+      consolePrint("[ERROR] Luz no encontrada");
+      return;
+    }
+    
+    String accion = "";
+    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "ON";
+    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "OFF";
+    } else {
+      consolePrint("[ERROR] Accion no reconocida para luz");
+      return;
+    }
+    
+    String comando = String(luzIndex) + "_" + accion;
+    enviarComandoI2C(SLAVE_LUCES_ADDRESS, comando);
+    consolePrint("[OK] Luz " + getLuzName(luzIndex) + " " + accion);
+  }
+  
+  else if (cmd.indexOf("PUERTA") != -1 || cmd.indexOf("DOOR") != -1) {
+    int puertaIndex = getPuertaIndex(cmd);
+    
+    if (puertaIndex == -1) {
+      consolePrint("[ERROR] Puerta no encontrada");
+      return;
+    }
+    
+    String accion = "";
+    if (cmd.indexOf("ABRIR") != -1 || cmd.indexOf("OPEN") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "OPEN";
+    } else if (cmd.indexOf("CERRAR") != -1 || cmd.indexOf("CLOSE") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "CLOSE";
+    } else {
+      consolePrint("[ERROR] Accion no reconocida para puerta");
+      return;
+    }
+    
+    String comando = String(puertaIndex) + "_" + accion;
+    enviarComandoI2C(SLAVE_PUERTAS_ADDRESS, comando);
+    consolePrint("[OK] Puerta " + getPuertaName(puertaIndex) + " " + accion);
+  }
+  
+  else if (cmd.indexOf("VENTILADOR") != -1 || cmd.indexOf("FAN") != -1 || cmd.indexOf("VENTILACION") != -1 || cmd.indexOf("AIRE") != -1) {
+    String accion = "";
+    if (cmd.indexOf("ENCENDER") != -1 || cmd.indexOf("ON") != -1 || cmd.indexOf("PRENDER") != -1 || cmd.indexOf("ACTIVAR") != -1) {
+      accion = "VENTILADOR_ON";
+    } else if (cmd.indexOf("APAGAR") != -1 || cmd.indexOf("OFF") != -1 || cmd.indexOf("DESACTIVAR") != -1) {
+      accion = "VENTILADOR_OFF";
+    } else {
+      consolePrint("[ERROR] Accion no reconocida para ventilador");
+      return;
+    }
+    
+    enviarComandoI2C(SLAVE_SENSORES_ADDRESS, accion);
+    consolePrint("[OK] " + accion);
+  }
+  
+  else if (cmd.indexOf("STATUS") != -1 || cmd.indexOf("ESTADO") != -1) {
+    consolePrint("[INFO] Consultando estados...");
+    leerYEnviarEstados();
+  }
+  
+  else if (cmd.indexOf("HELP") != -1 || cmd.indexOf("AYUDA") != -1) {
+    consolePrint("\n=== COMANDOS DISPONIBLES ===");
+    consolePrint("Luces: 'encender/apagar luz [NOMBRE]'");
+    consolePrint("Puertas: 'abrir/cerrar puerta [NOMBRE]'");
+    consolePrint("Ventilador: 'encender/apagar ventilador'");
+    consolePrint("Estado: 'status' o 'estado'");
+    consolePrint("============================\n");
+  }
+  
+  else {
+    consolePrint("[ERROR] Comando no entendido");
+    consolePrint("Escribe 'help' para ver comandos disponibles");
+  }
+}
+
+void enviarComandoI2C(int address, String comando) {
+  Wire.beginTransmission(address);
+  Wire.write((const uint8_t*)comando.c_str(), comando.length());
+  byte error = Wire.endTransmission();
+  
+  if (error != 0) {
+    consolePrint("[ERROR I2C] Slave " + String(address) + " (codigo: " + String(error) + ")");
+  }
+  delay(50);
+}
+
+void leerYEnviarEstados() {
+  consolePrint("\n--- ESTADOS ACTUALES ---");
+  
+  // === LUCES ===
+  Wire.requestFrom(SLAVE_LUCES_ADDRESS, 9);
+  delay(50);
+  int lucesRecibidas = 0;
+  for (int i = 0; i < 9 && Wire.available(); i++) {
+    byte estado = Wire.read();
+    consolePrint("LIGHT|" + getLuzName(i) + "|" + ((estado == '1') ? "ON" : "OFF"));
+    lucesRecibidas++;
+  }
+  if (lucesRecibidas == 0) {
+    consolePrint("[ERROR] No se recibieron estados de luces");
+  }
+  
+  // === SENSORES ===
+  Wire.requestFrom(SLAVE_SENSORES_ADDRESS, 16);
+  delay(50);
+  String datos = "";
+  while (Wire.available()) {
+    datos += (char)Wire.read();
+  }
+  
+  if (datos.length() > 5) {
+    int c1 = datos.indexOf(',');
+    int c2 = datos.indexOf(',', c1 + 1);
+    
+    if (c1 > 2 && c2 > c1 + 3 && c2 + 3 < datos.length()) {
+      String temp = datos.substring(2, c1);
+      String dist = datos.substring(c1 + 3, c2);
+      String vent = datos.substring(c2 + 3);
+      
+      consolePrint("SENSOR|TEMPERATURA|" + temp + "C");
+      consolePrint("SENSOR|DISTANCIA|" + dist + "cm");
+      String estadoVent = (vent == "1") ? "ON" : "OFF";
+      consolePrint("ACTUATOR|VENTILADOR|" + estadoVent);
+    } else {
+      consolePrint("[ERROR] Formato de datos de sensores invalido: " + datos);
+    }
+  } else {
+    consolePrint("[ERROR] No se recibieron datos de sensores");
+  }
+  
+  // === PUERTAS ===
+  Wire.requestFrom(SLAVE_PUERTAS_ADDRESS, 8);
+  delay(50);
+  int puertasRecibidas = 0;
+  for (int i = 0; i < 8 && Wire.available(); i++) {
+    byte estado = Wire.read();
+    consolePrint("DOOR|" + getPuertaName(i) + "|" + ((estado == '1') ? "OPEN" : "CLOSED"));
+    puertasRecibidas++;
+  }
+  if (puertasRecibidas == 0) {
+    consolePrint("[ERROR] No se recibieron estados de puertas");
+  }
+  
+  consolePrint("--- FIN ESTADOS ---\n");
+}

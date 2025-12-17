@@ -1,0 +1,436 @@
+from fastapi import APIRouter, HTTPException, status, Depends
+from typing import List, Union
+from src.api.iot_schemas import ArduinoCommandSend, DeviceState, IoTCommandCreate, IoTCommand, DeviceTypeList, DeviceStateUpdate
+from src.db.database import get_db
+import logging
+import asyncio
+from src.api.utils import get_mqtt_client
+from src.iot import device_manager
+import json
+from src.db.models import IoTCommand as DBLoTCommand, EnergyConsumption, User, TemperatureHistory
+from sqlalchemy import select
+from src.websocket.connection_manager import manager
+from datetime import datetime, timedelta
+from src.api.auth_router import get_current_user
+
+logger = logging.getLogger("APIRoutes")
+
+iot_router = APIRouter()
+
+@iot_router.post("/arduino/send_command", status_code=status.HTTP_200_OK)
+async def send_arduino_command(command: ArduinoCommandSend, current_user: User = Depends(get_current_user)):
+    mqtt_client = get_mqtt_client()
+    if not mqtt_client or not mqtt_client.is_connected:
+        logger.error("MQTT client no está inicializado o conectado.")
+        raise HTTPException(status_code=500, detail="MQTT client no está inicializado o conectado.")
+    
+    device_type, device_name, requested_state = device_manager._extract_device_info_from_topic(command.mqtt_topic, command.command_payload)
+
+    if not device_name or not device_type:
+        # Si no se puede extraer información válida, verificar si es un comando de estado (status/get)
+        if command.mqtt_topic.endswith("/status/get"):
+            logger.info(f"Comando de estado detectado para {command.mqtt_topic}. Publicando sin guardar en DB.")
+            success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+            if not success:
+                logger.error(f"Fallo al enviar comando MQTT de estado a {command.mqtt_topic} con payload {command.command_payload}")
+                raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT de estado.")
+            return {"status": "Comando de estado enviado exitosamente", "topic": command.mqtt_topic, "payload": command.command_payload}
+        else:
+            logger.warning(f"No se pudo extraer información de dispositivo válida del tema MQTT: {command.mqtt_topic}")
+            raise HTTPException(status_code=400, detail="Tema MQTT o payload de comando inválido.")
+
+    async with get_db() as session:
+        current_device_state = await device_manager.get_device_state(session, device_name, device_type)
+
+        if current_device_state:
+            current_state_json = json.loads(current_device_state.state_json)
+            current_status = current_state_json.get("status")
+
+            if current_status and current_status.lower() == requested_state.lower():
+                logger.info(f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}")
+                await manager.broadcast(json.dumps({"type": "device_status_update", "device_name": device_name, "status": requested_state, "message": "El dispositivo ya está en el estado solicitado"}))
+                return {"status": f"El dispositivo {device_name} ya está en el estado solicitado: {requested_state}", "topic": command.mqtt_topic, "payload": command.command_payload}
+        else:
+            await device_manager.update_device_state(
+                session,
+                device_name=device_name,
+                new_state={"status": requested_state},
+                device_type=device_type
+            )
+            logger.info(f"Creado nuevo dispositivo {device_name} de tipo {device_type} con estado inicial {requested_state}")
+            await manager.broadcast(json.dumps({"type": "device_created", "device_name": device_name, "device_type": device_type, "status": requested_state, "message": "Nuevo dispositivo creado"}))
+
+        success = await mqtt_client.publish(command.mqtt_topic, command.command_payload)
+
+        if not success:
+            logger.error(f"Fallo al enviar comando MQTT a {command.mqtt_topic} con payload {command.command_payload}")
+            raise HTTPException(status_code=500, detail="Fallo al enviar comando MQTT.")
+
+        await device_manager.process_mqtt_message_and_update_state(session, command.mqtt_topic, command.command_payload)
+        await device_manager.record_current_device_count(session, current_user.id)
+        
+        updated_device_state = await device_manager.get_device_state(session, device_name, device_type)
+        if updated_device_state:
+            await manager.broadcast(json.dumps({"type": "device_state_updated", "device_name": updated_device_state.device_name, "device_type": updated_device_state.device_type, "state": json.loads(updated_device_state.state_json), "message": "Estado del dispositivo actualizado"}))
+
+        return {"status": "Comando enviado y estado del dispositivo actualizado", "topic": command.mqtt_topic, "payload": command.command_payload}
+
+@iot_router.post("/commands", response_model=List[IoTCommand], status_code=status.HTTP_201_CREATED)
+async def create_iot_command(commands: Union[IoTCommandCreate, List[IoTCommandCreate]]):
+    """
+    Crea uno o varios comandos IoT en la base de datos.
+    """
+    if not isinstance(commands, list):
+        commands = [commands]
+
+    created_commands = []
+    async with get_db() as session:
+        for command_data in commands:
+            db_command = DBLoTCommand(**command_data.model_dump())
+            session.add(db_command)
+            await session.commit()
+            await session.refresh(db_command)
+            logger.info(f"Comando IoT '{command_data.name}' creado exitosamente.")
+            created_commands.append(db_command)
+    return created_commands
+
+@iot_router.get("/commands", response_model=List[IoTCommand])
+async def get_all_iot_commands():
+    """
+    Obtiene todos los comandos IoT almacenados en la base de datos.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand))
+        commands = result.scalars().all()
+        return commands
+
+@iot_router.get("/commands/{command_id}", response_model=IoTCommand)
+async def get_iot_command_by_id(command_id: int):
+    """
+    Obtiene un comando IoT por su ID.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand).filter(DBLoTCommand.id == command_id))
+        command = result.scalars().first()
+        if command is None:
+            raise HTTPException(status_code=404, detail="Comando no encontrado")
+        return command
+
+@iot_router.delete("/commands/{command_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_iot_command(command_id: int):
+    """
+    Elimina un comando IoT por su ID.
+    """
+    async with get_db() as session:
+        result = await session.execute(select(DBLoTCommand).filter(DBLoTCommand.id == command_id))
+        command = result.scalars().first()
+
+        if command is None:
+            raise HTTPException(status_code=404, detail="Comando no encontrado")
+
+        await session.delete(command)
+        await session.commit()
+        logger.info(f"Comando IoT con ID {command_id} eliminado exitosamente.")
+        return {"message": "Comando eliminado exitosamente"}
+
+@iot_router.get("/device_states/{device_name}", response_model=DeviceState)
+async def get_single_device_state(device_name: str, device_type: str):
+    """
+    Obtiene el estado de un único dispositivo IoT por su nombre y tipo.
+    """
+    async with get_db() as session:
+        device_state = await device_manager.get_device_state(session, device_name, device_type)
+        if device_state is None:
+            logger.warning(f"Estado del dispositivo {device_name} no encontrado.")
+            raise HTTPException(status_code=404, detail="Estado del dispositivo no encontrado")
+        logger.info(f"Estado del dispositivo {device_name} obtenido exitosamente.")
+        return DeviceState(id=device_state.id, device_name=device_state.device_name, device_type=device_state.device_type, state_json=json.loads(device_state.state_json), last_updated=device_state.last_updated)
+
+@iot_router.get("/device_states", response_model=List[DeviceState])
+async def get_all_device_states():
+    """
+    Obtiene el estado de todos los dispositivos IoT almacenados en la base de datos.
+    """
+    async with get_db() as session:
+        device_states = await device_manager.get_all_device_states(session)
+        return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
+
+@iot_router.get("/device_states/by_type/{device_type}", response_model=List[DeviceState])
+async def get_device_states_by_type_route(device_type: str):
+    """
+    Obtiene el estado de todos los dispositivos IoT de un tipo específico.
+    """
+    async with get_db() as session:
+        device_states = await device_manager.get_device_states_by_type(session, device_type)
+        if not device_states:
+            logger.warning(f"No se encontraron dispositivos del tipo {device_type}.")
+            raise HTTPException(status_code=404, detail=f"No se encontraron estados de dispositivo para el tipo {device_type}")
+        logger.info(f"Estados de dispositivos del tipo {device_type} obtenidos exitosamente.")
+        return [DeviceState(id=ds.id, device_name=ds.device_name, device_type=ds.device_type, state_json=json.loads(ds.state_json), last_updated=ds.last_updated) for ds in device_states]
+
+@iot_router.get("/device_types", response_model=DeviceTypeList)
+async def get_all_device_types_route():
+    """
+    Obtiene todos los tipos de dispositivos IoT únicos almacenados en la base de datos.
+    """
+    async with get_db() as session:
+        device_types = await device_manager.get_all_device_types(session)
+        if not device_types:
+            logger.warning("No se encontraron tipos de dispositivos.")
+            raise HTTPException(status_code=404, detail="No se encontraron tipos de dispositivo")
+        logger.info("Tipos de dispositivos obtenidos exitosamente.")
+        return DeviceTypeList(device_types=device_types)
+
+@iot_router.get("/energy", response_model=List[float])
+async def get_energy_data(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calcula el consumo de energía actual, lo guarda en la base de datos y devuelve
+    el historial de consumo de las últimas 24 horas para el usuario autenticado.
+    """
+    async with get_db() as db:
+        # Calcular el consumo actual y guardarlo
+        current_consumption = await device_manager.calculate_current_energy_consumption(db)
+        
+        new_energy_record = EnergyConsumption(
+            user_id=current_user.id,
+            device_name="Total",
+            device_type="Total",
+            energy_consumed=current_consumption
+        )
+        db.add(new_energy_record)
+        await db.commit()
+        await db.refresh(new_energy_record)
+        logger.info(f"Consumo de energía actual ({current_consumption} Wh) registrado para el usuario {current_user.id}.")
+
+        # Obtener historial de las últimas 24 horas
+        time_24_hours_ago = datetime.now() - timedelta(hours=24)
+        result = await db.execute(
+            select(EnergyConsumption.energy_consumed)
+            .filter(
+                EnergyConsumption.user_id == current_user.id,
+                EnergyConsumption.timestamp >= time_24_hours_ago
+            )
+            .order_by(EnergyConsumption.timestamp)
+        )
+        energy_history = result.scalars().all()
+
+        return energy_history
+
+@iot_router.get("/temperature/history", response_model=List[float])
+async def get_temperature_history(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial de temperatura de las últimas 24 horas.
+    """
+    async with get_db() as db:
+        time_24_hours_ago = datetime.now() - timedelta(hours=24)
+        result = await db.execute(
+            select(TemperatureHistory.temperature)
+            .filter(
+                TemperatureHistory.timestamp >= time_24_hours_ago
+            )
+            .order_by(TemperatureHistory.timestamp)
+        )
+        history = result.scalars().all()
+        return history
+
+@iot_router.get("/device_count_history", response_model=List[int])
+async def get_device_count_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial del número de dispositivos conectados para el usuario autenticado en las últimas 24 horas.
+    """
+    async with get_db() as db:
+        device_count_history = await device_manager.get_device_count_history(db, current_user.id)
+        logger.info(f"Historial de recuento de dispositivos obtenido para el usuario {current_user.id}.")
+        return device_count_history
+
+@iot_router.delete("/device_count_history", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device_count_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Elimina todo el historial de conteo de dispositivos para el usuario autenticado.
+    """
+    async with get_db() as db:
+        await device_manager.delete_device_count_history_for_user(db, current_user.id)
+        logger.info(f"Historial de conteo de dispositivos eliminado para el usuario {current_user.id}.")
+        return {"message": "Historial de conteo de dispositivos eliminado exitosamente"}
+
+@iot_router.delete("/energy_consumption_history", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_energy_consumption_history_route(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Elimina todo el historial de consumo de energía para el usuario autenticado.
+    """
+    async with get_db() as db:
+        await device_manager.delete_energy_consumption_history_for_user(db, current_user.id)
+        logger.info(f"Historial de consumo de energía eliminado para el usuario {current_user.id}.")
+        return {"message": "Historial de consumo de energía eliminado exitosamente"}
+
+@iot_router.put("/device_states/{device_id}", response_model=DeviceState)
+async def update_device_state_by_id(device_id: int, device_update: DeviceStateUpdate, current_user: User = Depends(get_current_user)):
+    """
+    Actualiza el estado de un dispositivo IoT por su ID.
+    """
+    async with get_db() as session:
+        device_state = await device_manager.get_device_state_by_id(session, device_id)
+        if device_state is None:
+            logger.warning(f"Dispositivo con ID {device_id} no encontrado para actualizar.")
+            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
+
+        mqtt_topic, command_payload = device_manager.reconstruct_mqtt_command(device_state, device_update.new_state)
+
+        if not mqtt_topic or not command_payload:
+            logger.error(f"No se pudo reconstruir el comando MQTT para el dispositivo {device_id}.")
+            raise HTTPException(status_code=500, detail="No se pudo reconstruir el comando MQTT.")
+
+        command_to_send = ArduinoCommandSend(mqtt_topic=mqtt_topic, command_payload=command_payload)
+        logger.debug(f"Reconstructed MQTT Topic: {mqtt_topic}")
+        logger.debug(f"Reconstructed MQTT Payload: {command_payload}")
+        
+        try:
+            await send_arduino_command(command_to_send, current_user)
+            updated_device_state = await device_manager.get_device_state_by_id(session, device_id)
+            if updated_device_state is None:
+                raise HTTPException(status_code=404, detail="Estado del dispositivo actualizado no encontrado")
+            logger.info(f"Estado del dispositivo con ID {device_id} actualizado exitosamente.")
+            return DeviceState(id=updated_device_state.id, device_name=updated_device_state.device_name, device_type=updated_device_state.device_type, state_json=json.loads(updated_device_state.state_json), last_updated=updated_device_state.last_updated)
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            logger.error(f"Error al actualizar el estado del dispositivo {device_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al actualizar el estado del dispositivo: {e}")
+
+@iot_router.delete("/device_states/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device_state(device_id: int):
+    """
+    Elimina un estado de dispositivo IoT por su ID.
+    """
+    async with get_db() as session:
+        device_state = await device_manager.get_device_state_by_id(session, device_id)
+        if device_state is None:
+            logger.warning(f"Dispositivo con ID {device_id} no encontrado para eliminar.")
+            raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
+
+        await device_manager.delete_device_state(session, device_id)
+        logger.info(f"Estado del dispositivo con ID {device_id} eliminado exitosamente.")
+        return {"message": "Estado del dispositivo eliminado exitosamente"}
+
+@iot_router.post("/temperature/request", response_model=dict)
+async def request_temperature(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Solicita la temperatura actual mediante MQTT, la guarda en la base de datos
+    y devuelve el valor obtenido.
+    """
+    mqtt_client = get_mqtt_client()
+    if not mqtt_client or not mqtt_client.is_connected:
+        logger.error("MQTT client no está inicializado o conectado.")
+        raise HTTPException(status_code=503, detail="MQTT client no está conectado.")
+
+    request_topic = "iot/sensors/TEMPERATURA/status/get"
+    response_topic = "iot/sensors/TEMPERATURA/status"
+    device_name = "SensorPrincipal"
+
+    # Crear un Future para esperar la respuesta MQTT
+    response_future = asyncio.get_event_loop().create_future()
+
+    def message_handler(topic, payload):
+        if not response_future.done():
+            try:
+                import re
+                
+                # Si el payload ya es un número (int o float)
+                if isinstance(payload, (int, float)):
+                    response_future.set_result(float(payload))
+                    return
+                
+                # Convertir bytes a string si es necesario
+                if isinstance(payload, bytes):
+                    payload = payload.decode('utf-8')
+                
+                payload_str = str(payload).strip()
+                logger.debug(f"Payload de temperatura recibido: {payload_str}")
+                
+                # Intentar parsear como JSON primero
+                try:
+                    data = json.loads(payload_str)
+                    # Si es un diccionario, buscar la clave de temperatura
+                    if isinstance(data, dict):
+                        temperature = data.get("temperature") or data.get("temp") or data.get("value")
+                        if temperature is not None:
+                            response_future.set_result(float(temperature))
+                            return
+                    # Si json.loads devolvió un número directamente
+                    elif isinstance(data, (int, float)):
+                        response_future.set_result(float(data))
+                        return
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                
+                # Intentar extraer número del formato "Temperatura: XXC" o similar
+                temp_match = re.search(r'(\d+(?:\.\d+)?)\s*[°]?C?', payload_str, re.IGNORECASE)
+                if temp_match:
+                    temperature = float(temp_match.group(1))
+                    response_future.set_result(temperature)
+                    return
+                
+                # Intentar como valor numérico directo
+                temperature = float(payload_str)
+                response_future.set_result(temperature)
+            except Exception as e:
+                logger.error(f"Error parseando payload de temperatura '{payload}': {e}")
+                if not response_future.done():
+                    response_future.set_exception(ValueError(f"Error parseando temperatura: {e}"))
+
+    # Suscribirse al tópico de respuesta
+    mqtt_client.subscribe(response_topic, message_handler)
+
+    try:
+        # Publicar el mensaje de solicitud
+        await mqtt_client.publish(request_topic, "GET")
+        logger.info(f"Solicitud de temperatura enviada a {request_topic}")
+
+        # Esperar la respuesta con timeout de 10 segundos
+        temperature = await asyncio.wait_for(response_future, timeout=10.0)
+        logger.info(f"Temperatura obtenida: {temperature}°C del dispositivo {device_name}")
+
+        # Guardar en la base de datos
+        async with get_db() as db:
+            new_temperature_record = TemperatureHistory(
+                user_id=current_user.id,
+                temperature=temperature,
+                device_name=device_name
+            )
+            db.add(new_temperature_record)
+            await db.commit()
+            await db.refresh(new_temperature_record)
+            logger.info(f"Temperatura {temperature}°C guardada en BD para usuario {current_user.id}")
+
+        return {
+            "success": True,
+            "temperature": temperature,
+            "device_name": device_name,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout esperando respuesta de temperatura de {response_topic}")
+        return {
+            "success": False,
+            "message": "Timeout esperando respuesta del sensor de temperatura",
+            "temperature": None
+        }
+    except Exception as e:
+        logger.error(f"Error al obtener temperatura: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener temperatura: {str(e)}")
+    finally:
+        # Desuscribirse del tópico de respuesta
+        mqtt_client.unsubscribe(response_topic, message_handler)

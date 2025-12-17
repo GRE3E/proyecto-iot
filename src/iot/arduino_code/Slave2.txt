@@ -1,0 +1,137 @@
+// ========================================
+// ARDUINO ESCLAVO 2 - Sensores
+// ========================================
+#include <Wire.h>
+
+#define SLAVE_ADDRESS 9
+
+const int pinTemp = A0;
+const int trig = 4;
+const int echo = 3;
+const int fan = 5;
+
+float temperatura = 0.0;
+long distancia = 0;
+bool ventilador = false;
+
+unsigned long ultimaLecturaSensor = 0;
+const unsigned long intervaloSensor = 500;
+
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent);
+  
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(fan, OUTPUT);
+  digitalWrite(trig, LOW);
+  analogWrite(fan, 0);
+  
+  consolePrint("=== SLAVE 2 - Sensores y Actuadores ===");
+  consolePrint("Direccion I2C: 9");
+  consolePrint("Sensor temperatura: A0 (LM35)");
+  consolePrint("Sensor distancia: Trig=4, Echo=3 (HC-SR04)");
+  consolePrint("Ventilador: Pin 5 (PWM)");
+  consolePrint("Sistema listo");
+}
+
+void loop() {
+  if (millis() - ultimaLecturaSensor >= intervaloSensor) {
+    ultimaLecturaSensor = millis();
+    temperatura = leerTemp();
+    distancia = leerDist();
+    
+    static unsigned long ultimoReporte = 0;
+    if (millis() - ultimoReporte >= 5000) {
+      ultimoReporte = millis();
+      consolePrint("--- Lecturas Actuales ---");
+      consolePrint("Temperatura: " + String(temperatura, 1) + "C");
+      consolePrint("Distancia: " + String(distancia) + " cm");
+      consolePrint("Ventilador: " + String(ventilador ? "ON" : "OFF"));
+      consolePrint("------------------------");
+    }
+  }
+}
+
+void receiveEvent(int howMany) {
+  String cmd = "";
+  int count = 0;
+  const int MAX_CMD_LENGTH = 32;
+  
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
+  }
+  
+  while (Wire.available()) {
+    Wire.read();
+  }
+  
+  cmd.trim();
+  cmd.toUpperCase();
+  
+  if (cmd == "VENTILADOR_ON") {
+    analogWrite(fan, 200);
+    ventilador = true;
+    consolePrint("Ventilador ENCENDIDO (PWM: 200/255)");
+  } 
+  else if (cmd == "VENTILADOR_OFF") {
+    analogWrite(fan, 0);
+    ventilador = false;
+    consolePrint("Ventilador APAGADO");
+  }
+  else {
+    consolePrint("ERROR: Comando no reconocido: " + cmd);
+    consolePrint("Comandos validos: VENTILADOR_ENCENDER, VENTILADOR_APAGAR");
+  }
+}
+
+void requestEvent() {
+  String data = "";
+  
+  int tempInt = (int)temperatura;
+  int distInt = (int)distancia;
+  if (distInt > 999) distInt = 999;
+  if (distInt < 0) distInt = 0;
+  
+  data = "T:" + String(tempInt) + ",D:" + String(distInt) + ",V:" + (ventilador ? "1" : "0");
+  
+  if (data.length() <= 16) {
+    Wire.write(data.c_str());
+    consolePrint("Datos enviados: " + data);
+  } else {
+    String fallback = "T:" + String(tempInt) + ",D:0,V:0";
+    Wire.write(fallback.c_str());
+    Serial.println("WARN: Datos truncados: " + fallback);
+  }
+}
+
+float leerTemp() {
+  float suma = 0;
+  for (int i = 0; i < 10; i++) {
+    float v = analogRead(pinTemp) * (5.0 / 1023.0);
+    suma += v * 100.0;
+    delay(10);
+  }
+  return suma / 10.0;
+}
+
+long leerDist() {
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  
+  long dur = pulseIn(echo, HIGH, 30000);
+  if (dur == 0) {
+    return -1;
+  }
+  return dur * 0.034 / 2;
+}

@@ -1,0 +1,48 @@
+# Configuración del MusicManager
+
+music:
+  # Volumen por defecto (0-100)
+  default_volume: 65
+
+  # Extractor de audio a usar
+  # Opciones: yt_dlp
+  extractor: yt_dlp
+
+  # Backend de reproducción preferido
+  # Opciones: vlc, mpv
+  # vlc se intentará primero, mpv será usado como fallback
+  playback: vlc
+
+  # Reintentar en caso de fallo
+  retry_on_failure: true
+
+  # Número de reintentos
+  retries: 3
+
+# Configuración específica del extractor yt-dlp
+yt_dlp:
+  # Tiempo de espera para extracción (segundos)
+  timeout: 30
+
+  # Calidad de audio preferida
+  # Opciones: best, worst, o valores específicos
+  audio_quality: best
+
+  # Formato de audio preferido
+  audio_format: bestaudio
+
+# Configuración de backends
+backends:
+  vlc:
+    # Opciones adicionales para VLC
+    # Estas se pasan a la instancia de VLC
+    options:
+      - --no-video
+      - --quiet
+
+  mpv:
+    # Opciones adicionales para mpv
+    # Estas se pasan como argumentos al proceso
+    options:
+      - --no-video
+      - --really-quiet

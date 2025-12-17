@@ -1,0 +1,254 @@
+[
+  {
+    "name": "Encender Luz Garaje",
+    "description": "Enciende la luz del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_GARAJE/command"
+  },
+  {
+    "name": "Apagar Luz Garaje",
+    "description": "Apaga la luz del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_GARAJE/command"
+  },
+  {
+    "name": "Encender Luz Pasillo",
+    "description": "Enciende la luz del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_PASILLO/command"
+  },
+  {
+    "name": "Apagar Luz Pasillo",
+    "description": "Apaga la luz del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_PASILLO/command"
+  },
+  {
+    "name": "Encender Luz Habitación Invitados",
+    "description": "Enciende la luz de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/command"
+  },
+  {
+    "name": "Apagar Luz Habitación Invitados",
+    "description": "Apaga la luz de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_INVITADOS/command"
+  },
+  {
+    "name": "Encender Luz Baño Invitados",
+    "description": "Enciende la luz del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/command"
+  },
+  {
+    "name": "Apagar Luz Baño Invitados",
+    "description": "Apaga la luz del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_INVITADOS/command"
+  },
+  {
+    "name": "Encender Luz Lavandería",
+    "description": "Enciende la luz de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/command"
+  },
+  {
+    "name": "Apagar Luz Lavandería",
+    "description": "Apaga la luz de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_LAVANDERIA/command"
+  },
+  {
+    "name": "Encender Luz Baño Principal",
+    "description": "Enciende la luz del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/command"
+  },
+  {
+    "name": "Apagar Luz Baño Principal",
+    "description": "Apaga la luz del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_BANO_PRINCIPAL/command"
+  },
+  {
+    "name": "Encender Luz Habitación Principal",
+    "description": "Enciende la luz de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/command"
+  },
+  {
+    "name": "Apagar Luz Habitación Principal",
+    "description": "Apaga la luz de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_HABITACION_PRINCIPAL/command"
+  },
+  {
+    "name": "Encender Luz Cocina",
+    "description": "Enciende la luz de la cocina.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_COCINA/command"
+  },
+  {
+    "name": "Apagar Luz Cocina",
+    "description": "Apaga la luz de la cocina.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_COCINA/command"
+  },
+  {
+    "name": "Encender Luz Sala",
+    "description": "Enciende la luz de la sala.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/lights/LIGHT_SALA/command"
+  },
+  {
+    "name": "Apagar Luz Sala",
+    "description": "Apaga la luz de la sala.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/lights/LIGHT_SALA/command"
+  },
+  {
+    "name": "Abrir Puerta Principal",
+    "description": "Abre la puerta principal.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/command"
+  },
+  {
+    "name": "Cerrar Puerta Principal",
+    "description": "Cierra la puerta principal.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_PRINCIPAL/command"
+  },
+  {
+    "name": "Abrir Puerta Garaje",
+    "description": "Abre la puerta del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_GARAJE/command"
+  },
+  {
+    "name": "Cerrar Puerta Garaje",
+    "description": "Cierra la puerta del garaje.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_GARAJE/command"
+  },
+  {
+    "name": "Abrir Puerta Pasillo",
+    "description": "Abre la puerta del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_PASILLO/command"
+  },
+  {
+    "name": "Cerrar Puerta Pasillo",
+    "description": "Cierra la puerta del pasillo.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_PASILLO/command"
+  },
+  {
+    "name": "Abrir Puerta Habitación Invitados",
+    "description": "Abre la puerta de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/command"
+  },
+  {
+    "name": "Cerrar Puerta Habitación Invitados",
+    "description": "Cierra la puerta de la habitación de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_INVITADOS/command"
+  },
+  {
+    "name": "Abrir Puerta Baño Invitados",
+    "description": "Abre la puerta del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/command"
+  },
+  {
+    "name": "Cerrar Puerta Baño Invitados",
+    "description": "Cierra la puerta del baño de invitados.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_BANO_INVITADOS/command"
+  },
+  {
+    "name": "Abrir Puerta Lavandería",
+    "description": "Abre la puerta de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/command"
+  },
+  {
+    "name": "Cerrar Puerta Lavandería",
+    "description": "Cierra la puerta de la lavandería.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_LAVANDERIA/command"
+  },
+  {
+    "name": "Abrir Puerta Baño Principal",
+    "description": "Abre la puerta del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/command"
+  },
+  {
+    "name": "Cerrar Puerta Baño Principal",
+    "description": "Cierra la puerta del baño principal.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_BANO_PRINCIPAL/command"
+  },
+  {
+    "name": "Abrir Puerta Habitación Principal",
+    "description": "Abre la puerta de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "OPEN",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/command"
+  },
+  {
+    "name": "Cerrar Puerta Habitación Principal",
+    "description": "Cierra la puerta de la habitación principal.",
+    "command_type": "mqtt",
+    "command_payload": "CLOSE",
+    "mqtt_topic": "iot/doors/DOOR_HABITACION_PRINCIPAL/command"
+  },
+  {
+    "name": "Encender Ventilador",
+    "description": "Enciende el ventilador.",
+    "command_type": "mqtt",
+    "command_payload": "ON",
+    "mqtt_topic": "iot/actuators/VENTILADOR/command"
+  },
+  {
+    "name": "Apagar Ventilador",
+    "description": "Apaga el ventilador.",
+    "command_type": "mqtt",
+    "command_payload": "OFF",
+    "mqtt_topic": "iot/actuators/VENTILADOR/command"
+  }
+]

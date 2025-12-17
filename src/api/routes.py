@@ -1,0 +1,62 @@
+from fastapi import APIRouter, HTTPException, Depends
+import logging
+from src.api.schemas import StatusResponse
+from src.api.hotword_routes import hotword_router
+from src.api.tts_routes import tts_router
+from src.api.nlp_routes import nlp_router
+from src.api.stt_routes import stt_router
+from src.api.speaker_routes import speaker_router
+from src.api.iot_routes import iot_router
+from src.api.addons_routes import router as addons_router
+from src.api.permissions_routes import router as permissions_router
+from src.api.music_routes import music_router
+from src.api.face_recognition_routes import face_recognition_router
+from src.api.camera_routes import camera_router
+from src.api.auth_router import router as auth_router
+from src.api.websocket_routes import websocket_router
+from src.api.notifications_routes import notifications_router
+from src.api.weather_routes import weather_router
+from src.api.routines_routes import routines_router
+from src.api.memory_routes import memory_router
+from src.api.config_routes import config_router
+from src.api.sound_processor_routes import sound_processor_router
+from src.api.system_routes import system_router
+from src.api import utils
+from src.auth.auth_service import get_current_user
+from src.auth.device_auth import get_device_api_key
+
+logger = logging.getLogger("APIRoutes")
+
+router = APIRouter()
+
+router.include_router(auth_router, prefix="/auth", tags=["auth"])
+router.include_router(hotword_router, prefix="/hotword", tags=["hotword"])
+router.include_router(tts_router, prefix="/tts", tags=["tts"], dependencies=[Depends(get_device_api_key)])
+router.include_router(nlp_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(routines_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(memory_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(config_router, prefix="/nlp", tags=["nlp"], dependencies=[Depends(get_current_user)])
+router.include_router(stt_router, prefix="/stt", tags=["stt"])
+router.include_router(speaker_router, prefix="/speaker", tags=["speaker"])
+router.include_router(iot_router, prefix="/iot", tags=["iot"], dependencies=[Depends(get_current_user)])
+router.include_router(system_router, prefix="/system", tags=["system"], dependencies=[Depends(get_current_user)])
+router.include_router(addons_router, prefix="/addons", tags=["addons"], dependencies=[Depends(get_current_user)])
+router.include_router(permissions_router, prefix="/permissions", tags=["permissions"], dependencies=[Depends(get_current_user)])
+router.include_router(face_recognition_router, prefix="/rc", tags=["rc"])
+router.include_router(camera_router, prefix="", tags=["cameras"], dependencies=[Depends(get_current_user)])
+router.include_router(websocket_router, prefix="", tags=["websocket"])
+router.include_router(notifications_router, tags=["notifications"], dependencies=[Depends(get_current_user)])
+router.include_router(music_router, prefix="/music", tags=["music"], dependencies=[Depends(get_current_user)])
+router.include_router(weather_router, tags=["weather"])
+router.include_router(sound_processor_router, prefix="/sound_processor", tags=["sound_processor"], dependencies=[Depends(get_current_user)])
+
+@router.get("/status", response_model=StatusResponse)
+async def get_status():
+    """Devuelve el estado actual de los módulos."""
+    try:
+        status = utils.get_module_status()
+        logger.info(f"Status Response para /status: {status.model_dump_json()}")
+        return status
+    except Exception as e:
+        logger.error(f"Error al obtener estado para /status: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")

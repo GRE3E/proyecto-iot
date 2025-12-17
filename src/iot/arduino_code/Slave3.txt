@@ -1,0 +1,98 @@
+// ========================================
+// ESCLAVO 3 - PUERTAS
+// ========================================
+#include <Wire.h>
+#include <Servo.h>
+
+#define SLAVE_ADDRESS 10
+#define MAX_CMD_LENGTH 32
+
+Servo servos[8];
+const int servoPins[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+bool estado[8] = {false};
+
+const int ABIERTO = 90;
+const int CERRADO = 0;
+
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+  
+  for (int i = 0; i < 8; i++) {
+    servos[i].attach(servoPins[i]);
+    servos[i].write(CERRADO);
+    delay(100);
+  }
+  
+  consolePrint("=== SLAVE 3 - Control de Puertas ===");
+  consolePrint("Direccion I2C: 10");
+  consolePrint("8 servomotores disponibles (0-7)");
+  consolePrint("0=PRINCIPAL, 1=GARAJE, 2=PASILLO, 3=H.INVITADOS");
+  consolePrint("4=B.INVITADOS, 5=LAVANDERIA, 6=B.PRINCIPAL, 7=H.PRINCIPAL");
+  consolePrint("Pines: 2-9");
+  consolePrint("Angulo CERRADO: 0, ABIERTO: 90");
+  consolePrint("Sistema listo");
+}
+
+void loop() {
+  delay(10);
+}
+
+void receiveEvent(int howMany) {
+  String cmd = "";
+  int count = 0;
+  
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
+  }
+  
+  while (Wire.available()) {
+    Wire.read();
+  }
+  
+  cmd.trim();
+  cmd.toUpperCase();
+  
+  int guion = cmd.indexOf('_');
+  
+  if (guion != -1 && guion > 0 && guion < cmd.length() - 1) {
+    int index = cmd.substring(0, guion).toInt();
+    String accion = cmd.substring(guion + 1);
+    accion.trim();
+    
+    if (index >= 0 && index < 8) {
+      if (accion == "OPEN") {
+        servos[index].write(ABIERTO);
+        estado[index] = true;
+        consolePrint("Puerta " + String(index) + " ABIERTA [Pin " + String(servoPins[index]) + ", Angulo: 90]");
+      }
+      else if (accion == "CLOSE") {
+        servos[index].write(CERRADO);
+        estado[index] = false;
+        consolePrint("Puerta " + String(index) + " CERRADA [Pin " + String(servoPins[index]) + ", Angulo: 0]");
+      }
+      else {
+        consolePrint("ERROR: Accion desconocida: " + accion);
+      }
+    } else {
+      consolePrint("ERROR: Indice de puerta invalido: " + String(index) + " (rango: 0-7)");
+    }
+  } else {
+    consolePrint("ERROR: Formato de comando invalido: " + cmd);
+    consolePrint("Formato esperado: NUMERO_ACCION (ej: 2_ABRIR)");
+  }
+}
+
+void requestEvent() {
+  for (int i = 0; i < 8; i++) {
+    Wire.write(estado[i] ? '1' : '0');
+  }
+  consolePrint("Estados enviados al Master");
+}

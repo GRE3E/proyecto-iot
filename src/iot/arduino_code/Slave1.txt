@@ -1,0 +1,91 @@
+// ========================================
+// ESCLAVO 1 - LUCES
+// ========================================
+#include <Wire.h>
+
+#define SLAVE_ADDRESS 8
+#define MAX_CMD_LENGTH 32
+
+const int ledPins[9] = {2, 3, 4, 5, 6, 7, 8, 9, 10};
+bool estadoLuces[9] = {false};
+
+void consolePrint(String message) {
+  Serial.println(message);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+  
+  for (int i = 0; i < 9; i++) {
+    pinMode(ledPins[i], OUTPUT);
+    digitalWrite(ledPins[i], LOW);
+  }
+  
+  consolePrint("=== SLAVE 1 - Control de Luces");
+  consolePrint("Direccion I2C: 8");
+  consolePrint("9 luces disponibles (0-8)");
+  consolePrint("0=GARAJE, 1=PASILLO, 2=H.INVITADOS, 3=B.INVITADOS");
+  consolePrint("4=LAVANDERIA, 5=B.PRINCIPAL, 6=H.PRINCIPAL, 7=COCINA, 8=SALA");
+  consolePrint("Pines: 2-10");
+  consolePrint("Sistema listo");
+}
+
+void loop() {
+  delay(10);
+}
+
+void receiveEvent(int howMany) {
+  String cmd = "";
+  int count = 0;
+  
+  while (Wire.available() && count < MAX_CMD_LENGTH) {
+    cmd += (char)Wire.read();
+    count++;
+  }
+  
+  while (Wire.available()) {
+    Wire.read();
+  }
+  
+  cmd.trim();
+  cmd.toUpperCase();
+  
+  int guion = cmd.indexOf('_');
+  
+  if (guion != -1 && guion > 0 && guion < cmd.length() - 1) {
+    int index = cmd.substring(0, guion).toInt();
+    String accion = cmd.substring(guion + 1);
+    accion.trim();
+    
+    if (index >= 0 && index < 9) {
+      if (accion == "ON") {
+        estadoLuces[index] = true;
+        digitalWrite(ledPins[index], HIGH);
+        consolePrint("Luz " + String(index) + " ENCENDIDA [Pin " + String(ledPins[index]) + "]");
+      } 
+      else if (accion == "OFF") {
+        estadoLuces[index] = false;
+        digitalWrite(ledPins[index], LOW);
+        consolePrint("Luz " + String(index) + " APAGADA [Pin " + String(ledPins[index]) + "]");
+      }
+      else {
+        consolePrint("ERROR: Accion desconocida: " + accion);
+      }
+    } else {
+      consolePrint("ERROR: Indice de luz invalido: " + String(index) + " (rango: 0-8)");
+    }
+  } else {
+    consolePrint("ERROR: Formato de comando invalido: " + cmd);
+    consolePrint("Formato esperado: NUMERO_ACCION (ej: 3_ENCENDER)");
+  }
+}
+
+void requestEvent() {
+  for (int i = 0; i < 9; i++) {
+    Wire.write(estadoLuces[i] ? '1' : '0');
+  }
+  consolePrint("Estados enviados al Master");
+}

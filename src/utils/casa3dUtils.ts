@@ -42,6 +42,5 @@ export const handleSnapshot = () => {
     a.download = "casa3d-snapshot.png";
     a.click();
   } catch (e) {
-    console.warn("Error capturando imagen:", e);
   }
 };

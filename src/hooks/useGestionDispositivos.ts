@@ -63,7 +63,6 @@ export function useGestionDispositivos() {
         setAllDevices(mappedDevices);
         setDevices(mappedDevices); // Inicialmente, mostrar todos los dispositivos
       } catch (error) {
-        console.error("Error loading all devices:", error);
       }
     };
 
@@ -79,7 +78,6 @@ export function useGestionDispositivos() {
         setEnergyUsage(response.data[response.data.length - 1]);
       }
     } catch (error) {
-      console.error("Error loading energy data:", error);
     }
   };
 
@@ -134,9 +132,7 @@ export function useGestionDispositivos() {
         new_state: { status: newStatus },
       });
 
-      console.log(`Device ${id} toggled to ${newStatus}`);
     } catch (error) {
-      console.error("Error toggling device:", error);
       setDevices((prevDevices) =>
         prevDevices.map((device) =>
           device.id === id ? { ...device, on: !device.on } : device

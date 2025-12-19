@@ -31,18 +31,9 @@ const Musica = lazy(() => import("./pages/Musica"));
 export default function App() {
   const { isAuthenticated, isLoading, logout, isPostLoginTransition } =
     useAuth();
-  console.log(
-    "isLoading en App.tsx:",
-    isLoading,
-    "isAuthenticated:",
-    isAuthenticated,
-    "isPostLoginTransition:",
-    isPostLoginTransition
-  );
   const [selectedMenu, setSelectedMenu] = useState("Inicio");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { colors, theme } = useThemeByTime();
-  console.log("Valor de theme:", theme);
 
   // Precargar página seleccionada durante la transición
   usePreloadPage(selectedMenu, 100);

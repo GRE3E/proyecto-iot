@@ -66,7 +66,6 @@ export default function MusicaPage() {
       );
       setNombreCancion("");
     } catch (error) {
-      console.error("Error al agregar canción:", error);
       setValidationError("Error al agregar la canción");
     } finally {
       setAgregando(false);
@@ -77,7 +76,6 @@ export default function MusicaPage() {
     try {
       await detenerCancion();
     } catch (error) {
-      console.error("Error al detener la canción:", error);
     }
   };
 

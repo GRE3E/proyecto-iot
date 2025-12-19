@@ -125,20 +125,11 @@ export function useVoiceRecognition({
         analyserRef.current.getByteFrequencyData(dataArray);
         const sum = dataArray.reduce((a, b) => a + b, 0);
         const average = sum / bufferLength;
-        console.log(
-          "Audio average:",
-          average,
-          "Silence threshold:",
-          SILENCE_THRESHOLD,
-          "Silence timeout active:",
-          !!silenceTimeoutRef.current
-        );
 
         if (average < SILENCE_THRESHOLD) {
           if (!silenceTimeoutRef.current) {
             silenceTimeoutRef.current = setTimeout(() => {
               if (listeningStateRef.current) {
-                console.log("Silencio detectado, deteniendo grabación.");
                 stopListening();
               }
             }, SILENCE_DURATION);
@@ -162,16 +153,9 @@ export function useVoiceRecognition({
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        console.log("Audio chunks collected:", audioChunksRef.current.length);
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
-        console.log(
-          "Audio Blob size:",
-          audioBlob.size,
-          "type:",
-          audioBlob.type
-        );
 
         // Convertir a WAV
         const audioContext = new (window.AudioContext ||
@@ -180,7 +164,6 @@ export function useVoiceRecognition({
         const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
         const float32Array = decodedAudio.getChannelData(0); // Asumiendo un solo canal
         const wavBlob = encodeWAV(float32Array, audioContext.sampleRate);
-        console.log("WAV Blob size:", wavBlob.size, "type:", wavBlob.type);
         try {
           onAudioCaptured?.(wavBlob);
         } catch {}
@@ -188,17 +171,6 @@ export function useVoiceRecognition({
         // Enviar el archivo WAV a la API
         const formData = new FormData();
         formData.append("audio_file", wavBlob, "audio.wav");
-
-        // Log para debugging
-        console.log("Preparando para enviar audio a la API");
-        console.log("WAV Blob info:", {
-          size: wavBlob.size,
-          type: wavBlob.type,
-        });
-        console.log(
-          "Token disponible:",
-          !!localStorage.getItem("access_token")
-        );
 
         try {
           const response = await axiosInstance.post(
@@ -222,17 +194,10 @@ export function useVoiceRecognition({
           ) {
             data = { ...data, transcribed_text: (data as any).text };
           }
-          console.log("Audio Processed API Response:", data);
           if (onAudioProcessed) {
             onAudioProcessed(data);
           }
         } catch (error: any) {
-          console.error("Error sending audio to AI:", error);
-          if (error.response) {
-            console.error("Error response data:", error.response.data);
-            console.error("Error response status:", error.response.status);
-            console.error("Error response headers:", error.response.headers);
-          }
         }
       };
 
@@ -247,12 +212,10 @@ export function useVoiceRecognition({
         } catch {}
       }, duration);
     } catch (err) {
-      console.warn("SpeechRecognition or MediaRecorder start error:", err);
     }
   };
 
   const stopListening = () => {
-    console.log("Stopping listening...");
     try {
       mediaRecorderRef.current?.stop();
       streamRef.current?.getTracks().forEach((track) => track.stop()); // Detener la pista de audio
@@ -268,7 +231,6 @@ export function useVoiceRecognition({
       setListening(false);
       onEnd?.();
     } catch (err) {
-      console.warn("SpeechRecognition or MediaRecorder stop error:", err);
     }
   };
 

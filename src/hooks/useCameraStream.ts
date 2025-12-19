@@ -126,7 +126,6 @@ export function useCameraStream({
         }
       } catch (err: any) {
         if (err.name !== "AbortError") {
-          console.error("Stream error:", err);
           setError(err.message || "Failed to stream camera");
           setIsLoading(false);
         }

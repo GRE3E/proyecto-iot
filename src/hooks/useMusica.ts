@@ -140,7 +140,6 @@ export const useMusica = () => {
           });
         }
       } catch (error) {
-        console.error("Error handling WebSocket message:", error);
       }
     }
   }, [message]);
@@ -239,7 +238,6 @@ export const useMusica = () => {
           }));
         }
       } catch (err) {
-        console.error("Error al sincronizar el estado de la música:", err);
         setEstado((prev) => ({
           ...prev,
           cargando: false,
@@ -259,7 +257,6 @@ export const useMusica = () => {
         volumen: volumenLimitado,
       }));
     } catch (error) {
-      console.error("Error al cambiar el volumen:", error);
       setEstado((prev) => ({
         ...prev,
         error: "Error al cambiar el volumen",
@@ -278,7 +275,6 @@ export const useMusica = () => {
           error: null,
         }));
       } catch (error) {
-        console.error("Error al reanudar la reproducción:", error);
         setEstado((prev) => ({
           ...prev,
           error: "Error al reanudar la reproducción",
@@ -295,7 +291,6 @@ export const useMusica = () => {
         estaReproduciendo: false,
       }));
     } catch (error) {
-      console.error("Error al pausar la reproducción:", error);
       setEstado((prev) => ({
         ...prev,
         error: "Error al pausar la reproducción",
@@ -312,7 +307,6 @@ export const useMusica = () => {
         tiempoActual: 0,
       }));
     } catch (error) {
-      console.error("Error al saltar a la siguiente canción:", error);
       setEstado((prev) => ({
         ...prev,
         error: "Error al saltar a la siguiente canción",
@@ -329,7 +323,6 @@ export const useMusica = () => {
         tiempoActual: 0,
       }));
     } catch (error) {
-      console.error("Error al saltar a la canción anterior:", error);
       setEstado((prev) => ({
         ...prev,
         error: "Error al saltar a la canción anterior",
@@ -422,7 +415,6 @@ export const useMusica = () => {
       await axiosInstance.put("/music/seek", { position });
       setEstado((prev) => ({ ...prev, tiempoActual: position }));
     } catch (error) {
-      console.error("Error al buscar posición:", error);
       setEstado((prev) => ({ ...prev, error: "Error al cambiar posición" }));
     }
   }, []);
@@ -456,7 +448,6 @@ export const useMusica = () => {
         lastAdded: null,
       }));
     } catch (error) {
-      console.error("Error al detener la reproducción:", error);
       setEstado((prev) => ({
         ...prev,
         error: "Error al detener la reproducción",

@@ -36,7 +36,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     ws.current = new WebSocket(`${wsUrl}/ws/${clientId}`);
 
     ws.current.onopen = () => {
-      console.log("WebSocket connected globally");
       setIsConnected(true);
     };
 
@@ -46,15 +45,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     ws.current.onclose = () => {
-      console.log(
-        "WebSocket disconnected globally. Attempting to reconnect..."
-      );
       setIsConnected(false);
       setTimeout(connect, 3000);
     };
 
-    ws.current.onerror = (error) => {
-      console.error("WebSocket error globally:", error);
+    ws.current.onerror = () => {
       setIsConnected(false);
       ws.current?.close();
     };
@@ -71,8 +66,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const sendMessage = useCallback((message: string) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(message);
-    } else {
-      console.warn("WebSocket is not connected. Message not sent:", message);
     }
   }, []);
 

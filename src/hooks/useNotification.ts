@@ -79,7 +79,6 @@ export function useNotifications(
     if (success) {
       setNotifications((p) => p.filter((n) => n.id !== id));
     } else {
-      console.error("Failed to archive notification", id);
     }
   };
 
@@ -97,7 +96,6 @@ export function useNotifications(
       setNotifications([]);
       setOpen(false);
     } else {
-      console.error("Failed to archive all notifications");
     }
   };
 

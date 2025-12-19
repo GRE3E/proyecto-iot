@@ -48,7 +48,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
         );
         setMessages(formattedMessages);
       } catch (error) {
-        console.error("Error fetching chat history:", error);
       }
     };
     fetchHistory();
@@ -85,10 +84,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
           setMessages((prev) => [...prev, aiMessage]);
         }
       } else {
-        console.error(
-          "Respuesta de API inesperada de useVoiceRecognition:",
-          apiResponse
-        );
       }
     },
   });
@@ -135,7 +130,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
       });
 
       const data = response.data;
-      console.log("API Response Data:", data); // Agregado para depuración
       const aiResponseText =
         data.response || "Lo siento, no pude obtener una respuesta.";
 
@@ -148,7 +142,6 @@ export function useVoiceChat(options?: { prefetchHistory?: boolean }) {
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
-      console.error("Error sending message to AI:", error);
       setIsTyping(false);
       const errorMessage: Message = {
         sender: "CasaIA",

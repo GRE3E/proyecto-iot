@@ -150,7 +150,6 @@ const authService = {
       localStorage.setItem("refresh_token", response.data.refresh_token);
       return response.data;
     } catch (error) {
-      // console.error('Error en login:', error);
       throw error;
     }
   },
@@ -160,7 +159,6 @@ const authService = {
       const response = await axiosInstance.get("/auth/auth/me");
       return response.data;
     } catch (error) {
-      // console.error('Error al obtener perfil:', error);
       throw error;
     }
   },

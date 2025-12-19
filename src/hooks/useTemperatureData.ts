@@ -28,16 +28,8 @@ export const useTemperatureData = () => {
 
       if (response.data?.success && response.data?.temperature != null) {
         setCurrentTemperature(response.data.temperature);
-        console.log(
-          "[TemperatureData] Temperatura obtenida via MQTT:",
-          response.data.temperature
-        );
       }
     } catch (error) {
-      console.warn(
-        "[TemperatureData] No se pudo solicitar temperatura via MQTT:",
-        error
-      );
     }
   }, [accessToken]);
 
@@ -63,7 +55,6 @@ export const useTemperatureData = () => {
         setCurrentTemperature(data[data.length - 1]);
       }
     } catch (error) {
-      console.error("Error fetching temperature data:", error);
       setTemperatureHistory([]);
     }
   }, [accessToken, currentTemperature]);

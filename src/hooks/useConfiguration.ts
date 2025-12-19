@@ -104,7 +104,6 @@ export function useConfiguracion() {
         setOwnerUsernames(data);
       }
     } catch (e) {
-      console.warn("No se pudo cargar la lista de propietarios", e);
     }
   };
   useEffect(() => {
@@ -127,7 +126,6 @@ export function useConfiguracion() {
         setMembers(mapped);
       }
     } catch (e) {
-      console.warn("No se pudo cargar la lista de familiares", e);
     }
   };
   useEffect(() => {
@@ -393,7 +391,6 @@ export function useConfiguracion() {
       const userId = user?.user?.id ?? user?.user?.user_id;
       if (!userId) {
         alert("No se pudo obtener tu ID de usuario.");
-        console.warn("[handleUploadVoiceToUser] userId missing", user);
         return;
       }
       const form = new FormData();
@@ -426,7 +423,6 @@ export function useConfiguracion() {
       setChangeVoiceModalOpen(false);
       setVoiceConfirmed(false);
       setVoiceBlob(null);
-      console.log("[handleUploadVoiceToUser] éxito");
     } catch (e: any) {
       const status = e?.response?.status;
       const message =
@@ -434,13 +430,8 @@ export function useConfiguracion() {
       if (status === 409) {
         alert("La voz proporcionada ya está registrada por otro usuario.");
         setStatusMessage("⚠️ La voz ya está registrada por otro usuario.");
-        console.warn(
-          "[handleUploadVoiceToUser] 409 conflict",
-          e?.response?.data
-        );
         return;
       }
-      console.error("[handleUploadVoiceToUser] error", e);
       alert(message);
     }
   };

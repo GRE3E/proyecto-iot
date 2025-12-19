@@ -342,8 +342,6 @@ export function useRutinas() {
           actions,
         };
 
-        console.log("Creating routine with payload:", payload);
-
         const res = await axiosInstance.post("/nlp/routines", payload);
         const routine = mapRoutineFromBackend(res.data);
         setRutinas((prev) => [routine, ...prev]);
@@ -353,7 +351,6 @@ export function useRutinas() {
           routine,
         };
       } catch (e: any) {
-        console.error("Error creating routine:", e);
         const errorMessage =
           e.response?.data?.detail ||
           e.response?.data?.message ||

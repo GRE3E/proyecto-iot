@@ -28,15 +28,9 @@ export function useTimeData() {
       setLoading(true);
       setError(null);
 
-      console.log(
-        `[useTimeData] Fetching time for lat=${latitude}, lon=${longitude}`
-      );
-
       const response = await axiosInstance.get("/weather/time", {
         params: { latitude, longitude },
       });
-
-      console.log("[useTimeData] API Response:", response.data);
 
       if (response.data) {
         setTimeData({
@@ -49,12 +43,10 @@ export function useTimeData() {
 
         // Sincronizar hora local con la hora del servidor
         setCurrentTime(new Date(response.data.current_time));
-        console.log("[useTimeData] Time synchronized successfully");
       }
     } catch (err: any) {
       const errorMessage =
         err?.response?.data?.detail || err?.message || "Error al obtener hora";
-      console.error("[useTimeData] Error fetching time:", errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -76,25 +68,17 @@ export function useTimeData() {
   // Cargar hora inicial y sincronizar con servidor periódicamente
   useEffect(() => {
     const loadTime = () => {
-      console.log("[useTimeData] Loading time...");
       const saved = localStorage.getItem("userLocation");
-      console.log("[useTimeData] localStorage.userLocation:", saved);
 
       if (saved) {
         try {
           const location: LocationCoords = JSON.parse(saved);
-          console.log("[useTimeData] Parsed location:", location);
           fetchTime(location.latitude, location.longitude);
         } catch (e) {
-          console.error(
-            "[useTimeData] Error parsing location from localStorage:",
-            e
-          );
           setError("No se pudo cargar la ubicación guardada");
         }
       } else {
         // Fallback a Lima, Perú si no hay ubicación guardada
-        console.log("[useTimeData] No location saved, using Lima default");
         fetchTime(-12.0464, -77.0428);
       }
     };

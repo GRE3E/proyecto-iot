@@ -49,7 +49,6 @@ export function useCameraCapture({
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     } catch (err) {
-      console.error("Error stopping camera:", err);
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
@@ -86,7 +85,6 @@ export function useCameraCapture({
           (videoRef.current as any).playsInline = true;
           (videoRef.current as any).autoplay = true;
         } catch (err) {
-          console.warn("Error setting video properties:", err);
         }
 
         // Play video
@@ -95,7 +93,6 @@ export function useCameraCapture({
           setIsReady(true);
           return true;
         } catch (err) {
-          console.error("Error playing video:", err);
           setError("Error al reproducir video de cámara");
           return false;
         }
@@ -103,7 +100,6 @@ export function useCameraCapture({
 
       return false;
     } catch (err) {
-      console.error("Error starting camera:", err);
       setError("Error al iniciar la cámara");
       return false;
     }
@@ -161,7 +157,6 @@ export function useCameraCapture({
         );
       });
     } catch (err) {
-      console.error("Error capturing photo:", err);
       setError("Error al capturar foto");
       return null;
     }

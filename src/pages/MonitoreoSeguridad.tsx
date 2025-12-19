@@ -281,7 +281,6 @@ export default function MonitoreoSeguridad() {
           setMainDoorId(door.id);
         }
       } catch (error) {
-        console.error("Error fetching device states:", error);
       }
     };
     fetchDoorId();
@@ -298,7 +297,6 @@ export default function MonitoreoSeguridad() {
       // Let's close modal and maybe show a toast or rely on camera feed observing the door
       setShowDoorModal(false);
     } catch (error) {
-      console.error("Error opening door:", error);
       // Could show error state in modal
     } finally {
       setIsOpeningDoor(false);
@@ -356,7 +354,6 @@ export default function MonitoreoSeguridad() {
         }));
       }, 5000);
     } catch (error: any) {
-      console.error("Error en reconocimiento facial:", error);
       setRecognitionState((prev) => ({
         ...prev,
         [cameraId]: {

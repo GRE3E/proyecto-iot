@@ -19,7 +19,6 @@ export function useLocation() {
       try {
         setLocation(JSON.parse(saved));
       } catch (e) {
-        console.error("Error al cargar ubicación:", e);
       }
     }
   }, []);
@@ -42,16 +41,7 @@ export function useLocation() {
           latitude,
           longitude,
         });
-        console.log("Ubicación actualizada en el servidor");
       } catch (error: any) {
-        const errorMessage =
-          error?.response?.data?.detail ||
-          error?.message ||
-          "Error desconocido";
-        console.error(
-          "Error al actualizar ubicación en el servidor:",
-          errorMessage
-        );
       }
     },
     []

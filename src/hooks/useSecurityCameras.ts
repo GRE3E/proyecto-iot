@@ -25,7 +25,6 @@ export function useSecurityCameras() {
   const fetchCameras = useCallback(async () => {
     const token = await getToken();
     if (!token) {
-      console.error("No hay token de autenticación disponible.");
       return;
     }
 
@@ -53,7 +52,6 @@ export function useSecurityCameras() {
       });
       setCameraStates(initialCameraStates);
     } catch (error) {
-      console.error("Error al obtener la lista de cámaras:", error);
     }
   }, []);
 
@@ -67,7 +65,6 @@ export function useSecurityCameras() {
 
       const token = await getToken();
       if (!token) {
-        console.error("No hay token de autenticación disponible.");
         return;
       }
 
@@ -113,8 +110,6 @@ export function useSecurityCameras() {
           [cameraId]: newCameraState,
         }));
       } catch (error) {
-        console.error(`Error al ${endpoint} la cámara ${cameraId}:`, error);
-        // Opcional: revertir el estado local si la llamada al backend falla
       }
     },
     [systemOn, cameraStates]

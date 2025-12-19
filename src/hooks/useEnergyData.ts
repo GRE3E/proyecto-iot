@@ -21,7 +21,6 @@ export const useEnergyData = () => {
         const data: number[] = response.data;
         setEnergyHistory(data);
       } catch (error) {
-        console.error("Error fetching energy data:", error);
         setEnergyHistory([]);
       } finally {
         setLoading(false);

@@ -76,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(profile);
       setIsAuthenticated(true);
       setIsPostLoginTransition(true);
-      console.log("setIsPostLoginTransition(true) called in login function");
       setTimeout(() => {
         setIsPostLoginTransition(false);
       }, 2000); // Duración de la animación de la puerta

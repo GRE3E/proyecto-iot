@@ -30,31 +30,24 @@ export function useLogin() {
       setIsLoading(true);
 
       try {
-        console.log("Intentando autenticar...");
         await authLogin(username, password); // Usar la función login del contexto
 
-        console.log("✅ Login completado. Mostrando transición de puerta.");
         setShowDoorTransition(true);
 
         // Inicia efecto de zoom o animación
         setTimeout(() => {
-          console.log("🔵 Iniciando zoom...");
         }, 2600);
 
         // Termina animación → login final
         setTimeout(() => {
-          console.log("🟢 Ejecutando onLogin()");
         }, 4000);
       } catch (err: any) {
-        console.log("Error capturado en handleLogin.");
-        console.error("Error durante el login:", err.message, err);
         setError(err.response?.data?.detail || "Credenciales incorrectas");
         setShowErrorModal(true); // Mostrar modal de error
         setTimeout(() => {
           closeErrorModal();
         }, 1500); // Auto-cerrar modal después de 1.5 segundos
       } finally {
-        console.log("Finalizando handleLogin.");
         setIsLoading(false);
       }
     },
